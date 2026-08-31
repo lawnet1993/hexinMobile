@@ -31,7 +31,7 @@ void main() {
     ),
   ];
 
-  testWidgets('工作台分开显示全部站点数量和紧凑刷新操作', (tester) async {
+  testWidgets('移动工作台不暴露站点入口，独立页仍可安全打开', (tester) async {
     final router = GoRouter(
       initialLocation: '/workbench',
       routes: [
@@ -57,14 +57,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('全部站点 2'), findsOneWidget);
-    expect(find.byTooltip('刷新授权站点'), findsOneWidget);
-    expect(
-      tester.getSize(find.byTooltip('刷新授权站点')).height,
-      lessThanOrEqualTo(40),
-    );
+    expect(find.text('常用站点'), findsNothing);
+    expect(find.text('全部站点 2'), findsNothing);
+    expect(find.byTooltip('刷新授权站点'), findsNothing);
+    expect(find.text('数据中台'), findsNothing);
+    expect(find.text('华南运营台'), findsNothing);
 
-    await tester.tap(find.text('全部站点 2'));
+    router.go('/sites');
     await tester.pumpAndSettle();
 
     expect(find.text('全部站点'), findsOneWidget);

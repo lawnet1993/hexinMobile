@@ -12,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../core/updates/client_update_repository.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../collaboration/application/mobile_device_authorization_coordinator.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 import '../../network/application/tunnel_controller.dart';
@@ -30,7 +31,9 @@ class _AccountSecurityPageState extends ConsumerState<AccountSecurityPage> {
   final _next = TextEditingController();
   final _confirm = TextEditingController();
   bool _submitting = false;
-  bool _obscure = true;
+  bool _currentObscure = true;
+  bool _nextObscure = true;
+  bool _confirmObscure = true;
 
   @override
   void dispose() {
@@ -68,48 +71,62 @@ class _AccountSecurityPageState extends ConsumerState<AccountSecurityPage> {
           child: Form(
             key: _formKey,
             child: Padding(
+              key: const Key('change-password-form-content'),
               padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _PasswordField(
+                    fieldKey: const Key('current-password-field'),
                     controller: _current,
                     label: '当前密码',
-                    obscure: _obscure,
+                    obscure: _currentObscure,
+                    onToggleObscure: () =>
+                        setState(() => _currentObscure = !_currentObscure),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   _PasswordField(
+                    fieldKey: const Key('new-password-field'),
                     controller: _next,
                     label: '新密码',
-                    obscure: _obscure,
+                    obscure: _nextObscure,
+                    onToggleObscure: () =>
+                        setState(() => _nextObscure = !_nextObscure),
                     validateLength: true,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   _PasswordField(
+                    fieldKey: const Key('confirm-password-field'),
                     controller: _confirm,
                     label: '再次输入新密码',
-                    obscure: _obscure,
+                    obscure: _confirmObscure,
+                    onToggleObscure: () =>
+                        setState(() => _confirmObscure = !_confirmObscure),
                     confirm: _next,
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => setState(() => _obscure = !_obscure),
-                      child: Text(_obscure ? '显示密码' : '隐藏密码'),
-                    ),
-                  ),
-                  FilledButton(
-                    onPressed: _submitting ? null : _changePassword,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(38),
-                    ),
-                    child: Text(_submitting ? '提交中…' : '确认修改'),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    '修改成功后当前会话将退出，需使用新密码重新登录。',
+                    '修改后将退出登录，请使用新密码重新登录',
                     style: TextStyle(
                       fontSize: 11.5,
                       color: AppColors.secondaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      key: const Key('change-password-submit'),
+                      width: 132,
+                      height: 40,
+                      child: FilledButton(
+                        onPressed: _submitting ? null : _changePassword,
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        child: Text(_submitting ? '提交中…' : '确认修改'),
+                      ),
                     ),
                   ),
                 ],
@@ -265,12 +282,60 @@ class _PushUnavailableTile extends StatelessWidget {
   const _PushUnavailableTile();
 
   @override
-  Widget build(BuildContext context) => const ListTile(
-    dense: true,
-    minTileHeight: 64,
-    leading: Icon(Icons.notifications_off_outlined),
-    title: Text('当前设备未注册推送服务'),
-    subtitle: Text('打开应用后会自动同步消息和 OA 通知'),
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    label: '离线推送未注册，应用内同步在打开应用后进行',
+    child: ExcludeSemantics(
+      child: ListTile(
+        key: const Key('push-unavailable-status'),
+        dense: true,
+        minTileHeight: 60,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        leading: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF2FF),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const SizedBox.square(
+            dimension: 32,
+            child: Icon(
+              Icons.notifications_off_outlined,
+              size: 19,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+        title: const Row(
+          children: [
+            Expanded(child: Text('离线推送', style: TextStyle(fontSize: 14))),
+            Text('未注册', style: TextStyle(fontSize: 13, color: AppColors.error)),
+          ],
+        ),
+        subtitle: const Padding(
+          padding: EdgeInsets.only(top: 2),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '应用内同步',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+              ),
+              Text(
+                '打开应用后同步',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.secondaryText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
   );
 }
 
@@ -309,22 +374,9 @@ class _LoginDevicesPageState extends ConsumerState<LoginDevicesPage> {
     if (_registering) return;
     setState(() => _registering = true);
     try {
-      final info = await DeviceInfoPlugin().androidInfo;
-      final rawName = [
-        info.brand,
-        info.model,
-      ].where((value) => value.trim().isNotEmpty).join(' ');
-      final lowerName = rawName.toLowerCase();
-      final name =
-          lowerName.contains('sdk_gphone') || lowerName.contains('generic_x86')
-          ? 'Android 模拟器'
-          : rawName;
       await ref
-          .read(imRepositoryProvider)
-          .registerDeviceAuthorization(
-            deviceName: name.isEmpty ? 'Android 移动端' : name,
-          );
-      ref.invalidate(imDeviceAuthorizationsProvider);
+          .read(mobileDeviceAuthorizationCoordinatorProvider)
+          .synchronize();
     } catch (error) {
       if (mounted && !silent) {
         ScaffoldMessenger.of(context)
@@ -961,22 +1013,45 @@ class _ChoiceRow extends StatelessWidget {
 
 class _PasswordField extends StatelessWidget {
   const _PasswordField({
+    required this.fieldKey,
     required this.controller,
     required this.label,
     required this.obscure,
+    required this.onToggleObscure,
     this.validateLength = false,
     this.confirm,
   });
+  final Key fieldKey;
   final TextEditingController controller;
   final String label;
   final bool obscure;
+  final VoidCallback onToggleObscure;
   final bool validateLength;
   final TextEditingController? confirm;
   @override
   Widget build(BuildContext context) => TextFormField(
+    key: fieldKey,
     controller: controller,
     obscureText: obscure,
-    decoration: InputDecoration(labelText: label, isDense: true),
+    decoration: InputDecoration(
+      labelText: label,
+      isDense: true,
+      suffixIconConstraints: const BoxConstraints.tightFor(
+        width: 40,
+        height: 40,
+      ),
+      suffixIcon: IconButton(
+        tooltip: obscure ? '显示$label' : '隐藏$label',
+        onPressed: onToggleObscure,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+        visualDensity: VisualDensity.compact,
+        icon: Icon(
+          obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+          size: 18,
+        ),
+      ),
+    ),
     validator: (value) {
       final text = value ?? '';
       if (text.isEmpty) return '请输入$label';

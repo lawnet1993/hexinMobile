@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../collaboration/application/mobile_device_authorization_coordinator.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 import '../../network/application/tunnel_controller.dart';
@@ -21,6 +22,7 @@ class ProfilePage extends ConsumerWidget {
     final member = ref.watch(imBootstrapProvider).value?.currentMember;
     final tunnel = ref.watch(tunnelControllerProvider).value?.status;
     final devices = ref.watch(imDeviceAuthorizationsProvider);
+    final currentDevice = ref.watch(currentMobileDeviceAuthorizationProvider);
     final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.light;
     final language = ref.watch(imLanguagePreferenceProvider).value?.language;
     final name = member?.displayName.isNotEmpty == true
@@ -128,13 +130,11 @@ class ProfilePage extends ConsumerWidget {
                 _Entry(
                   icon: Icons.admin_panel_settings_outlined,
                   title: '账户与安全',
-                  subtitle: '密码与终端身份',
                   onTap: () => context.push('/account-security'),
                 ),
                 _Entry(
                   icon: Icons.notifications_none_rounded,
                   title: '消息通知',
-                  subtitle: '提醒类型与方式',
                   onTap: () => context.push('/notification-settings'),
                 ),
                 _Entry(
@@ -146,9 +146,10 @@ class ProfilePage extends ConsumerWidget {
                 _Entry(
                   icon: Icons.devices_outlined,
                   title: '登录设备',
-                  subtitle: _deviceSummary(
+                  subtitle: deviceAuthorizationSummary(
                     devices,
                     currentDeviceId: session?.deviceId ?? '',
+                    currentDevice: currentDevice,
                   ),
                   onTap: () => context.push('/login-devices'),
                 ),
@@ -245,22 +246,29 @@ String _tunnelSummary(TunnelPhase? phase) => switch (phase) {
   null => '正在检查连接状态',
 };
 
-String _deviceSummary(
+String deviceAuthorizationSummary(
   AsyncValue<List<ImDeviceAuthorization>> value, {
   required String currentDeviceId,
+  ImDeviceAuthorization? currentDevice,
 }) {
+  if (currentDevice != null) return _deviceAuthorizationLabel(currentDevice);
   if (value.isLoading) return '正在同步设备';
   if (value.hasError) return '设备状态同步失败';
   final devices = value.value ?? const <ImDeviceAuthorization>[];
+  final normalizedCurrentDeviceId = currentDeviceId.trim().toLowerCase();
   ImDeviceAuthorization? current;
   for (final item in devices) {
-    if (item.deviceId == currentDeviceId) {
+    if (normalizedCurrentDeviceId.isNotEmpty &&
+        item.deviceId.trim().toLowerCase() == normalizedCurrentDeviceId) {
       current = item;
       break;
     }
   }
-  current ??= devices.where((item) => item.isAuthorized).firstOrNull;
   if (current == null) return '未登记当前设备';
+  return _deviceAuthorizationLabel(current);
+}
+
+String _deviceAuthorizationLabel(ImDeviceAuthorization current) {
   final name = current.deviceName.trim();
   final platform = current.platform.trim();
   return [

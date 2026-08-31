@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -322,25 +323,38 @@ Future<_TodoDraft?> _showTodoSheet(BuildContext context, {OaTodo? item}) async {
               Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: priority,
-                      isDense: true,
-                      decoration: const InputDecoration(labelText: '优先级'),
-                      items: const [
-                        DropdownMenuItem(value: 'low', child: Text('低')),
-                        DropdownMenuItem(value: 'normal', child: Text('普通')),
-                        DropdownMenuItem(value: 'high', child: Text('高')),
-                        DropdownMenuItem(value: 'urgent', child: Text('紧急')),
-                      ],
-                      onChanged: (value) => priority = value ?? 'normal',
+                    child: InkWell(
+                      key: const Key('schedule-priority-select'),
+                      onTap: () async {
+                        final selected = await showMobileChoiceSheet<String>(
+                          context,
+                          title: '优先级',
+                          selectedValue: priority,
+                          options: const [
+                            MobileSheetOption(value: 'low', label: '低'),
+                            MobileSheetOption(value: 'normal', label: '普通'),
+                            MobileSheetOption(value: 'high', label: '高'),
+                            MobileSheetOption(value: 'urgent', label: '紧急'),
+                          ],
+                        );
+                        if (selected == null) return;
+                        setSheetState(() => priority = selected);
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: '优先级',
+                          suffixIcon: Icon(Icons.expand_more_rounded, size: 20),
+                        ),
+                        child: Text(_priorityLabel(priority)),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        final date = await showDatePicker(
-                          context: context,
+                        final date = await showMobileDatePickerSheet(
+                          context,
                           initialDate: dueAt,
                           firstDate: DateTime.now().subtract(
                             const Duration(days: 1),
@@ -350,8 +364,8 @@ Future<_TodoDraft?> _showTodoSheet(BuildContext context, {OaTodo? item}) async {
                           ),
                         );
                         if (date == null || !context.mounted) return;
-                        final time = await showTimePicker(
-                          context: context,
+                        final time = await showMobileTimePickerSheet(
+                          context,
                           initialTime: TimeOfDay.fromDateTime(dueAt),
                         );
                         if (time == null) return;

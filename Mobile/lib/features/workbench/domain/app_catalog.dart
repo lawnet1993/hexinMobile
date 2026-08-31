@@ -144,18 +144,10 @@ abstract final class MobileAppCatalog {
   static List<MobileAppEntry> fromCatalog(
     List<OaApplicationCatalogItem> items,
   ) {
-    if (items.isEmpty) {
-      return entries
-          .where((item) => item.route != null)
-          .toList(growable: false);
-    }
-    final configured = [
+    if (items.isEmpty) return const <MobileAppEntry>[];
+    return [
       for (var index = 0; index < items.length; index++)
         _fromCatalogItem(items[index], index),
-    ];
-    return [
-      ...configured,
-      ...entries.where((item) => item.applicationKey.isEmpty),
     ];
   }
 

@@ -95,7 +95,140 @@ void main() {
       }
     },
   );
+
+  test(
+    'cached first page restores offline with unread and cursor state',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final directory = await Directory.systemTemp.createTemp('oa-page-cache-');
+      final sessionStore = SecureSessionStore();
+      await sessionStore.saveSession(
+        const MobileSession(
+          accessToken: 'token',
+          deviceId: 'device-1',
+          userId: 'member-1',
+          displayName: '测试终端',
+          username: 'qa.term',
+          policySignatureKey: '',
+          imApiUrl: '',
+          oaApiUrl: 'http://127.0.0.1:9',
+        ),
+      );
+      final store = OaLocalStore.withOptions(
+        databaseFactoryFfi,
+        () async => '${directory.path}/oa.db',
+        const PlainImCacheCipher(),
+      );
+      await store.writeObject(
+        'member-1',
+        OaLocalStore.notificationPageCacheKey,
+        {
+          'items': [
+            _notificationJson('notification-unread', isRead: false),
+            _notificationJson('notification-read', isRead: true),
+          ],
+          'nextCursor': 'cursor-2',
+          'hasMore': true,
+        },
+      );
+      final repository = OaRepository(
+        CollaborationClient(sessionStore),
+        sessionStore,
+        store,
+      );
+
+      try {
+        final page = await repository.notificationPageCacheFirst(
+          unreadOnly: true,
+        );
+        expect(page.items.map((item) => item.id), ['notification-unread']);
+        expect(page.nextCursor, 'cursor-2');
+        expect(page.hasMore, isTrue);
+      } finally {
+        await store.close();
+        await directory.delete(recursive: true);
+      }
+    },
+  );
+
+  test('mark read keeps the local notification page available', () async {
+    HttpOverrides.global = _RealHttpOverrides();
+    final directory = await Directory.systemTemp.createTemp('oa-page-read-');
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      expect(request.method, 'POST');
+      expect(request.uri.path, '/api/oa/notifications/notification-1/read');
+      request.response.statusCode = HttpStatus.noContent;
+      await request.response.close();
+    });
+    FlutterSecureStorage.setMockInitialValues({});
+    final sessionStore = SecureSessionStore();
+    await sessionStore.saveSession(
+      MobileSession(
+        accessToken: 'token',
+        deviceId: 'device-1',
+        userId: 'member-1',
+        displayName: '测试终端',
+        username: 'qa.term',
+        policySignatureKey: '',
+        imApiUrl: '',
+        oaApiUrl: 'http://${server.address.address}:${server.port}',
+      ),
+    );
+    final store = OaLocalStore.withOptions(
+      databaseFactoryFfi,
+      () async => '${directory.path}/oa.db',
+      const PlainImCacheCipher(),
+    );
+    final cachedItems = [
+      _notificationJson('notification-1', isRead: false),
+      _notificationJson('notification-2', isRead: false),
+    ];
+    await store.writeList(
+      'member-1',
+      OaLocalStore.notificationsCacheKey,
+      cachedItems,
+    );
+    await store.writeObject('member-1', OaLocalStore.notificationPageCacheKey, {
+      'items': cachedItems,
+      'nextCursor': null,
+      'hasMore': false,
+    });
+    final repository = OaRepository(
+      CollaborationClient(sessionStore),
+      sessionStore,
+      store,
+    );
+
+    try {
+      await repository.markNotificationRead('notification-1');
+      final page = await repository.notificationPageCacheFirst();
+      expect(page.items[0].isRead, isTrue);
+      expect(page.items[0].readAt, isNotNull);
+      expect(page.items[1].isRead, isFalse);
+    } finally {
+      await store.close();
+      await server.close(force: true);
+      await directory.delete(recursive: true);
+      HttpOverrides.global = null;
+    }
+  });
 }
+
+Map<String, Object?> _notificationJson(String id, {required bool isRead}) => {
+  'id': id,
+  'requestId': 'approval-$id',
+  'category': 'approval',
+  'type': 'pending',
+  'title': id,
+  'body': '待处理',
+  'importance': 'normal',
+  'action': 'open',
+  'isRead': isRead,
+  'createdAt': '2026-08-25T08:00:00Z',
+  'targetKind': 'oa_approval',
+  'targetId': 'approval-$id',
+};
 
 final class _RealHttpOverrides extends HttpOverrides {
   @override

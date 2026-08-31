@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/mobile_primitives.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/data/oa_local_store.dart';
@@ -47,64 +47,45 @@ class _TodosPageState extends ConsumerState<TodosPage> {
     final drafts = ref.watch(oaDraftsProvider).value ?? const [];
     final outbox = ref.watch(oaOutboxProvider).value ?? const [];
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         centerTitle: false,
-        toolbarHeight: 58,
+        toolbarHeight: 50,
         titleSpacing: 14,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '待办',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-            ),
-            SizedBox(height: 2),
-            Text(
-              '统一处理任务与审批',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.secondaryText,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
+        title: const Text(
+          '待办',
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
         ),
         actions: [
-          PopupMenuButton<String>(
+          IconButton(
             tooltip: '新建',
-            enabled: _todoActionId.isEmpty,
             icon: const Icon(Icons.add_rounded, size: 21),
-            onSelected: (value) {
-              if (value == 'todo') {
-                _createTodo();
-              } else if (value == 'approval') {
-                context.push('/apps');
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'todo',
-                height: 40,
-                child: Row(
-                  children: [
-                    Icon(Icons.checklist_rounded, size: 18),
-                    SizedBox(width: 10),
-                    Text('新建待办'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'approval',
-                height: 40,
-                child: Row(
-                  children: [
-                    Icon(Icons.description_outlined, size: 18),
-                    SizedBox(width: 10),
-                    Text('新建申请'),
-                  ],
-                ),
-              ),
-            ],
+            onPressed: _todoActionId.isNotEmpty
+                ? null
+                : () async {
+                    final value = await showMobileChoiceSheet<String>(
+                      context,
+                      title: '新建',
+                      options: const [
+                        MobileSheetOption(
+                          value: 'todo',
+                          label: '新建待办',
+                          icon: Icons.checklist_rounded,
+                        ),
+                        MobileSheetOption(
+                          value: 'approval',
+                          label: '新建申请',
+                          icon: Icons.description_outlined,
+                        ),
+                      ],
+                    );
+                    if (!context.mounted || value == null) return;
+                    if (value == 'todo') {
+                      _createTodo();
+                    } else if (value == 'approval') {
+                      context.push('/apps');
+                    }
+                  },
           ),
           const SizedBox(width: 6),
         ],
@@ -136,7 +117,9 @@ class _TodosPageState extends ConsumerState<TodosPage> {
               .length;
           return Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-            child: MobileSurface(
+            child: Material(
+              key: const Key('todos-flat-content'),
+              type: MaterialType.transparency,
               child: Column(
                 children: [
                   SizedBox(
@@ -197,7 +180,7 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                               child: TextField(
                                 controller: _searchController,
                                 decoration: InputDecoration(
-                                  hintText: '搜索事项、申请编号或发起人',
+                                  hintText: '搜索事项或申请编号',
                                   prefixIcon: const Icon(
                                     Icons.search_rounded,
                                     size: 18,
@@ -447,10 +430,10 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                 key: const Key('approval-filter-item-type'),
                 label: '事项类型',
                 value: itemType,
-                items: const [
-                  DropdownMenuItem(value: '', child: Text('全部类型')),
-                  DropdownMenuItem(value: 'todo', child: Text('任务')),
-                  DropdownMenuItem(value: 'approval', child: Text('审批')),
+                options: const [
+                  MobileSheetOption(value: '', label: '全部类型'),
+                  MobileSheetOption(value: 'todo', label: '任务'),
+                  MobileSheetOption(value: 'approval', label: '审批'),
                 ],
                 onChanged: (value) =>
                     setSheetState(() => itemType = value ?? ''),
@@ -460,12 +443,12 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                 key: const Key('approval-filter-application'),
                 label: '审批应用',
                 value: applicationKey,
-                items: [
-                  const DropdownMenuItem(value: '', child: Text('全部应用')),
+                options: [
+                  const MobileSheetOption(value: '', label: '全部应用'),
                   ...applications.map(
-                    (item) => DropdownMenuItem(
+                    (item) => MobileSheetOption(
                       value: item.applicationKey,
-                      child: Text(item.name),
+                      label: item.name,
                     ),
                   ),
                 ],
@@ -477,11 +460,11 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                 key: const Key('approval-filter-status'),
                 label: '审批状态',
                 value: status,
-                items: _statusOptions.entries
+                options: _statusOptions.entries
                     .map(
-                      (entry) => DropdownMenuItem(
+                      (entry) => MobileSheetOption(
                         value: entry.key,
-                        child: Text(entry.value),
+                        label: entry.value,
                       ),
                     )
                     .toList(),
@@ -492,11 +475,11 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                 key: const Key('approval-filter-updated-at'),
                 label: '时间范围',
                 value: recentDays,
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('全部时间')),
-                  DropdownMenuItem(value: 1, child: Text('今天')),
-                  DropdownMenuItem(value: 7, child: Text('近 7 天')),
-                  DropdownMenuItem(value: 30, child: Text('近 30 天')),
+                options: const [
+                  MobileSheetOption(value: 0, label: '全部时间'),
+                  MobileSheetOption(value: 1, label: '今天'),
+                  MobileSheetOption(value: 7, label: '近 7 天'),
+                  MobileSheetOption(value: 30, label: '近 30 天'),
                 ],
                 onChanged: (value) =>
                     setSheetState(() => recentDays = value ?? 0),
@@ -868,51 +851,63 @@ class _CompactFilterField<T> extends StatelessWidget {
     super.key,
     required this.label,
     required this.value,
-    required this.items,
+    required this.options,
     required this.onChanged,
   });
 
   final String label;
   final T value;
-  final List<DropdownMenuItem<T>> items;
+  final List<MobileSheetOption<T>> options;
   final ValueChanged<T?> onChanged;
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 44,
-    padding: const EdgeInsets.symmetric(horizontal: 10),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF6F7F9),
+  Widget build(BuildContext context) {
+    final selected = options.where((option) => option.value == value);
+    final valueLabel = selected.isEmpty ? '请选择' : selected.first.label;
+    return InkWell(
       borderRadius: BorderRadius.circular(8),
-    ),
-    child: Row(
-      children: [
-        SizedBox(
-          width: 72,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.secondaryText,
-            ),
-          ),
+      onTap: () async {
+        final result = await showMobileChoiceSheet<T>(
+          context,
+          title: label,
+          options: options,
+          selectedValue: value,
+        );
+        if (result != null) onChanged(result);
+      },
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6F7F9),
+          borderRadius: BorderRadius.circular(8),
         ),
-        Expanded(
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<T>(
-              value: value,
-              isDense: true,
-              isExpanded: true,
-              icon: const Icon(Icons.expand_more_rounded, size: 20),
-              style: const TextStyle(fontSize: 14, color: AppColors.text),
-              items: items,
-              onChanged: onChanged,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 72,
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.secondaryText,
+                ),
+              ),
             ),
-          ),
+            Expanded(
+              child: Text(
+                valueLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 14, color: AppColors.text),
+              ),
+            ),
+            const Icon(Icons.expand_more_rounded, size: 20),
+          ],
         ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 final class _ApprovalFilters {
@@ -993,61 +988,74 @@ class _Tab extends StatelessWidget {
       3 => 50.0,
       _ => 42.0,
     };
-    return SizedBox(
-      width: width,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            border: selected
-                ? const Border(
-                    bottom: BorderSide(color: AppColors.primary, width: 3),
-                  )
-                : null,
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Center(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: selected
-                        ? AppColors.primary
-                        : AppColors.secondaryText,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+    final visibleBadge = badge != null && badge! > 0;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: visibleBadge ? '$label，$badge 条' : label,
+      child: SizedBox(
+        width: width,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: selected
+                  ? const Border(
+                      bottom: BorderSide(color: AppColors.primary, width: 3),
+                    )
+                  : null,
+            ),
+            child: ExcludeSemantics(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: selected
+                              ? AppColors.primary
+                              : AppColors.secondaryText,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
+                      if (visibleBadge) ...[
+                        const SizedBox(width: 2),
+                        Container(
+                          key: ValueKey('todo-tab-badge-$label'),
+                          constraints: const BoxConstraints(
+                            minWidth: 14,
+                            minHeight: 14,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: Text(
+                            badge! > 99 ? '99+' : '$badge',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8.5,
+                              height: 1,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
-              if (badge != null && badge! > 0)
-                Positioned(
-                  top: 3,
-                  right: 2,
-                  child: Container(
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      badge! > 99 ? '99+' : '$badge',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        height: 1,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1132,8 +1140,18 @@ class _OutboxList extends ConsumerWidget {
           final failed = item.state == 'failed';
           final validationFailed = failed && _isValidationOutboxError(item);
           final editable = failed && _canEditFailedOutbox(item);
+          final statusLabel = validationFailed
+              ? (editable ? '修改后重提' : '需重新发起')
+              : failed
+              ? '同步失败'
+              : '待自动同步';
+          final updatedAt = DateFormat('MM-dd HH:mm')
+              .format(item.updatedAt.toLocal());
           return ListTile(
-            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+            key: ValueKey<String>('outbox-item-${item.id}'),
+            contentPadding: const EdgeInsets.symmetric(vertical: 2),
+            minVerticalPadding: 6,
+            visualDensity: const VisualDensity(vertical: -1),
             leading: Icon(
               failed
                   ? Icons.error_outline_rounded
@@ -1145,18 +1163,81 @@ class _OutboxList extends ConsumerWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            subtitle: Text(
-              failed
-                  ? '${validationFailed ? (editable ? '需修改后重提 · ' : '需重新发起 · ') : ''}${_outboxErrorText(item.lastError)}'
-                  : '网络恢复后自动同步 · 已尝试 ${item.attempts} 次',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            subtitle: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '$statusLabel · ${item.attempts} 次',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: failed ? AppColors.error : AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      updatedAt,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondaryText,
+                      ),
+                    ),
+                  ],
+                ),
+                if (failed)
+                  Text(
+                    _outboxErrorText(item.lastError),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
+              ],
             ),
             trailing: failed
-                ? PopupMenuButton<String>(
+                ? IconButton(
                     tooltip: '同步操作',
                     icon: const Icon(Icons.more_horiz_rounded, size: 22),
-                    onSelected: (action) async {
+                    onPressed: () async {
+                      final action = await showMobileChoiceSheet<String>(
+                        context,
+                        title: '同步操作',
+                        options: [
+                          if (editable)
+                            const MobileSheetOption(
+                              value: 'edit',
+                              label: '修改后重提',
+                              icon: Icons.edit_outlined,
+                            )
+                          else if (validationFailed)
+                            const MobileSheetOption(
+                              value: 'details',
+                              label: '处理说明',
+                              icon: Icons.info_outline_rounded,
+                            )
+                          else
+                            const MobileSheetOption(
+                              value: 'retry',
+                              label: '重试',
+                              icon: Icons.refresh_rounded,
+                            ),
+                          const MobileSheetOption(
+                            value: 'discard',
+                            label: '放弃记录',
+                            icon: Icons.delete_outline_rounded,
+                            destructive: true,
+                          ),
+                        ],
+                      );
+                      if (!context.mounted || action == null) return;
                       if (action == 'edit') {
                         final editData = _outboxEditData(item);
                         if (editData == null) return;
@@ -1176,44 +1257,23 @@ class _OutboxList extends ConsumerWidget {
                           ),
                         );
                       } else if (action == 'details') {
-                        await showDialog<void>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('申请内容需要修改'),
-                            content: const Text(
-                              '这条旧记录无法还原完整表单，请从对应审批应用重新发起。旧记录会继续保留，确认新申请已提交后再放弃即可。',
-                            ),
-                            actions: [
-                              FilledButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('知道了'),
-                              ),
-                            ],
-                          ),
+                        await showMobileMessageSheet(
+                          context,
+                          title: '申请内容需要修改',
+                          message: '这条旧记录无法还原完整表单，请从对应审批应用重新发起。旧记录会继续保留，确认新申请已提交后再放弃即可。',
                         );
                       } else if (action == 'retry') {
                         await ref
                             .read(oaRepositoryProvider)
                             .retryOutbox(item.id);
                       } else if (action == 'discard') {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('放弃待同步申请？'),
-                            content: Text(
+                        final confirmed = await showMobileConfirmSheet(
+                          context,
+                          title: '放弃待同步申请？',
+                          message:
                               '将从本机删除“${title.isEmpty ? '待同步审批申请' : title}”的失败记录，服务端不会收到该申请。',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('取消'),
-                              ),
-                              FilledButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text('确认放弃'),
-                              ),
-                            ],
-                          ),
+                          confirmLabel: '确认放弃',
+                          destructive: true,
                         );
                         if (confirmed != true) return;
                         await ref
@@ -1225,54 +1285,6 @@ class _OutboxList extends ConsumerWidget {
                       ref.invalidate(oaOutboxProvider);
                       ref.invalidate(oaBootstrapProvider);
                     },
-                    itemBuilder: (context) => [
-                      if (editable)
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(Icons.edit_outlined, size: 20),
-                            title: Text('修改后重提'),
-                          ),
-                        )
-                      else if (validationFailed)
-                        const PopupMenuItem(
-                          value: 'details',
-                          child: ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(Icons.info_outline_rounded, size: 20),
-                            title: Text('处理说明'),
-                          ),
-                        )
-                      else
-                        const PopupMenuItem(
-                          value: 'retry',
-                          child: ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(Icons.refresh_rounded, size: 20),
-                            title: Text('重试'),
-                          ),
-                        ),
-                      const PopupMenuItem(
-                        value: 'discard',
-                        child: ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(
-                            Icons.delete_outline_rounded,
-                            size: 20,
-                            color: AppColors.error,
-                          ),
-                          title: Text(
-                            '放弃记录',
-                            style: TextStyle(color: AppColors.error),
-                          ),
-                        ),
-                      ),
-                    ],
                   )
                 : const SizedBox.shrink(),
           );

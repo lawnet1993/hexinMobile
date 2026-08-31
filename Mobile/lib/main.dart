@@ -6,6 +6,9 @@ import 'app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PaintingBinding.instance.imageCache
+    ..maximumSize = 120
+    ..maximumSizeBytes = 48 * 1024 * 1024;
   SecureTunnel.registerWith();
   runApp(const ProviderScope(child: HexingMobileApp()));
 }

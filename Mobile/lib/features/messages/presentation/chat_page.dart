@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -52,6 +53,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _mentionAll = false;
   ImMessage? _replyTo;
   Timer? _presenceTimer;
+  Timer? _latestMessageTimer;
+  bool _reconcilingLatestMessages = false;
   bool _loadingOlder = false;
   bool _hasOlder = true;
   int _messageTake = 80;
@@ -67,6 +70,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void initState() {
     super.initState();
     _resourceTab = widget.initialResourceTab.clamp(0, 2);
+    _messageScrollController.addListener(_handleMessageScroll);
     if (widget.enablePresence) {
       _repository = ref.read(imRepositoryProvider);
     }
@@ -74,11 +78,36 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _refreshPresence();
+      _reconcileLatestMessages();
       _presenceTimer = Timer.periodic(
         const Duration(seconds: 25),
         (_) => _refreshPresence(),
       );
+      _latestMessageTimer = Timer.periodic(
+        const Duration(seconds: 12),
+        (_) => _reconcileLatestMessages(),
+      );
     });
+  }
+
+  Future<void> _reconcileLatestMessages() async {
+    if (_reconcilingLatestMessages) return;
+    _reconcilingLatestMessages = true;
+    try {
+      final changed = await ref.read(conversationLatestReconcilerProvider)(
+        widget.conversationId,
+      );
+      if (!mounted || !changed) return;
+      ref.invalidate(
+        conversationMessageRevisionProvider(widget.conversationId),
+      );
+      ref.invalidate(imBootstrapProvider);
+    } catch (_) {
+      // Event sync remains the primary path; the next bounded reconciliation
+      // retries same-account multi-device delivery without disturbing cache.
+    } finally {
+      _reconcilingLatestMessages = false;
+    }
   }
 
   Future<void> _refreshPresence() async {
@@ -98,10 +127,27 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   void dispose() {
     _presenceTimer?.cancel();
+    _latestMessageTimer?.cancel();
     _repository?.leaveActiveConversation().ignore();
     _messageScrollController.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _handleMessageScroll() {
+    if (!_didInitialMessageScroll ||
+        _resourceTab != 0 ||
+        _query.isNotEmpty ||
+        _loadingOlder ||
+        !_hasOlder ||
+        !_messageScrollController.hasClients) {
+      return;
+    }
+    final position = _messageScrollController.position;
+    if (position.userScrollDirection == ScrollDirection.forward &&
+        position.pixels <= position.minScrollExtent + 72) {
+      unawaited(_loadOlderMessages());
+    }
   }
 
   void _refreshConversationState({bool scrollToBottom = false}) {
@@ -135,12 +181,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           : sequenced
                 .map((message) => message.sequence)
                 .reduce((left, right) => left < right ? left : right);
-      final older = await ref
-          .read(imRepositoryProvider)
-          .loadOlderMessages(
-            widget.conversationId,
-            beforeSequence: beforeSequence,
-          );
+      final older = await ref.read(conversationOlderMessageLoaderProvider)(
+        widget.conversationId,
+        beforeSequence: beforeSequence,
+      );
       if (!mounted) return;
       if (older.isNotEmpty) _historyAnchor = anchor;
       setState(() {
@@ -150,7 +194,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('历史消息加载失败：$error')));
+            .showSnackBar(SnackBar(content: Text('历史消息加载失败，请稍后再次上滑：$error')));
       }
     } finally {
       if (mounted) setState(() => _loadingOlder = false);
@@ -1281,41 +1325,43 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                 item.content.toLowerCase().contains(query),
                           )
                           .toList();
+                final messageIndexes = <Key, int>{
+                  for (var index = 0; index < visibleItems.length; index++)
+                    ValueKey<String>('message:${visibleItems[index].id}'):
+                        index,
+                };
                 return visibleItems.isEmpty
                     ? const EmptyState(
                         icon: Icons.chat_bubble_outline_rounded,
                         title: '没有匹配的消息',
                       )
                     : ListView.builder(
+                        key: PageStorageKey<String>(
+                          'chat-messages:${widget.conversationId}',
+                        ),
                         controller: _messageScrollController,
                         padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
                         itemCount: visibleItems.length,
+                        findChildIndexCallback: (key) => messageIndexes[key],
                         itemBuilder: (context, index) {
                           final item = visibleItems[index];
                           return Column(
+                            key: ValueKey<String>('message:${item.id}'),
                             children: [
                               if (index == 0)
                                 Column(
                                   children: [
-                                    if (_query.isEmpty)
-                                      TextButton.icon(
-                                        onPressed: _loadingOlder || !_hasOlder
-                                            ? null
-                                            : _loadOlderMessages,
-                                        icon: _loadingOlder
-                                            ? const SizedBox.square(
-                                                dimension: 14,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                              )
-                                            : const Icon(
-                                                Icons.history_rounded,
-                                                size: 17,
-                                              ),
-                                        label: Text(
-                                          _hasOlder ? '加载更早消息' : '没有更早消息',
+                                    if (_query.isEmpty && _loadingOlder)
+                                      const Padding(
+                                        padding: EdgeInsets.only(bottom: 10),
+                                        child: SizedBox.square(
+                                          key: ValueKey<String>(
+                                            'older-messages-loading',
+                                          ),
+                                          dimension: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
                                         ),
                                       ),
                                     Padding(
@@ -1385,72 +1431,122 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   color: Colors.white,
                   border: Border(top: BorderSide(color: AppColors.border)),
                 ),
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+                padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     if (conversation?.isGroup == true &&
                         (groupProfile?.atEnabled ?? true) &&
                         (bootstrap?.config.message.mentionMember ?? true))
-                      IconButton(
-                        tooltip: '提及成员',
-                        onPressed: members == null
-                            ? null
-                            : () => _showMentionPicker(
-                                members,
-                                groupProfile,
-                                bootstrap?.config.message.mentionAll ?? false,
-                              ),
-                        icon: const Icon(Icons.alternate_email_rounded),
-                      ),
-                    IconButton(
-                      tooltip: '附件',
-                      onPressed: _sendingAttachment
-                          ? null
-                          : () => _showAttachmentMenu(bootstrap),
-                      icon: _sendingAttachment
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.attach_file_rounded),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        maxLines: 4,
-                        minLines: 1,
-                        decoration: InputDecoration(
-                          hintText: _replyTo == null ? '输入消息' : '回复消息',
-                          isDense: true,
-                          filled: true,
-                          fillColor: Color(0xFFF5F6F8),
-                          prefixIcon: _replyTo == null
+                      SizedBox.square(
+                        dimension: 40,
+                        child: IconButton(
+                          tooltip: '提及成员',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          onPressed: members == null
                               ? null
-                              : const Icon(Icons.reply_rounded, size: 18),
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide.none,
+                              : () => _showMentionPicker(
+                                  members,
+                                  groupProfile,
+                                  bootstrap?.config.message.mentionAll ?? false,
+                                ),
+                          icon: const Icon(
+                            Icons.alternate_email_rounded,
+                            size: 21,
                           ),
                         ),
-                        onSubmitted: (_) => _send(),
+                      ),
+                    SizedBox.square(
+                      dimension: 40,
+                      child: IconButton(
+                        tooltip: '附件',
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        onPressed: _sendingAttachment
+                            ? null
+                            : () => _showAttachmentMenu(bootstrap),
+                        icon: _sendingAttachment
+                            ? const SizedBox.square(
+                                dimension: 17,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.attach_file_rounded, size: 21),
                       ),
                     ),
-                    IconButton(
-                      tooltip: '表情',
-                      onPressed: _showEmojiPicker,
-                      icon: const Icon(Icons.sentiment_satisfied_alt_outlined),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        key: const Key('chat-message-input-shell'),
+                        constraints: const BoxConstraints(minHeight: 40),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F5F8),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextField(
+                          key: const Key('chat-message-input'),
+                          controller: _controller,
+                          maxLines: 4,
+                          minLines: 1,
+                          decoration: InputDecoration(
+                            hintText: _replyTo == null ? '输入消息' : '回复消息',
+                            isDense: true,
+                            filled: false,
+                            contentPadding: const EdgeInsets.fromLTRB(
+                              12,
+                              8,
+                              4,
+                              8,
+                            ),
+                            prefixIcon: _replyTo == null
+                                ? null
+                                : const Icon(Icons.reply_rounded, size: 18),
+                            prefixIconConstraints: const BoxConstraints(
+                              minWidth: 34,
+                              minHeight: 40,
+                            ),
+                            suffixIconConstraints:
+                                const BoxConstraints.tightFor(
+                                  width: 38,
+                                  height: 38,
+                                ),
+                            suffixIcon: IconButton(
+                              tooltip: '表情',
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              onPressed: _showEmojiPicker,
+                              icon: const Icon(
+                                Icons.sentiment_satisfied_alt_outlined,
+                                size: 21,
+                              ),
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                          ),
+                          onSubmitted: (_) => _send(),
+                        ),
+                      ),
                     ),
-                    IconButton.filled(
-                      tooltip: '发送',
-                      onPressed: _sending ? null : _send,
-                      icon: _sending
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.send_rounded),
+                    const SizedBox(width: 6),
+                    SizedBox.square(
+                      dimension: 40,
+                      child: IconButton.filled(
+                        tooltip: '发送',
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        onPressed: _sending ? null : _send,
+                        icon: _sending
+                            ? const SizedBox.square(
+                                dimension: 17,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.send_rounded, size: 21),
+                      ),
                     ),
                   ],
                 ),
@@ -1618,26 +1714,31 @@ class _ResourceTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Expanded(
     child: InkWell(
+      key: ValueKey<String>('chat-resource-tab-$label'),
       onTap: onTap,
       child: Stack(
+        fit: StackFit.expand,
         alignment: Alignment.center,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? AppColors.primary : AppColors.secondaryText,
+          Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? AppColors.primary : AppColors.secondaryText,
+              ),
             ),
           ),
           if (selected)
-            const Positioned(
+            Positioned(
               left: 24,
               right: 24,
               bottom: 0,
               child: SizedBox(
+                key: ValueKey<String>('chat-resource-tab-indicator-$label'),
                 height: 2,
-                child: ColoredBox(color: AppColors.primary),
+                child: const ColoredBox(color: AppColors.primary),
               ),
             ),
         ],
@@ -1934,7 +2035,11 @@ class _ConversationImagePreview extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final image = message.images.first;
     final bytes = ref.watch(
-      imMessageImageProvider((messageId: message.id, imageId: image.id)),
+      imMessageImageProvider((
+        messageId: message.id,
+        imageId: image.id,
+        sha256: image.sha256,
+      )),
     );
     return Dialog.fullscreen(
       backgroundColor: Colors.black,
@@ -2089,21 +2194,18 @@ String _directPresenceLabel(
   ImMember? member,
   ImConversationPresence? presence,
 ) {
-  final parts = [
-    member?.departmentName ?? '',
-    member?.username ?? '',
-  ].where((value) => value.isNotEmpty).toList();
-  if (presence == null) return parts.join(' · ');
-  if (presence.peerOnline) {
-    parts.add('在线');
-  } else if (presence.peerLastSeenAt == null) {
-    parts.add('离线');
-  } else {
-    parts.add(
-      '离线 · ${DateFormat('MM-dd HH:mm').format(presence.peerLastSeenAt!)} 最后在线',
-    );
-  }
-  return parts.join(' · ');
+  final online = presence?.peerOnline ?? member?.isOnline;
+  final lastSeenAt = presence?.peerLastSeenAt ?? member?.lastSeenAt;
+  final status = online == true
+      ? '在线'
+      : online == false && lastSeenAt != null
+      ? '离线 · ${DateFormat('MM-dd HH:mm').format(lastSeenAt)}'
+      : online == false
+      ? '离线'
+      : '';
+  if (status.isNotEmpty) return status;
+  final username = member?.username ?? '';
+  return username.isNotEmpty ? username : member?.departmentName ?? '';
 }
 
 final class _MentionChoice {
@@ -2373,8 +2475,17 @@ class _ImageMessageContent extends ConsumerWidget {
         itemCount: images.length,
         itemBuilder: (context, index) {
           final image = images[index];
+          final logicalWidth = images.length == 1 ? 210.0 : 78.0;
+          final thumbnailCacheWidth =
+              (logicalWidth * MediaQuery.devicePixelRatioOf(context))
+                  .round()
+                  .clamp(1, 1440);
           final bytes = ref.watch(
-            imMessageImageProvider((messageId: message.id, imageId: image.id)),
+            imMessageImageProvider((
+              messageId: message.id,
+              imageId: image.id,
+              sha256: image.sha256,
+            )),
           );
           return ClipRRect(
             borderRadius: BorderRadius.circular(6),
@@ -2410,7 +2521,15 @@ class _ImageMessageContent extends ConsumerWidget {
                     ),
                   ),
                 ),
-                child: Image.memory(data, fit: BoxFit.cover),
+                child: Image.memory(
+                  data,
+                  key: ValueKey<String>(
+                    'message-image-thumbnail:${message.id}:${image.id}',
+                  ),
+                  fit: BoxFit.cover,
+                  cacheWidth: thumbnailCacheWidth,
+                  filterQuality: FilterQuality.low,
+                ),
               ),
             ),
           );

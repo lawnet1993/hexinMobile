@@ -27,7 +27,15 @@ class NetworkSecurityPage extends ConsumerWidget {
         ),
         data: (data) {
           final connected = data.status.isConnected;
+          final unavailable = data.status.phase == TunnelPhase.unavailable;
           final runtimeCoreVersion = data.runtime?.coreVersion ?? '';
+          final installedCoreVersion = data.status.coreVersion.isEmpty
+              ? runtimeCoreVersion
+              : data.status.coreVersion;
+          final runtimeLabel = [
+            data.runtime?.platform ?? '',
+            data.runtime?.architecture ?? '',
+          ].where((value) => value.isNotEmpty).join(' · ');
           return ListView(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 28),
             children: [
@@ -50,6 +58,7 @@ class NetworkSecurityPage extends ConsumerWidget {
                 ),
               ),
               MobileSurface(
+                key: const Key('network-security-status-card'),
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   children: [
@@ -103,7 +112,7 @@ class NetworkSecurityPage extends ConsumerWidget {
                                   data.message!.isNotEmpty) ...[
                                 const SizedBox(height: 2),
                                 Text(
-                                  data.message!,
+                                  _displayTunnelMessage(data.message!),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -118,37 +127,41 @@ class NetworkSecurityPage extends ConsumerWidget {
                       ],
                     ),
                     const Divider(height: 18),
-                    _InfoRow(
-                      '策略标识',
-                      data.status.profileId.isEmpty
-                          ? '未安装'
-                          : data.status.profileId,
-                    ),
-                    _InfoRow(
-                      '策略版本',
-                      data.status.profileVersion.isEmpty
-                          ? '-'
-                          : data.status.profileVersion,
-                    ),
-                    _InfoRow(
-                      '核心版本',
-                      data.status.coreVersion.isEmpty
-                          ? (runtimeCoreVersion.isEmpty
-                                ? '-'
-                                : runtimeCoreVersion)
-                          : data.status.coreVersion,
-                    ),
-                    _InfoRow(
-                      '运行平台',
-                      [
-                        data.runtime?.platform ?? '',
-                        data.runtime?.architecture ?? '',
-                      ].where((v) => v.isNotEmpty).join(' · '),
-                    ),
-                    _InfoRow(
-                      '上传 / 下载',
-                      '${_bytes(data.status.uploadBytes)} / ${_bytes(data.status.downloadBytes)}',
-                    ),
+                    if (unavailable) ...[
+                      _InfoRow(
+                        '安全组件',
+                        installedCoreVersion.isEmpty
+                            ? '未安装'
+                            : installedCoreVersion,
+                      ),
+                      if (runtimeLabel.isNotEmpty)
+                        _InfoRow('运行环境', runtimeLabel),
+                    ] else ...[
+                      _InfoRow(
+                        '策略标识',
+                        data.status.profileId.isEmpty
+                            ? '未安装'
+                            : data.status.profileId,
+                      ),
+                      _InfoRow(
+                        '策略版本',
+                        data.status.profileVersion.isEmpty
+                            ? '-'
+                            : data.status.profileVersion,
+                      ),
+                      _InfoRow(
+                        '组件版本',
+                        installedCoreVersion.isEmpty
+                            ? '-'
+                            : _componentVersion(installedCoreVersion),
+                      ),
+                      if (runtimeLabel.isNotEmpty)
+                        _InfoRow('运行环境', runtimeLabel),
+                      _InfoRow(
+                        '上传 / 下载',
+                        '${_bytes(data.status.uploadBytes)} / ${_bytes(data.status.downloadBytes)}',
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -234,8 +247,31 @@ class NetworkSecurityPage extends ConsumerWidget {
     TunnelPhase.stopping => '正在断开安全连接',
     TunnelPhase.failed => '安全连接不可用',
     TunnelPhase.disconnected => '安全连接未启用',
-    TunnelPhase.unavailable => '当前设备不支持安全连接',
+    TunnelPhase.unavailable => '安全连接不可用',
   };
+}
+
+String _displayTunnelMessage(String value) {
+  final message = value.trim();
+  if (message.contains('mihomo') || message.contains('内核')) {
+    if (message.contains('未包含') || message.contains('未安装')) {
+      return '当前安装包未包含移动端安全组件';
+    }
+    return '移动端安全组件校验失败';
+  }
+  if (message.contains('Web') && message.contains('VPN')) {
+    return '当前环境不支持安全连接';
+  }
+  return message;
+}
+
+String _componentVersion(String value) {
+  final version = value.trim();
+  final publicVersion = version.replaceFirst(
+    RegExp(r'^mihomo[-_/\s]*', caseSensitive: false),
+    '',
+  );
+  return publicVersion.isEmpty ? version : publicVersion;
 }
 
 String _policyError(Object error) {

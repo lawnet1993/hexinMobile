@@ -26,11 +26,6 @@ class _AllAppsPageState extends ConsumerState<AllAppsPage> {
     final entries = applications.where((item) {
       return _query.isEmpty || item.title.contains(_query);
     }).toList();
-    final categories = <String, List<MobileAppEntry>>{};
-    for (final item in entries) {
-      categories.putIfAbsent(item.category, () => []).add(item);
-    }
-    final categoryEntries = categories.entries.toList(growable: false);
     return Scaffold(
       appBar: AppBar(centerTitle: true, title: const Text('全部应用')),
       body: ListView(
@@ -41,7 +36,7 @@ class _AllAppsPageState extends ConsumerState<AllAppsPage> {
             onChanged: (value) => setState(() => _query = value.trim()),
           ),
           const SizedBox(height: 6),
-          if (categoryEntries.isEmpty)
+          if (entries.isEmpty)
             const MobileSurface(
               padding: EdgeInsets.symmetric(vertical: 26),
               child: Center(
@@ -56,69 +51,13 @@ class _AllAppsPageState extends ConsumerState<AllAppsPage> {
             )
           else
             MobileSurface(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 4),
-              child: Column(
-                children: [
-                  for (
-                    var index = 0;
-                    index < categoryEntries.length;
-                    index++
-                  ) ...[
-                    _AppCategorySection(
-                      key: ValueKey(
-                        'app-category-${categoryEntries[index].key}',
-                      ),
-                      title: categoryEntries[index].key,
-                      items: categoryEntries[index].value,
-                    ),
-                    if (index != categoryEntries.length - 1)
-                      const SizedBox(height: 2),
-                  ],
-                ],
-              ),
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+              child: _AppGrid(items: entries),
             ),
         ],
       ),
     );
   }
-}
-
-class _AppCategorySection extends StatelessWidget {
-  const _AppCategorySection({
-    super.key,
-    required this.title,
-    required this.items,
-  });
-
-  final String title;
-  final List<MobileAppEntry> items;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      _CategoryTitle(title: title),
-      _AppGrid(items: items),
-    ],
-  );
-}
-
-class _CategoryTitle extends StatelessWidget {
-  const _CategoryTitle({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 28,
-    child: Row(
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
-        ),
-      ],
-    ),
-  );
 }
 
 class _AppGrid extends StatelessWidget {
@@ -132,7 +71,9 @@ class _AppGrid extends StatelessWidget {
     physics: const NeverScrollableScrollPhysics(),
     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: 5,
-      mainAxisExtent: 56,
+      mainAxisExtent: 64,
+      mainAxisSpacing: 2,
+      crossAxisSpacing: 2,
     ),
     itemCount: items.length,
     itemBuilder: (context, index) {
@@ -166,9 +107,14 @@ class _AppGrid extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 item.title,
-                maxLines: 1,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10.5, color: AppColors.text),
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  height: 1.05,
+                  color: AppColors.text,
+                ),
               ),
             ],
           ),

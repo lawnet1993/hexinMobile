@@ -309,6 +309,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     final applications = ref.watch(pendingFriendApplicationsProvider);
     final pendingCount = applications.value?.length ?? 0;
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -393,7 +394,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: MobileSurface(
+                child: Material(
+                  key: const Key('contacts-flat-content'),
+                  type: MaterialType.transparency,
                   child: _mode == 2
                       ? applications.when(
                           loading: () =>
@@ -643,9 +646,6 @@ class _OrganizationDirectoryHeader extends StatelessWidget {
     child: Container(
       height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFF0F2F5))),
-      ),
       child: Row(
         children: [
           const Icon(

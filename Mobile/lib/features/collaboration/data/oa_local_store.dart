@@ -131,6 +131,7 @@ final class OaLocalStore {
   static const bootstrapCacheKey = 'bootstrap';
   static const catalogCacheKey = 'app-catalog';
   static const notificationsCacheKey = 'notifications';
+  static const notificationPageCacheKey = 'notifications-page';
   static const attendanceCacheKey = 'attendance-overview';
 
   final DatabaseFactory _factory;

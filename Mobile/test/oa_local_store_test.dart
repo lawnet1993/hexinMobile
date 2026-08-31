@@ -212,6 +212,7 @@ void main() {
         events: [event, event],
         refreshedCaches: const {
           OaLocalStore.notificationsCacheKey: '[{"id":"notice-1"}]',
+          OaLocalStore.notificationPageCacheKey: '{"items":[{"id":"notice-1"}],"nextCursor":"cursor-2","hasMore":true}',
         },
       );
 
@@ -222,6 +223,19 @@ void main() {
           OaLocalStore.notificationsCacheKey,
         ))?.single,
         {'id': 'notice-1'},
+      );
+      expect(
+        await store.readObject(
+          'account-a',
+          OaLocalStore.notificationPageCacheKey,
+        ),
+        {
+          'items': [
+            {'id': 'notice-1'},
+          ],
+          'nextCursor': 'cursor-2',
+          'hasMore': true,
+        },
       );
 
       await store.applySyncBatch(

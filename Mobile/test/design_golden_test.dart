@@ -170,6 +170,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      if (item.name == '09-profile') {
+        expect(find.text('密码与终端身份'), findsNothing);
+        expect(find.text('提醒类型与方式'), findsNothing);
+        expect(find.text('网络与安全'), findsOneWidget);
+        expect(find.text('登录设备'), findsOneWidget);
+        expect(find.text('外观与语言'), findsOneWidget);
+      }
       await expectLater(
         find.byKey(_captureKey),
         matchesGoldenFile('goldens/${item.name}.png'),

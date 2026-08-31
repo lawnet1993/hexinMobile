@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -15,6 +16,7 @@ import '../../../core/storage/im_cache_cipher.dart';
 import '../../../core/storage/secure_session_store.dart';
 import '../domain/collaboration_models.dart';
 import 'im_local_store.dart';
+import 'im_message_image_cache.dart';
 import 'im_video_thumbnail.dart';
 import 'oa_local_store.dart';
 
@@ -63,6 +65,57 @@ final oaRepositoryProvider = Provider<OaRepository>((ref) {
   );
 });
 
+typedef OaWorkflowPreviewLoader = Future<OaWorkflowPreview> Function({
+  required String applicationKey,
+  required OaApprovalTemplate template,
+  required Map<String, Object?> formData,
+});
+
+final oaWorkflowPreviewLoaderProvider = Provider<OaWorkflowPreviewLoader>((
+  ref,
+) {
+  final repository = ref.read(oaRepositoryProvider);
+  return repository.previewWorkflow;
+});
+
+typedef OaDraftLoader = Future<OaApprovalDraft?> Function(String templateId);
+typedef OaApprovalRequestLoader = Future<OaApprovalRequest> Function(String id);
+typedef OaAttachmentThumbnailBytesLoader = Future<Uint8List> Function(
+  String attachmentId,
+);
+
+final oaDraftLoaderProvider = Provider<OaDraftLoader>((ref) {
+  final repository = ref.read(oaRepositoryProvider);
+  return repository.draftForTemplate;
+});
+
+final oaApprovalRequestLoaderProvider = Provider<OaApprovalRequestLoader>((
+  ref,
+) {
+  final repository = ref.read(oaRepositoryProvider);
+  return repository.approvalRequestCacheFirst;
+});
+
+final oaAttachmentThumbnailBytesLoaderProvider =
+    Provider<OaAttachmentThumbnailBytesLoader>((ref) {
+      final repository = ref.read(oaRepositoryProvider);
+      return repository.downloadAttachmentThumbnail;
+    });
+
+typedef OaDraftSaver = Future<OaApprovalDraft> Function({
+  String? id,
+  required String applicationKey,
+  required OaApprovalTemplate template,
+  required String title,
+  required Map<String, Object?> formData,
+  required List<OaLocalAttachment> attachments,
+});
+
+final oaDraftSaverProvider = Provider<OaDraftSaver>((ref) {
+  final repository = ref.read(oaRepositoryProvider);
+  return repository.saveDraft;
+});
+
 final markApprovalCcReadActionProvider =
     Provider<Future<void> Function(String)>((ref) {
       final repository = ref.read(oaRepositoryProvider);
@@ -89,15 +142,16 @@ final oaApplicationCatalogProvider = FutureProvider<OaApplicationCatalog>((
   return ref.read(oaRepositoryProvider).appCatalogCacheFirst();
 });
 
-final oaApprovalRequestProvider =
-    FutureProvider.family<OaApprovalRequest, String>((ref, id) async {
+final oaApprovalRequestProvider = FutureProvider.autoDispose
+    .family<OaApprovalRequest, String>((ref, id) async {
+      _retainForHotReopen(ref);
       if (AppEnvironment.demoMode) {
         return PreviewData.oaBootstrap.approvalRequests.firstWhere(
           (item) => item.id == id,
           orElse: () => throw StateError('审批申请不存在'),
         );
       }
-      return ref.read(oaRepositoryProvider).approvalRequestCacheFirst(id);
+      return ref.read(oaApprovalRequestLoaderProvider)(id);
     });
 
 final oaNotificationsProvider = FutureProvider<List<OaNotification>>((
@@ -122,7 +176,10 @@ final oaNotificationPageProvider =
       }
       return ref
           .read(oaRepositoryProvider)
-          .notificationPage(cursor: key.cursor, unreadOnly: key.unreadOnly);
+          .notificationPageCacheFirst(
+            cursor: key.cursor,
+            unreadOnly: key.unreadOnly,
+          );
     });
 
 final oaAttendanceOverviewProvider = FutureProvider<OaAttendanceOverview>((
@@ -199,40 +256,223 @@ final conversationMessagesProvider =
     });
 
 typedef ConversationMessageWindowKey = ({String conversationId, int take});
+typedef ConversationMessageWindowLoader = Future<List<ImMessage>> Function(
+  String conversationId, {
+  int? take,
+});
+
+final conversationMessageWindowLoaderProvider =
+    Provider<ConversationMessageWindowLoader>((ref) {
+      final repository = ref.read(imRepositoryProvider);
+      return repository.messagesCacheFirst;
+    });
+
+typedef ConversationOlderMessageLoader = Future<List<ImMessage>> Function(
+  String conversationId, {
+  int? beforeSequence,
+});
+
+final conversationOlderMessageLoaderProvider =
+    Provider<ConversationOlderMessageLoader>((ref) {
+      final repository = ref.read(imRepositoryProvider);
+      return repository.loadOlderMessages;
+    });
+
+typedef ConversationLatestReconciler = Future<bool> Function(
+  String conversationId,
+);
+
+final conversationLatestReconcilerProvider =
+    Provider<ConversationLatestReconciler>((ref) {
+      final repository = ref.read(imRepositoryProvider);
+      return repository.reconcileLatestMessages;
+    });
+
+final conversationMessageRevisionProvider = Provider.autoDispose
+    .family<Object, String>((ref, conversationId) => Object());
 
 final conversationMessageWindowProvider = FutureProvider.autoDispose
     .family<List<ImMessage>, ConversationMessageWindowKey>((ref, key) async {
-      _retainForConversationReopen(ref);
+      _retainForHotReopen(ref);
+      ref.watch(conversationMessageRevisionProvider(key.conversationId));
       if (AppEnvironment.demoMode) {
         final messages = PreviewData.conversationMessages(key.conversationId);
         return messages.length <= key.take
             ? messages
             : messages.sublist(messages.length - key.take);
       }
-      return ref
-          .read(imRepositoryProvider)
-          .messagesCacheFirst(key.conversationId, take: key.take);
+      return ref.read(conversationMessageWindowLoaderProvider)(
+        key.conversationId,
+        take: key.take,
+      );
     });
 
-final imMessageImageProvider =
-    FutureProvider.family<Uint8List, ({String messageId, String imageId})>((
+typedef ImMediaCacheAccountLoader = Future<String> Function();
+typedef ImMessageImageBytesLoader = Future<Uint8List> Function(
+  String messageId,
+  String imageId,
+);
+typedef ImMediaAttachmentBytesLoader = Future<Uint8List> Function(
+  String attachmentId, {
+  required bool cover,
+});
+
+final imMediaCacheAccountLoaderProvider = Provider<ImMediaCacheAccountLoader>((
+  ref,
+) {
+  final store = ref.read(secureSessionStoreProvider);
+  return () async {
+    final session = await store.readSession();
+    final accountId = session?.userId.trim() ?? '';
+    if (accountId.isEmpty) throw StateError('登录状态已失效，请重新登录');
+    return accountId;
+  };
+});
+
+final imMessageImageBytesLoaderProvider = Provider<ImMessageImageBytesLoader>((
+  ref,
+) {
+  final repository = ref.read(imRepositoryProvider);
+  return repository.downloadMessageImage;
+});
+
+final imMediaAttachmentBytesLoaderProvider =
+    Provider<ImMediaAttachmentBytesLoader>((ref) {
+      final repository = ref.read(imRepositoryProvider);
+      return repository.downloadMediaAttachment;
+    });
+
+final imBinaryMemoryCacheProvider = Provider<ImBinaryMemoryCache>((ref) {
+  final cache = ImBinaryMemoryCache();
+  ref.onDispose(cache.clear);
+  return cache;
+});
+
+final imMessageImageDiskCacheProvider = Provider<ImMessageImageDiskCache>((
+  ref,
+) {
+  return ImMessageImageDiskCache();
+});
+
+typedef ImMessageImageDiskCacheReader = Future<Uint8List?> Function({
+  required String accountId,
+  required String imageId,
+  required String sha256Value,
+});
+typedef ImMessageImageDiskCacheWriter = Future<void> Function({
+  required String accountId,
+  required String imageId,
+  required String sha256Value,
+  required Uint8List bytes,
+});
+
+final imMessageImageDiskCacheReaderProvider =
+    Provider<ImMessageImageDiskCacheReader>((ref) {
+      return ref.read(imMessageImageDiskCacheProvider).read;
+    });
+
+final imMessageImageDiskCacheWriterProvider =
+    Provider<ImMessageImageDiskCacheWriter>((ref) {
+      return ref.read(imMessageImageDiskCacheProvider).write;
+    });
+
+final imMessageImageProvider = FutureProvider.autoDispose
+    .family<Uint8List, ({String messageId, String imageId, String sha256})>((
       ref,
       key,
     ) async {
-      return ref
-          .read(imRepositoryProvider)
-          .downloadMessageImage(key.messageId, key.imageId);
+      final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
+      final cache = ref.read(imBinaryMemoryCacheProvider);
+      final cacheKey = 'image:${key.messageId}:${key.imageId}';
+      final cached = cache.read(accountId, cacheKey);
+      if (cached != null) return cached;
+      final diskCached = await ref.read(imMessageImageDiskCacheReaderProvider)(
+        accountId: accountId,
+        imageId: key.imageId,
+        sha256Value: key.sha256,
+      );
+      if (diskCached != null) {
+        cache.write(accountId, cacheKey, diskCached);
+        return diskCached;
+      }
+      final bytes = await ref.read(imMessageImageBytesLoaderProvider)(
+        key.messageId,
+        key.imageId,
+      );
+      cache.write(accountId, cacheKey, bytes);
+      await ref.read(imMessageImageDiskCacheWriterProvider)(
+        accountId: accountId,
+        imageId: key.imageId,
+        sha256Value: key.sha256,
+        bytes: bytes,
+      );
+      return bytes;
     });
 
-final imMediaAttachmentProvider =
-    FutureProvider.family<Uint8List, ({String attachmentId, bool cover})>((
-      ref,
-      key,
-    ) async {
-      return ref
-          .read(imRepositoryProvider)
-          .downloadMediaAttachment(key.attachmentId, cover: key.cover);
+final imMediaAttachmentProvider = FutureProvider.autoDispose
+    .family<Uint8List, ({String attachmentId, bool cover})>((ref, key) async {
+      final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
+      final cache = ref.read(imBinaryMemoryCacheProvider);
+      final cacheKey = 'media:${key.attachmentId}:${key.cover ? 1 : 0}';
+      final cached = cache.read(accountId, cacheKey);
+      if (cached != null) return cached;
+      final bytes = await ref.read(imMediaAttachmentBytesLoaderProvider)(
+        key.attachmentId,
+        cover: key.cover,
+      );
+      cache.write(accountId, cacheKey, bytes);
+      return bytes;
     });
+
+final class ImBinaryMemoryCache {
+  ImBinaryMemoryCache({this.maxEntries = 48, this.maxBytes = 32 * 1024 * 1024})
+    : assert(maxEntries > 0),
+      assert(maxBytes > 0);
+
+  final int maxEntries;
+  final int maxBytes;
+  final LinkedHashMap<String, Uint8List> _entries = LinkedHashMap();
+  String _accountId = '';
+  int _totalBytes = 0;
+
+  int get entryCount => _entries.length;
+  int get totalBytes => _totalBytes;
+
+  Uint8List? read(String accountId, String key) {
+    _selectAccount(accountId);
+    final value = _entries.remove(key);
+    if (value == null) return null;
+    _entries[key] = value;
+    return value;
+  }
+
+  void write(String accountId, String key, Uint8List value) {
+    _selectAccount(accountId);
+    final previous = _entries.remove(key);
+    if (previous != null) _totalBytes -= previous.lengthInBytes;
+    if (value.isEmpty || value.lengthInBytes > maxBytes) return;
+    _entries[key] = value;
+    _totalBytes += value.lengthInBytes;
+    while (_entries.length > maxEntries || _totalBytes > maxBytes) {
+      final oldestKey = _entries.keys.first;
+      final removed = _entries.remove(oldestKey);
+      if (removed != null) _totalBytes -= removed.lengthInBytes;
+    }
+  }
+
+  void clear() {
+    _entries.clear();
+    _totalBytes = 0;
+    _accountId = '';
+  }
+
+  void _selectAccount(String accountId) {
+    if (_accountId == accountId) return;
+    _entries.clear();
+    _totalBytes = 0;
+    _accountId = accountId;
+  }
+}
 
 typedef ImVideoPreviewKey = ({
   String attachmentId,
@@ -253,7 +493,7 @@ final class ImVideoPreviewSource {
 
 final imVideoPreviewProvider = FutureProvider.autoDispose
     .family<ImVideoPreviewSource?, ImVideoPreviewKey>((ref, key) async {
-      _retainForConversationReopen(ref);
+      _retainForHotReopen(ref);
       final repository = ref.read(imRepositoryProvider);
       final cacheKey = imVideoPreviewCacheKey(
         attachmentId: key.attachmentId,
@@ -289,7 +529,7 @@ final imVideoPreviewProvider = FutureProvider.autoDispose
       return filePath == null ? null : ImVideoPreviewSource.file(filePath);
     });
 
-void _retainForConversationReopen(Ref ref) {
+void _retainForHotReopen(Ref ref) {
   final keepAlive = ref.keepAlive();
   Timer? expiry;
   ref.onCancel(() {
@@ -303,14 +543,19 @@ void _retainForConversationReopen(Ref ref) {
   ref.onDispose(() => expiry?.cancel());
 }
 
-final oaAttachmentThumbnailProvider = FutureProvider.family<Uint8List, String>((
-  ref,
-  attachmentId,
-) async {
-  return ref
-      .read(oaRepositoryProvider)
-      .downloadAttachmentThumbnail(attachmentId);
-});
+final oaAttachmentThumbnailProvider = FutureProvider.autoDispose
+    .family<Uint8List, String>((ref, attachmentId) async {
+      final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
+      final cache = ref.read(imBinaryMemoryCacheProvider);
+      final cacheKey = 'oa-thumbnail:$attachmentId';
+      final cached = cache.read(accountId, cacheKey);
+      if (cached != null) return cached;
+      final bytes = await ref.read(oaAttachmentThumbnailBytesLoaderProvider)(
+        attachmentId,
+      );
+      cache.write(accountId, cacheKey, bytes);
+      return bytes;
+    });
 
 final conversationMembersProvider =
     FutureProvider.family<List<ImMember>, String>((ref, id) async {
@@ -1201,21 +1446,20 @@ final class OaRepository {
     bool unreadOnly = false,
   }) async {
     final session = await _session();
-    final payload = await _fetchNotifications(unreadOnly: unreadOnly);
+    final page = await notificationPage(unreadOnly: unreadOnly);
     if (!unreadOnly) {
       await _store.writeList(
         session.userId,
         OaLocalStore.notificationsCacheKey,
-        payload,
+        page.items.map<Object?>((item) => item.toJson()).toList(),
+      );
+      await _store.writeObject(
+        session.userId,
+        OaLocalStore.notificationPageCacheKey,
+        page.toJson(),
       );
     }
-    return _notificationModels(payload);
-  }
-
-  Future<List<Object?>> _fetchNotifications({bool unreadOnly = false}) async {
-    return (await notificationPage(unreadOnly: unreadOnly)).items
-        .map<Object?>((item) => item.toJson())
-        .toList();
+    return page.items;
   }
 
   Future<OaNotificationPage> notificationPage({
@@ -1235,6 +1479,60 @@ final class OaRepository {
     return OaNotificationPage.fromJson(
       response.data ?? const <String, Object?>{},
     );
+  }
+
+  Future<OaNotificationPage> notificationPageCacheFirst({
+    String? cursor,
+    bool unreadOnly = false,
+    int take = 100,
+  }) async {
+    if (cursor != null && cursor.isNotEmpty) {
+      return notificationPage(
+        cursor: cursor,
+        unreadOnly: unreadOnly,
+        take: take,
+      );
+    }
+    final session = await _session();
+    final cachedPage = await _store.readObject(
+      session.userId,
+      OaLocalStore.notificationPageCacheKey,
+    );
+    if (cachedPage != null) {
+      final page = OaNotificationPage.fromJson(cachedPage);
+      return unreadOnly
+          ? OaNotificationPage(
+              items: page.items.where((item) => !item.isRead).toList(),
+              nextCursor: page.nextCursor,
+              hasMore: page.hasMore,
+            )
+          : page;
+    }
+    final legacy = await _store.readList(
+      session.userId,
+      OaLocalStore.notificationsCacheKey,
+    );
+    if (legacy != null) {
+      final items = _notificationModels(legacy)
+          .where((item) => !unreadOnly || !item.isRead)
+          .take(take.clamp(1, 200))
+          .toList();
+      return OaNotificationPage(items: items, nextCursor: null, hasMore: false);
+    }
+    final page = await notificationPage(unreadOnly: unreadOnly, take: take);
+    if (!unreadOnly) {
+      await _store.writeList(
+        session.userId,
+        OaLocalStore.notificationsCacheKey,
+        page.items.map<Object?>((item) => item.toJson()).toList(),
+      );
+      await _store.writeObject(
+        session.userId,
+        OaLocalStore.notificationPageCacheKey,
+        page.toJson(),
+      );
+    }
+    return page;
   }
 
   Future<void> markNotificationRead(String notificationId) async {
@@ -1265,10 +1563,10 @@ final class OaRepository {
     final session = await _session();
     final dio = await _client.forOa();
     await dio.post<void>('/api/oa/notifications/$notificationId/read');
-    await _store.invalidate(session.userId, [
-      OaLocalStore.bootstrapCacheKey,
-      OaLocalStore.notificationsCacheKey,
-    ]);
+    await _updateCachedNotificationReadState(
+      session.userId,
+      notificationId: notificationId,
+    );
   }
 
   Future<void> markAllNotificationsRead() async {
@@ -1299,10 +1597,64 @@ final class OaRepository {
     final session = await _session();
     final dio = await _client.forOa();
     await dio.post<void>('/api/oa/notifications/read-all');
-    await _store.invalidate(session.userId, [
-      OaLocalStore.bootstrapCacheKey,
+    await _updateCachedNotificationReadState(session.userId);
+  }
+
+  Future<void> _updateCachedNotificationReadState(
+    String accountId, {
+    String? notificationId,
+  }) async {
+    final readAt = DateTime.now().toUtc().toIso8601String();
+
+    Object? updateItem(Object? value) {
+      if (value is! Map) return value;
+      final item = Map<String, Object?>.from(value.cast<String, Object?>());
+      if (notificationId == null || item['id']?.toString() == notificationId) {
+        item['isRead'] = true;
+        item['readAt'] = readAt;
+      }
+      return item;
+    }
+
+    final cached = await _store.readList(
+      accountId,
       OaLocalStore.notificationsCacheKey,
-    ]);
+    );
+    if (cached != null) {
+      await _store.writeList(
+        accountId,
+        OaLocalStore.notificationsCacheKey,
+        cached.map(updateItem).toList(),
+      );
+    }
+
+    final page = await _store.readObject(
+      accountId,
+      OaLocalStore.notificationPageCacheKey,
+    );
+    if (page != null && page['items'] is List) {
+      page['items'] = (page['items'] as List).map(updateItem).toList();
+      await _store.writeObject(
+        accountId,
+        OaLocalStore.notificationPageCacheKey,
+        page,
+      );
+    }
+
+    final bootstrap = await _store.readObject(
+      accountId,
+      OaLocalStore.bootstrapCacheKey,
+    );
+    if (bootstrap != null && bootstrap['notifications'] is List) {
+      bootstrap['notifications'] = (bootstrap['notifications'] as List)
+          .map(updateItem)
+          .toList();
+      await _store.writeObject(
+        accountId,
+        OaLocalStore.bootstrapCacheKey,
+        bootstrap,
+      );
+    }
   }
 
   Future<OaAttendanceOverview> attendanceOverviewCacheFirst() async {
@@ -1669,10 +2021,14 @@ final class OaRepository {
       return OaSyncPullResult(changed: false, sequence: cursor);
     }
 
+    final notificationsPage = await notificationPage();
     final caches = <String, String>{
       OaLocalStore.bootstrapCacheKey: jsonEncode(await _fetchBootstrap()),
       OaLocalStore.notificationsCacheKey: jsonEncode(
-        await _fetchNotifications(),
+        notificationsPage.items.map((item) => item.toJson()).toList(),
+      ),
+      OaLocalStore.notificationPageCacheKey: jsonEncode(
+        notificationsPage.toJson(),
       ),
     };
     if (events.any((event) => event.type == 'oa.app-catalog.changed')) {
@@ -2100,19 +2456,44 @@ final class ImRepository {
 
   Future<List<ImMessage>> refreshMessages(String conversationId) async {
     final session = await _session();
+    final messages = await _fetchLatestMessages(conversationId);
+    await _store.mergeMessages(session.userId, conversationId, messages);
+    return _store.readMessages(session.userId, conversationId);
+  }
+
+  /// Reconciles the visible conversation with the latest server window.
+  ///
+  /// Normal IM events remain the real-time path. This bounded fallback covers
+  /// same-account multi-device sends for deployments that do not echo a
+  /// message-created event back to every device owned by the sender. Cached
+  /// content is only written and the UI is only invalidated when the server
+  /// window actually differs, so reopening an unchanged chat does not rebuild
+  /// its message list.
+  Future<bool> reconcileLatestMessages(String conversationId) async {
+    final session = await _session();
+    final latest = await _fetchLatestMessages(conversationId);
+    if (latest.isEmpty) return false;
+    final cached = await _store.readMessages(
+      session.userId,
+      conversationId,
+      limit: latest.length.clamp(1, 50),
+    );
+    if (!imMessageSnapshotsDiffer(cached, latest)) return false;
+    await _store.mergeMessages(session.userId, conversationId, latest);
+    return true;
+  }
+
+  Future<List<ImMessage>> _fetchLatestMessages(String conversationId) async {
     final dio = await _client.forIm();
     final response = await dio.get<List<Object?>>(
       '/api/im/conversations/$conversationId/messages',
       queryParameters: const {'take': 50},
     );
-    final messages =
-        (response.data ?? const <Object?>[])
-            .whereType<Map>()
-            .map((item) => ImMessage.fromJson(item.cast<String, Object?>()))
-            .toList()
-          ..sort((left, right) => left.sequence.compareTo(right.sequence));
-    await _store.mergeMessages(session.userId, conversationId, messages);
-    return _store.readMessages(session.userId, conversationId);
+    return (response.data ?? const <Object?>[])
+        .whereType<Map>()
+        .map((item) => ImMessage.fromJson(item.cast<String, Object?>()))
+        .toList()
+      ..sort((left, right) => left.sequence.compareTo(right.sequence));
   }
 
   Future<List<ImMessage>> loadOlderMessages(
@@ -3342,10 +3723,14 @@ final class ImRepository {
     );
   }
 
-  Future<int> flushOutbox() async {
+  Future<int> flushOutbox() async =>
+      (await flushOutboxDetailed()).deliveredCount;
+
+  Future<ImOutboxFlushResult> flushOutboxDetailed() async {
     final session = await _session();
     final items = await _store.dueOutbox(session.userId);
     var delivered = 0;
+    final conversationIds = <String>{};
     for (final item in items) {
       try {
         final message = await _postMessage(item);
@@ -3355,15 +3740,20 @@ final class ImRepository {
           message,
         );
         delivered += 1;
+        conversationIds.add(item.conversationId);
       } catch (error) {
         await _store.markOutboxFailed(
           session.userId,
           item,
           _compactError(error),
         );
+        conversationIds.add(item.conversationId);
       }
     }
-    return delivered;
+    return ImOutboxFlushResult(
+      deliveredCount: delivered,
+      conversationIds: conversationIds,
+    );
   }
 
   Future<ImMessage> _postMessage(ImOutboxItem item) async {
@@ -3463,10 +3853,9 @@ final class ImRepository {
       options: Options(contentType: Headers.jsonContentType),
     );
     await _store.markEventsAcked(session.userId, latestSequence);
-    return ImSyncPullResult(
-      changed: true,
+    return ImSyncPullResult.fromEvents(
       latestSequence: latestSequence,
-      conversationIds: _affectedConversations(events),
+      events: events,
     );
   }
 
@@ -3589,23 +3978,6 @@ final class ImRepository {
     await dio.delete<void>('/api/im/push/devices/current');
   }
 
-  static Set<String> _affectedConversations(List<ImSyncEvent> events) {
-    final result = <String>{};
-    for (final event in events) {
-      try {
-        final payload = (jsonDecode(event.payloadJson) as Map)
-            .cast<String, Object?>();
-        final value = payload['conversationId'] ?? payload['ConversationId'];
-        if (value != null && value.toString().isNotEmpty) {
-          result.add(value.toString());
-        }
-      } catch (_) {
-        // The durable inbox still protects the event from duplicate effects.
-      }
-    }
-    return result;
-  }
-
   static String _compactError(Object error) {
     if (error is DioException) {
       final data = error.response?.data;
@@ -3636,15 +4008,147 @@ final class ImSyncPullResult {
     required this.changed,
     required this.latestSequence,
     required this.conversationIds,
+    required this.messageConversationIds,
+    required this.memberConversationIds,
+    required this.groupProfileConversationIds,
   });
+
+  factory ImSyncPullResult.fromEvents({
+    required int latestSequence,
+    required List<ImSyncEvent> events,
+  }) {
+    final conversationIds = <String>{};
+    final messageConversationIds = <String>{};
+    final memberConversationIds = <String>{};
+    final groupProfileConversationIds = <String>{};
+    for (final event in events) {
+      String conversationId;
+      try {
+        final payload = (jsonDecode(event.payloadJson) as Map)
+            .cast<String, Object?>();
+        conversationId =
+            (payload['conversationId'] ?? payload['ConversationId'])
+                ?.toString()
+                .trim() ??
+            '';
+      } catch (_) {
+        continue;
+      }
+      if (conversationId.isEmpty) continue;
+      conversationIds.add(conversationId);
+      final type = event.type.trim().toLowerCase();
+      if (type.startsWith('message.')) {
+        messageConversationIds.add(conversationId);
+      }
+      if (type.contains('.member.') ||
+          type.endsWith('.members.updated') ||
+          type.startsWith('member.')) {
+        memberConversationIds.add(conversationId);
+      }
+      if (type.startsWith('group.') &&
+          !type.startsWith('group.member.') &&
+          !type.startsWith('group.message.')) {
+        groupProfileConversationIds.add(conversationId);
+      }
+    }
+    return ImSyncPullResult(
+      changed: events.isNotEmpty,
+      latestSequence: latestSequence,
+      conversationIds: conversationIds,
+      messageConversationIds: messageConversationIds,
+      memberConversationIds: memberConversationIds,
+      groupProfileConversationIds: groupProfileConversationIds,
+    );
+  }
 
   factory ImSyncPullResult.empty(int sequence) => ImSyncPullResult(
     changed: false,
     latestSequence: sequence,
     conversationIds: const <String>{},
+    messageConversationIds: const <String>{},
+    memberConversationIds: const <String>{},
+    groupProfileConversationIds: const <String>{},
   );
 
   final bool changed;
   final int latestSequence;
   final Set<String> conversationIds;
+  final Set<String> messageConversationIds;
+  final Set<String> memberConversationIds;
+  final Set<String> groupProfileConversationIds;
+}
+
+final class ImOutboxFlushResult {
+  const ImOutboxFlushResult({
+    required this.deliveredCount,
+    required this.conversationIds,
+  });
+
+  final int deliveredCount;
+  final Set<String> conversationIds;
+}
+
+bool imMessageSnapshotsDiffer(
+  Iterable<ImMessage> cached,
+  Iterable<ImMessage> latest,
+) {
+  final cachedById = <String, ImMessage>{
+    for (final message in cached)
+      if (message.id.isNotEmpty) message.id: message,
+  };
+  for (final message in latest) {
+    final current = cachedById[message.id];
+    if (current == null || !_sameServerMessageSnapshot(current, message)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _sameServerMessageSnapshot(ImMessage left, ImMessage right) {
+  if (left.id != right.id ||
+      left.sequence != right.sequence ||
+      left.senderId != right.senderId ||
+      left.clientMessageId != right.clientMessageId ||
+      left.content != right.content ||
+      left.kind != right.kind ||
+      left.attachmentName != right.attachmentName ||
+      left.attachmentSize != right.attachmentSize ||
+      left.attachmentContentType != right.attachmentContentType ||
+      left.attachmentSha256 != right.attachmentSha256 ||
+      left.recalledAt?.toUtc() != right.recalledAt?.toUtc() ||
+      left.images.length != right.images.length ||
+      left.attachments.length != right.attachments.length ||
+      left.mentions.length != right.mentions.length) {
+    return false;
+  }
+  for (var index = 0; index < left.images.length; index += 1) {
+    final a = left.images[index];
+    final b = right.images[index];
+    if (a.id != b.id || a.fileName != b.fileName || a.sha256 != b.sha256) {
+      return false;
+    }
+  }
+  for (var index = 0; index < left.attachments.length; index += 1) {
+    final a = left.attachments[index];
+    final b = right.attachments[index];
+    if (a.id != b.id ||
+        a.type != b.type ||
+        a.fileName != b.fileName ||
+        a.size != b.size ||
+        a.sha256 != b.sha256 ||
+        a.coverObjectId != b.coverObjectId ||
+        a.durationSeconds != b.durationSeconds) {
+      return false;
+    }
+  }
+  for (var index = 0; index < left.mentions.length; index += 1) {
+    final a = left.mentions[index];
+    final b = right.mentions[index];
+    if (a.mentionedMemberId != b.mentionedMemberId ||
+        a.displayName != b.displayName) {
+      return false;
+    }
+  }
+  return true;
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,9 +18,58 @@ import 'package:hexing_terminal_mobile/features/todos/presentation/approval_deta
 import 'package:hexing_terminal_mobile/features/todos/presentation/approval_request_page.dart';
 import 'package:hexing_terminal_mobile/features/todos/presentation/todos_page.dart';
 import 'package:hexing_terminal_mobile/features/workbench/presentation/schedule_page.dart';
+import 'package:hexing_terminal_mobile/shared/widgets/mobile_bottom_sheets.dart';
 import 'package:hexing_terminal_mobile/shared/widgets/mobile_primitives.dart';
+import 'package:intl/intl.dart';
 
 void main() {
+  testWidgets('OA confirmation and time selection use bottom sheets', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Column(
+              children: [
+                TextButton(
+                  onPressed: () => showMobileConfirmSheet(
+                    context,
+                    title: '确认操作',
+                    message: '测试确认内容',
+                  ),
+                  child: const Text('打开确认'),
+                ),
+                TextButton(
+                  onPressed: () => showMobileTimePickerSheet(
+                    context,
+                    initialTime: const TimeOfDay(hour: 9, minute: 30),
+                  ),
+                  child: const Text('打开时间'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开确认'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-confirm-sheet')), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('打开时间'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-time-picker-sheet')), findsOneWidget);
+    expect(find.byType(TimePickerDialog), findsNothing);
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('todos page unifies personal todos with approval work', (
     tester,
   ) async {
@@ -48,17 +98,28 @@ void main() {
     expect(find.text('数据导出申请'), findsOneWidget);
     expect(find.textContaining('OA-20260813-1'), findsOneWidget);
     expect(find.byTooltip('新建'), findsOneWidget);
-    expect(find.text('统一处理任务与审批'), findsOneWidget);
+    expect(find.text('统一处理任务与审批'), findsNothing);
     expect(find.text('待我处理'), findsOneWidget);
     expect(find.text('抄送我的'), findsOneWidget);
     expect(find.text('草稿箱'), findsOneWidget);
     expect(find.text('待同步'), findsOneWidget);
     expect(tester.getRect(find.text('待同步')).right, lessThan(390));
-    expect(find.text('搜索事项、申请编号或发起人'), findsOneWidget);
+    expect(find.text('搜索事项或申请编号'), findsOneWidget);
     expect(find.byType(NetworkIndicator), findsNothing);
     expect(find.text('个人待办'), findsNothing);
+    final flatContent = tester.widget<Material>(
+      find.byKey(const Key('todos-flat-content')),
+    );
+    expect(flatContent.type, MaterialType.transparency);
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+      Theme.of(tester.element(find.byType(Scaffold))).colorScheme.surface,
+    );
     await tester.tap(find.byTooltip('新建'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
+    expect(find.byType(PopupMenuButton<String>), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('新建待办'), findsOneWidget);
     expect(find.text('新建申请'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -104,12 +165,79 @@ void main() {
 
     await tester.tap(find.text('待同步'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('需修改后重提'), findsOneWidget);
+    expect(find.textContaining('修改后重提 · 1 次'), findsOneWidget);
+    expect(
+      find.text(DateFormat('MM-dd HH:mm').format(now.toLocal())),
+      findsOneWidget,
+    );
+    expect(find.text('申请表单校验失败，请检查必填项'), findsOneWidget);
+    expect(
+      tester
+          .getSize(
+            find.byKey(
+              const ValueKey<String>('outbox-item-outbox-validation-1'),
+            ),
+          )
+          .height,
+      lessThanOrEqualTo(78),
+    );
     await tester.tap(find.byTooltip('同步操作'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
+    expect(find.byType(PopupMenuButton<String>), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('修改后重提'), findsOneWidget);
     expect(find.text('重试'), findsNothing);
     expect(find.text('放弃记录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('todo counts stay inline with compact tab labels', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+    });
+    final now = DateTime.utc(2026, 8, 31, 8);
+    final item = OaOutboxItem(
+      id: 'outbox-inline-badge',
+      idempotencyKey: 'request-inline-badge',
+      commandType: 'submit-approval',
+      payload: const <String, Object?>{},
+      state: 'pending',
+      attempts: 0,
+      nextRetryAt: now,
+      lastError: '',
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _pump(
+      tester,
+      const TodosPage(),
+      overrides: [
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        oaDraftsProvider.overrideWith((ref) async => const []),
+        oaOutboxProvider.overrideWith((ref) async => [item]),
+      ],
+    );
+
+    final label = tester.getRect(find.text('待同步'));
+    final badge = tester.getRect(
+      find.byKey(const ValueKey('todo-tab-badge-待同步')),
+    );
+    expect((label.center.dy - badge.center.dy).abs(), lessThan(1));
+    expect(label.right, lessThan(390));
+    expect(find.bySemanticsLabel('待同步，1 条'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -145,6 +273,8 @@ void main() {
 
     await tester.tap(find.byKey(const Key('approval-filter-updated-at')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
+    expect(find.byType(DropdownButton<int>), findsNothing);
     expect(find.text('今天'), findsOneWidget);
     expect(find.text('近 7 天'), findsOneWidget);
     expect(find.text('近 30 天'), findsOneWidget);
@@ -209,6 +339,13 @@ void main() {
         imBootstrapProvider.overrideWith(
           (ref) async => PreviewData.imBootstrap,
         ),
+        oaWorkflowPreviewLoaderProvider.overrideWithValue(
+          ({
+            required String applicationKey,
+            required OaApprovalTemplate template,
+            required Map<String, Object?> formData,
+          }) async => PreviewData.workflowPreview(template),
+        ),
       ],
     );
 
@@ -225,16 +362,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('分级请款审批'), findsWidgets);
-    expect(find.text('请款金额'), findsOneWidget);
-    expect(find.text('请款事由'), findsOneWidget);
+    expect(find.text('请款金额 *'), findsOneWidget);
+    expect(find.text('请款事由 *'), findsOneWidget);
     expect(find.text('附件'), findsOneWidget);
     expect(find.text('0 / 20'), findsOneWidget);
     expect(find.text('请款凭证.pdf'), findsNothing);
     final amount = tester.widget<TextFormField>(
-      find.byType(TextFormField).at(1),
+      find.byType(TextFormField).at(0),
     );
     final reason = tester.widget<TextFormField>(
-      find.byType(TextFormField).at(2),
+      find.byType(TextFormField).at(1),
     );
     expect(amount.initialValue, '4999');
     expect(reason.initialValue, '测试环境请款');
@@ -293,13 +430,39 @@ void main() {
       templateName: source.templateName,
       templateCategory: source.templateCategory,
       allowedActions: const [],
-      tasks: const [],
+      tasks: [
+        OaApprovalTask(
+          id: 'compact-comment-task',
+          nodeName: '部门负责人审批',
+          assigneeId: 'compact-reviewer',
+          assigneeName: '测试-管理员测试',
+          status: 'approved',
+          version: 1,
+          decision: 'approved',
+          comment: 'REAL_DEVICE_ACCEPTANCE_APPROVED_LONG_COMMENT',
+          canOperate: false,
+          createdAt: DateTime(2026, 8, 25, 5, 40),
+          completedAt: DateTime(2026, 8, 25, 5, 46),
+        ),
+      ],
       actions: [
         OaApprovalAction(
           actorName: '很长的审批处理人员姓名',
           action: 'submitted',
           comment: '提交申请',
           occurredAt: DateTime(2026, 8, 25, 5, 46),
+        ),
+        OaApprovalAction(
+          actorName: '',
+          action: 'service_queued',
+          comment: '',
+          occurredAt: DateTime(2026, 8, 25, 5, 47),
+        ),
+        OaApprovalAction(
+          actorName: '',
+          action: 'service_succeeded',
+          comment: '',
+          occurredAt: DateTime(2026, 8, 25, 5, 48),
         ),
       ],
       attachments: const [],
@@ -325,9 +488,20 @@ void main() {
     expect(find.text('2026-08-25 05:29'), findsOneWidget);
     expect(find.text('2026-08-26 05:30'), findsOneWidget);
     expect(find.textContaining('T05:29:00.000'), findsNothing);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -700));
+    await tester.pumpAndSettle();
     final actor = tester.widget<Text>(find.text('很长的审批处理人员姓名'));
     expect(actor.maxLines, 1);
     expect(actor.overflow, TextOverflow.ellipsis);
+    final taskComment = tester.widget<Text>(
+      find.text('REAL_DEVICE_ACCEPTANCE_APPROVED_LONG_COMMENT'),
+    );
+    expect(taskComment.maxLines, 1);
+    expect(taskComment.overflow, TextOverflow.ellipsis);
+    expect(find.text('后续服务已排队'), findsOneWidget);
+    expect(find.text('后续服务已完成'), findsOneWidget);
+    expect(find.text('service_queued'), findsNothing);
+    expect(find.text('service_succeeded'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -428,6 +602,14 @@ void main() {
   testWidgets('dynamic approval request renders server schema fields', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+    });
     await _pump(
       tester,
       const ApprovalRequestPage(
@@ -444,48 +626,251 @@ void main() {
         imBootstrapProvider.overrideWith(
           (ref) async => PreviewData.imBootstrap,
         ),
+        oaWorkflowPreviewLoaderProvider.overrideWithValue(
+          ({
+            required String applicationKey,
+            required OaApprovalTemplate template,
+            required Map<String, Object?> formData,
+          }) async => PreviewData.workflowPreview(template),
+        ),
       ],
     );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
 
     expect(find.text('请假申请'), findsOneWidget);
     expect(find.text('林晨'), findsOneWidget);
     expect(find.text('上海运营部'), findsOneWidget);
     expect(find.text('v1'), findsOneWidget);
-    expect(find.text('请假类型'), findsOneWidget);
-    expect(find.text('开始时间'), findsOneWidget);
-    expect(find.text('结束时间'), findsOneWidget);
-    expect(find.text('请假事由'), findsOneWidget);
-    expect(find.text('查看审批流程'), findsOneWidget);
+    expect(find.text('申请标题'), findsNothing);
+    expect(find.text('请假类型 *'), findsOneWidget);
+    expect(find.text('开始时间 *'), findsOneWidget);
+    expect(find.text('结束时间 *'), findsOneWidget);
+    expect(find.text('请假事由 *'), findsOneWidget);
+    expect(find.text('审批流程'), findsOneWidget);
+    expect(find.text('部门负责人审批'), findsOneWidget);
+    expect(find.text('人事复核'), findsOneWidget);
     expect(find.text('提交申请'), findsOneWidget);
     expect(find.textContaining('/120'), findsNothing);
+    expect(find.byKey(const Key('approval-workflow-inline')), findsOneWidget);
     expect(
-      tester.getSize(find.byKey(const Key('approval-form-surface'))).height,
-      lessThanOrEqualTo(400),
-    );
-    expect(
-      tester.getSize(find.byKey(const Key('approval-workflow-button'))).height,
-      40,
+      find.byKey(const ValueKey('approval-workflow-node-0')),
+      findsOneWidget,
     );
     expect(
       tester.getSize(find.byKey(const Key('approval-draft-button'))).height,
       42,
     );
     expect(
+      tester.getSize(find.byKey(const Key('approval-draft-button'))).width,
+      116,
+    );
+    expect(
       tester.getSize(find.byKey(const Key('approval-submit-button'))).height,
       42,
     );
+    expect(
+      tester.getSize(find.byKey(const Key('approval-submit-button'))).width,
+      140,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('schema-leaveType-select')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+    await tester.tap(find.text('年假'));
+    await tester.pumpAndSettle();
+    expect(find.text('年假'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('schema-startAt-date')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-date-picker-sheet')), findsOneWidget);
+    expect(find.byType(DatePickerDialog), findsNothing);
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('workflow preview keeps desktop metadata in a compact sheet', (
+  testWidgets('duration field uses backend schema without synthetic value', (
+    tester,
+  ) async {
+    const durationTemplate = OaApprovalTemplate(
+      id: 'duration-template',
+      name: '请假审批',
+      category: '考勤',
+      iconKey: 'leave',
+      workflowKey: 'attendance.leave',
+      version: 1,
+      formSchemaJson: '{"fields":[{"id":"startAt","label":"开始时间","type":"datetime","required":true},{"id":"endAt","label":"结束时间","type":"datetime","required":true},{"id":"duration","label":"请假天数","type":"number","required":true,"durationStartFieldId":"startAt","durationEndFieldId":"endAt","durationUnit":"days"}]}',
+    );
+    final bootstrap = OaBootstrap(
+      currentMemberId: PreviewData.oaBootstrap.currentMemberId,
+      displayName: PreviewData.oaBootstrap.displayName,
+      todos: PreviewData.oaBootstrap.todos,
+      announcements: PreviewData.oaBootstrap.announcements,
+      templates: const [durationTemplate],
+    );
+    await _pump(
+      tester,
+      const ApprovalRequestPage(
+        applicationKey: 'attendance.leave',
+        templateId: 'duration-template',
+      ),
+      overrides: [
+        oaBootstrapProvider.overrideWith((ref) async => bootstrap),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        oaWorkflowPreviewLoaderProvider.overrideWithValue(
+          ({
+            required String applicationKey,
+            required OaApprovalTemplate template,
+            required Map<String, Object?> formData,
+          }) async => PreviewData.workflowPreview(template),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('请假天数 *'), findsOneWidget);
+    expect(find.textContaining('自动计算'), findsNothing);
+    expect(find.byIcon(Icons.calculate_outlined), findsNothing);
+    final durationField = find.byKey(const ValueKey('schema-duration-'));
+    final durationInput = tester.widget<TextField>(
+      find.descendant(of: durationField, matching: find.byType(TextField)),
+    );
+    expect(durationInput.readOnly, isTrue);
+    expect(durationInput.canRequestFocus, isFalse);
+    expect(durationInput.decoration?.suffixText, '天');
+    await tester.tap(durationField);
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'calculation fields use backend formula readonly unit and precision',
+    (tester) async {
+      const calculationTemplate = OaApprovalTemplate(
+        id: 'calculation-template',
+        name: '分级请款审批',
+        category: '财务',
+        iconKey: 'payment',
+        workflowKey: 'finance.tiered-payment',
+        version: 1,
+        formSchemaJson:
+            '{"fields":['
+            '{"id":"original","label":"原始费用","type":"amount","required":true,"unit":"USDT"},'
+            '{"id":"ratio","label":"结算比例","type":"number","required":true},'
+            '{"id":"exchangeRate","label":"汇率","type":"number","required":true},'
+            '{"id":"memberCount","label":"会员人数","type":"number","required":true},'
+            '{"id":"amount","label":"请款金额","type":"amount","required":true,"readOnly":true,"unit":"USDT","calculation":{"version":1,"expression":"original * ratio / exchangeRate","scale":2,"roundingMode":"half_up"}},'
+            '{"id":"cost","label":"成本","type":"amount","required":true,"readOnly":true,"unit":"CNY","calculation":{"version":1,"expression":"amount * exchangeRate / memberCount","scale":4,"roundingMode":"floor"}}'
+            ']}',
+      );
+      final bootstrap = OaBootstrap(
+        currentMemberId: PreviewData.oaBootstrap.currentMemberId,
+        displayName: PreviewData.oaBootstrap.displayName,
+        todos: PreviewData.oaBootstrap.todos,
+        announcements: PreviewData.oaBootstrap.announcements,
+        templates: const [calculationTemplate],
+      );
+      await _pump(
+        tester,
+        const ApprovalRequestPage(
+          applicationKey: 'finance.tiered-payment',
+          templateId: 'calculation-template',
+        ),
+        overrides: [
+          oaBootstrapProvider.overrideWith((ref) async => bootstrap),
+          oaApplicationCatalogProvider.overrideWith(
+            (ref) async => PreviewData.oaCatalog,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.imBootstrap,
+          ),
+          oaWorkflowPreviewLoaderProvider.overrideWithValue(
+            ({
+              required String applicationKey,
+              required OaApprovalTemplate template,
+              required Map<String, Object?> formData,
+            }) async => PreviewData.workflowPreview(template),
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('自动计算'), findsNothing);
+      expect(find.textContaining('只读'), findsNothing);
+      final amountBefore = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const ValueKey('schema-amount-')),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(amountBefore.readOnly, isTrue);
+      expect(amountBefore.canRequestFocus, isFalse);
+      expect(amountBefore.decoration?.suffixText, 'USDT');
+      expect(amountBefore.decoration?.prefixText, isNull);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('schema-original-')),
+        '1000',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('schema-ratio-')),
+        '0.8',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('schema-exchangeRate-')),
+        '2',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('schema-memberCount-')),
+        '4',
+      );
+      await tester.pumpAndSettle();
+
+      final amount = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const ValueKey('schema-amount-400.00')),
+          matching: find.byType(TextField),
+        ),
+      );
+      final cost = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const ValueKey('schema-cost-200.0000')),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(amount.controller?.text, '400.00');
+      expect(cost.controller?.text, '200.0000');
+      expect(cost.decoration?.suffixText, 'CNY');
+      expect(cost.readOnly, isTrue);
+      await tester.tap(find.byKey(const ValueKey('schema-cost-200.0000')));
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('workflow preview stays expanded with compact desktop metadata', (
     tester,
   ) async {
     await _pump(
       tester,
-      ApprovalWorkflowPreviewSheet(
+      ApprovalWorkflowInline(
         preview: PreviewData.workflowPreview(
           PreviewData.oaBootstrap.templates.first,
         ),
+        loading: false,
+        error: null,
+        templateVersion: 1,
+        onRetry: () {},
       ),
       overrides: const [],
     );
@@ -496,12 +881,185 @@ void main() {
     expect(find.text('审批 · 冯逸、江敏 · 深圳运营部 · 会签'), findsOneWidget);
     expect(find.text('人事复核'), findsOneWidget);
     expect(find.text('审批 · 叶青、周宁 · 人事部 · 或签'), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('restored draft shows a compact image row and real preview', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final template = PreviewData.oaBootstrap.templates.firstWhere(
+      (item) => item.id == '3',
+    );
+    final attachment = OaLocalAttachment(
+      id: 'draft-image',
+      fileName: 'AI-UAT-请假凭证.png',
+      contentType: 'image/png',
+      bytes: base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      ),
+      formFieldId: 'proof',
+    );
+    final draft = OaApprovalDraft(
+      id: 'draft-1',
+      applicationKey: 'finance.tiered-payment',
+      templateId: template.id,
+      workflowKey: template.workflowKey,
+      title: 'AI-UAT-草稿恢复',
+      formData: const {'amount': 4999, 'reason': '测试环境草稿'},
+      updatedAt: DateTime(2026, 8, 31, 16, 55),
+      attachments: [attachment],
+    );
+    await _pump(
+      tester,
+      ApprovalRequestPage(
+        applicationKey: draft.applicationKey,
+        templateId: template.id,
+      ),
+      overrides: [
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        oaDraftLoaderProvider.overrideWithValue((_) async => draft),
+        oaWorkflowPreviewLoaderProvider.overrideWithValue(
+          ({
+            required String applicationKey,
+            required OaApprovalTemplate template,
+            required Map<String, Object?> formData,
+          }) async => PreviewData.workflowPreview(template),
+        ),
+      ],
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已恢复上次草稿'), findsOneWidget);
+    expect(find.text('08-31 16:55'), findsOneWidget);
+    expect(find.text('申请标题'), findsNothing);
+    expect(find.text('AI-UAT-草稿恢复'), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const Key('approval-draft-status'))).height,
+      30,
+    );
+    await tester.drag(find.byType(ListView).first, const Offset(0, -560));
+    await tester.pumpAndSettle();
+    expect(find.text('AI-UAT-请假凭证.png'), findsOneWidget);
+    final attachmentRow = find.byKey(
+      const ValueKey('approval-attachment-draft-image'),
+    );
+    expect(tester.getSize(attachmentRow).height, 54);
+    await tester.tap(attachmentRow);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('approval-local-attachment-preview')),
+      findsOneWidget,
+    );
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭附件预览'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('approval-local-attachment-preview')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('rapid back saves the latest local draft before leaving', (
+    tester,
+  ) async {
+    final template = PreviewData.oaBootstrap.templates.first;
+    String? savedTitle;
+    Map<String, Object?>? savedFormData;
+    await _pump(
+      tester,
+      ApprovalRequestPage(
+        applicationKey: 'attendance.leave',
+        templateId: template.id,
+      ),
+      overrides: [
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        oaDraftLoaderProvider.overrideWithValue((_) async => null),
+        oaDraftSaverProvider.overrideWithValue(({
+          String? id,
+          required String applicationKey,
+          required OaApprovalTemplate template,
+          required String title,
+          required Map<String, Object?> formData,
+          required List<OaLocalAttachment> attachments,
+        }) async {
+          savedTitle = title;
+          savedFormData = Map<String, Object?>.from(formData);
+          return OaApprovalDraft(
+            id: id ?? 'saved-draft',
+            applicationKey: applicationKey,
+            templateId: template.id,
+            workflowKey: template.workflowKey,
+            title: title,
+            formData: formData,
+            updatedAt: DateTime(2026, 8, 31, 16, 56),
+            attachments: attachments,
+          );
+        }),
+        oaWorkflowPreviewLoaderProvider.overrideWithValue(
+          ({
+            required String applicationKey,
+            required OaApprovalTemplate template,
+            required Map<String, Object?> formData,
+          }) async => PreviewData.workflowPreview(template),
+        ),
+      ],
+    );
+
+    final reasonField = find.byType(TextFormField);
+    expect(reasonField, findsOneWidget);
+    await tester.enterText(reasonField, 'AI-UAT-快速返回草稿');
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(savedTitle, '林晨的请假申请');
+    expect(savedFormData?['reason'], 'AI-UAT-快速返回草稿');
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('notification center shows unread approval notification', (
     tester,
   ) async {
+    final notifications = [
+      ...PreviewData.oaBootstrap.notifications,
+      OaNotification(
+        id: 'notification-read',
+        requestId: '1',
+        category: 'approval',
+        type: 'approval.completed',
+        title: '请假审批已完成',
+        body: '请假申请已完成',
+        importance: 'normal',
+        action: 'view',
+        isRead: true,
+        readAt: DateTime(2026, 8, 13, 10),
+        createdAt: DateTime(2026, 8, 13, 9, 30),
+      ),
+    ];
     await _pump(
       tester,
       const NotificationsPage(),
@@ -514,7 +1072,9 @@ void main() {
         ),
         oaNotificationPageProvider.overrideWith(
           (ref, key) async => OaNotificationPage(
-            items: PreviewData.oaBootstrap.notifications,
+            items: notifications
+                .where((item) => !key.unreadOnly || !item.isRead)
+                .toList(),
             nextCursor: null,
             hasMore: false,
           ),
@@ -534,6 +1094,26 @@ void main() {
     expect(find.text('群聊'), findsNWidgets(2));
     expect(find.text('唐泽'), findsOneWidget);
     expect(find.text('单聊'), findsOneWidget);
+    final allFilter = find.byKey(const ValueKey('notification-filter-全部'));
+    final unreadFilter = find.byKey(const ValueKey('notification-filter-未读'));
+    expect(
+      find.descendant(of: allFilter, matching: find.text('5')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: unreadFilter, matching: find.text('3')),
+      findsOneWidget,
+    );
+    await tester.tap(unreadFilter);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: allFilter, matching: find.text('5')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: unreadFilter, matching: find.text('3')),
+      findsOneWidget,
+    );
     expect(
       tester.getSize(find.byKey(const Key('notification-filter-row'))).height,
       lessThanOrEqualTo(52),
@@ -664,8 +1244,15 @@ void main() {
       ],
     );
 
-    expect(find.text('当前设备未注册推送服务'), findsOneWidget);
-    expect(find.text('打开应用后会自动同步消息和 OA 通知'), findsOneWidget);
+    expect(find.text('离线推送'), findsOneWidget);
+    expect(find.text('未注册'), findsOneWidget);
+    expect(find.text('应用内同步'), findsOneWidget);
+    expect(find.text('打开应用后同步'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('push-unavailable-status'))).height,
+      lessThanOrEqualTo(64),
+    );
+    expect(find.bySemanticsLabel('离线推送未注册，应用内同步在打开应用后进行'), findsOneWidget);
     expect(find.text('已启用'), findsNothing);
     expect(find.text('android · fcm'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -700,7 +1287,8 @@ void main() {
     runtimeTokens.add(null);
     await tester.pumpAndSettle();
 
-    expect(find.text('当前设备未注册推送服务'), findsOneWidget);
+    expect(find.text('离线推送'), findsOneWidget);
+    expect(find.text('未注册'), findsOneWidget);
 
     runtimeTokens.add(
       const MobilePushToken(
@@ -713,7 +1301,8 @@ void main() {
 
     expect(find.text('已启用'), findsOneWidget);
     expect(find.text('android · fcm'), findsOneWidget);
-    expect(find.text('当前设备未注册推送服务'), findsNothing);
+    expect(find.text('离线推送'), findsNothing);
+    expect(find.text('未注册'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -1098,6 +1687,10 @@ void main() {
     expect(find.text('休息日'), findsOneWidget);
     expect(find.text('上班打卡'), findsOneWidget);
     expect(find.text('休息日允许打卡'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('attendance-punch-button'))),
+      const Size(132, 40),
+    );
 
     await _pump(
       tester,

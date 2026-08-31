@@ -131,6 +131,13 @@ void main() {
 
     expect(find.byType(NetworkIndicator), findsNothing);
     expect(find.byTooltip('我的收藏'), findsOneWidget);
+    final flatContent = tester.widget<Material>(
+      find.byKey(const Key('messages-flat-content')),
+    );
+    expect(flatContent.type, MaterialType.transparency);
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    final pageContext = tester.element(find.byType(MessagesPage));
+    expect(scaffold.backgroundColor, Theme.of(pageContext).colorScheme.surface);
 
     await tester.enterText(find.byType(TextField).first, 'term.gz01');
     await tester.pump();

@@ -4,9 +4,9 @@ import 'package:hexing_terminal_mobile/features/collaboration/domain/collaborati
 import 'package:hexing_terminal_mobile/features/workbench/domain/app_catalog.dart';
 
 void main() {
-  test('empty server catalog exposes only implemented mobile routes', () {
+  test('empty server catalog does not invent workbench applications', () {
     final entries = MobileAppCatalog.fromCatalog(const []);
-    expect(entries.where((item) => item.route == null), isEmpty);
+    expect(entries, isEmpty);
     expect(
       MobileAppCatalog.entries.firstWhere((item) => item.title == '日程').route,
       '/schedule',
@@ -69,6 +69,7 @@ void main() {
     expect(entries[1].iconKey, 'custom');
     expect(entries[1].iconDataUrl, dataUrl);
     expect(entries[0].route, '/apply/test.application?templateId=template-id');
+    expect(entries, hasLength(2), reason: '不得混入非工作台快捷入口');
   });
 
   testWidgets('custom emoji renders the first complete grapheme', (

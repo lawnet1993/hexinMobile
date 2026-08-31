@@ -156,17 +156,35 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final notificationKey = (cursor: null as String?, unreadOnly: _unreadOnly);
-    final value = ref.watch(oaNotificationPageProvider(notificationKey));
+    final allNotificationKey = (cursor: null as String?, unreadOnly: false);
+    final unreadNotificationKey = (cursor: null as String?, unreadOnly: true);
+    final allNotifications = ref.watch(
+      oaNotificationPageProvider(allNotificationKey),
+    );
+    final unreadNotifications = ref.watch(
+      oaNotificationPageProvider(unreadNotificationKey),
+    );
+    final notificationKey = _unreadOnly
+        ? unreadNotificationKey
+        : allNotificationKey;
+    final value = _unreadOnly ? unreadNotifications : allNotifications;
     final bootstrap = ref.watch(oaBootstrapProvider);
     final imBootstrap = ref.watch(imBootstrapProvider);
     final applications = ref.watch(pendingFriendApplicationsProvider);
-    final projected = buildMobileNotificationFeed(
-      oaNotifications: value.value?.items ?? const [],
+    final conversations = imBootstrap.value?.conversations ?? const [];
+    final friendApplications = applications.value ?? const [];
+    final allProjected = buildMobileNotificationFeed(
+      oaNotifications: allNotifications.value?.items ?? const [],
+      conversations: conversations,
+      friendApplications: friendApplications,
+    );
+    final unreadProjected = buildMobileNotificationFeed(
+      oaNotifications: unreadNotifications.value?.items ?? const [],
       conversations: imBootstrap.value?.conversations ?? const [],
       friendApplications: applications.value ?? const [],
     );
-    final unreadCount = projected.where((item) => !item.isRead).length;
+    final allCount = allProjected.length;
+    final unreadCount = unreadProjected.where((item) => !item.isRead).length;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -315,7 +333,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                     children: [
                       _NotificationFilterButton(
                         label: '全部',
-                        count: projected.length,
+                        count: allCount,
                         selected: !_unreadOnly,
                         onTap: () {
                           setState(() {
@@ -377,12 +395,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                         );
                       }
                       return RefreshIndicator(
-                        onRefresh: () async {
-                          _resetPagination();
-                          final _ = await ref.refresh(
-                            oaNotificationPageProvider(notificationKey).future,
-                          );
-                        },
+                        onRefresh: _refreshNotifications,
                         child: ListView.separated(
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: EdgeInsets.zero,
@@ -447,10 +460,22 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       ref.invalidate(oaBootstrapProvider);
       return;
     }
-    _resetPagination();
-    ref.invalidate(oaNotificationPageProvider);
-    ref.invalidate(imBootstrapProvider);
-    ref.invalidate(pendingFriendApplicationsProvider);
+    await _refreshNotifications();
+  }
+
+  Future<void> _refreshNotifications() async {
+    try {
+      await ref.read(oaRepositoryProvider).refreshNotifications();
+      _resetPagination();
+      ref.invalidate(oaNotificationPageProvider);
+      ref.invalidate(imBootstrapProvider);
+      ref.invalidate(pendingFriendApplicationsProvider);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('刷新失败，继续显示本机通知：$error')));
+      }
+    }
   }
 
   Future<void> _markAllRead() async {
@@ -644,6 +669,7 @@ class _NotificationFilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => InkWell(
+    key: ValueKey('notification-filter-$label'),
     onTap: onTap,
     child: Container(
       height: 44,

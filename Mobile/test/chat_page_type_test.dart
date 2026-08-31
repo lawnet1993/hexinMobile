@@ -11,6 +11,57 @@ import 'package:hexing_terminal_mobile/features/messages/presentation/chat_page.
 import 'package:hexing_terminal_mobile/shared/widgets/mobile_primitives.dart';
 
 void main() {
+  test('message window reuses the hot cache on immediate reopen', () async {
+    var loadCount = 0;
+    final message = ImMessage(
+      id: 'hot-reopen-message',
+      conversationId: 'hot-reopen',
+      sequence: 1,
+      senderId: 'member-1',
+      content: '已缓存消息',
+      kind: 'text',
+      createdAt: DateTime.utc(2026, 8, 31, 8),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        conversationMessageWindowLoaderProvider.overrideWithValue((
+          conversationId, {
+          take,
+        }) async {
+          loadCount += 1;
+          return [message];
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    const key = (conversationId: 'hot-reopen', take: 80);
+
+    final first = container.listen(
+      conversationMessageWindowProvider(key),
+      (_, _) {},
+      fireImmediately: true,
+    );
+    expect(
+      await container.read(conversationMessageWindowProvider(key).future),
+      [message],
+    );
+    expect(loadCount, 1);
+    first.close();
+    await Future<void>.delayed(Duration.zero);
+
+    final reopened = container.listen(
+      conversationMessageWindowProvider(key),
+      (_, _) {},
+      fireImmediately: true,
+    );
+    expect(
+      await container.read(conversationMessageWindowProvider(key).future),
+      [message],
+    );
+    expect(loadCount, 1);
+    reopened.close();
+  });
+
   test('member presence keeps the backend last-seen timestamp', () {
     final member = ImMember.fromJson(const {
       'id': 'member-1',
@@ -55,7 +106,8 @@ void main() {
     await _pumpChat(tester, 'tang');
 
     expect(find.text('唐泽'), findsOneWidget);
-    expect(find.textContaining('term.gz01'), findsOneWidget);
+    expect(find.text('在线'), findsOneWidget);
+    expect(find.textContaining('term.gz01'), findsNothing);
     expect(find.byTooltip('个人资料'), findsOneWidget);
     expect(find.byIcon(Icons.campaign_outlined), findsNothing);
 
@@ -77,6 +129,42 @@ void main() {
   });
 
   testWidgets(
+    'direct chat prioritizes real offline status over identity text',
+    (tester) async {
+      final source = PreviewData.imBootstrap;
+      final offlineMember = ImMember(
+        id: '3',
+        username: 'term.gz01',
+        displayName: '唐泽',
+        isOnline: false,
+        departmentId: 'department-shanghai',
+        departmentName: '上海运营部',
+        lastSeenAt: DateTime(2026, 8, 30, 16, 12),
+      );
+      final bootstrap = ImBootstrap(
+        currentMember: source.currentMember,
+        conversations: source.conversations,
+        contacts: [
+          ...source.contacts.where((member) => member.id != offlineMember.id),
+          offlineMember,
+        ],
+        permissions: source.permissions,
+        config: source.config,
+      );
+
+      await _pumpChat(
+        tester,
+        'tang',
+        bootstrap: bootstrap,
+        members: [source.currentMember, offlineMember],
+      );
+
+      expect(find.text('离线 · 08-30 16:12'), findsOneWidget);
+      expect(find.textContaining('term.gz01'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'direct chat aligns desktop resource tabs without mixing groups',
     (tester) async {
       await _pumpChat(
@@ -88,6 +176,30 @@ void main() {
       expect(find.text('聊天'), findsOneWidget);
       expect(find.text('文件 4'), findsOneWidget);
       expect(find.text('任务 1'), findsOneWidget);
+      expect(
+        tester
+            .getSize(find.byKey(const Key('chat-message-input-shell')))
+            .height,
+        40,
+      );
+      expect(
+        find.ancestor(
+          of: find.byTooltip('表情'),
+          matching: find.byKey(const Key('chat-message-input-shell')),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.getSize(find.byTooltip('发送')), const Size(40, 40));
+      final chatTab = tester.getRect(
+        find.byKey(const ValueKey<String>('chat-resource-tab-聊天')),
+      );
+      final chatLabel = tester.getRect(find.text('聊天'));
+      final chatIndicator = tester.getRect(
+        find.byKey(const ValueKey<String>('chat-resource-tab-indicator-聊天')),
+      );
+      expect((chatLabel.center.dx - chatTab.center.dx).abs(), lessThan(0.1));
+      expect(chatIndicator.bottom, closeTo(chatTab.bottom, 0.1));
+      expect(chatIndicator.top - chatTab.center.dy, greaterThanOrEqualTo(14));
 
       await tester.tap(find.text('文件 4'));
       await tester.pumpAndSettle();
@@ -172,7 +284,8 @@ void main() {
     );
 
     expect(find.text('冯逸'), findsOneWidget);
-    expect(find.textContaining('term.sz02'), findsOneWidget);
+    expect(find.text('在线'), findsOneWidget);
+    expect(find.textContaining('term.sz02'), findsNothing);
     expect(find.text('唐泽'), findsNothing);
     expect(
       find.textContaining('https://docs.example.com/im/mobile'),
@@ -182,6 +295,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('周报数据已更新，请帮忙确认。'), findsOneWidget);
     expect(find.byTooltip('个人资料'), findsOneWidget);
+    await tester.tap(find.byTooltip('个人资料'));
+    await tester.pumpAndSettle();
+    expect(find.text('个人资料'), findsOneWidget);
+    expect(find.text('term.sz02'), findsWidgets);
+    expect(find.text('唐泽'), findsNothing);
   });
 
   testWidgets('direct message actions never expose group-only controls', (
@@ -255,6 +373,25 @@ void main() {
     expect(semantics.properties.label, '视频预览，现场验收.mp4');
   });
 
+  testWidgets('chat image decodes at thumbnail width before full preview', (
+    tester,
+  ) async {
+    final imageMessage = PreviewData.conversationMessages('tang')
+        .where((message) => message.kind == 'image')
+        .single;
+    await _pumpChat(tester, 'tang', messages: [imageMessage]);
+
+    final image = tester.widget<Image>(
+      find.byKey(
+        const ValueKey<String>(
+          'message-image-thumbnail:direct-image-1:demo-image-1',
+        ),
+      ),
+    );
+    expect(image.image, isA<ResizeImage>());
+    expect((image.image as ResizeImage).width, 630);
+  });
+
   testWidgets('reply action follows the server message configuration', (
     tester,
   ) async {
@@ -278,6 +415,145 @@ void main() {
 
     expect(find.text('回复'), findsNothing);
   });
+
+  testWidgets('outgoing status distinguishes pending and failed delivery', (
+    tester,
+  ) async {
+    final pending = ImMessage(
+      id: 'local-pending',
+      conversationId: 'ops',
+      sequence: 0,
+      senderId: PreviewData.imBootstrap.currentMember.id,
+      clientMessageId: 'pending-1',
+      content: '等待发送',
+      kind: 'text',
+      createdAt: DateTime.utc(2026, 8, 31, 8),
+      localStatus: ImLocalMessageStatus.pending,
+    );
+    final failed = ImMessage(
+      id: 'local-failed',
+      conversationId: 'ops',
+      sequence: 0,
+      senderId: PreviewData.imBootstrap.currentMember.id,
+      clientMessageId: 'failed-1',
+      content: '发送失败的消息',
+      kind: 'text',
+      createdAt: DateTime.utc(2026, 8, 31, 8, 1),
+      localStatus: ImLocalMessageStatus.failed,
+    );
+
+    await _pumpChat(tester, 'ops', messages: [pending, failed]);
+
+    expect(find.text('发送中'), findsOneWidget);
+    expect(find.text('发送失败，点此重试'), findsOneWidget);
+  });
+
+  testWidgets('scrolling to the top loads older messages without a button', (
+    tester,
+  ) async {
+    final messages = List<ImMessage>.generate(
+      30,
+      (index) => ImMessage(
+        id: 'history-$index',
+        conversationId: 'ops',
+        sequence: index + 100,
+        senderId: index.isEven
+            ? PreviewData.imBootstrap.currentMember.id
+            : 'member-1',
+        content: '历史消息 $index',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 8, 31, 8, index),
+      ),
+    );
+    var loadCount = 0;
+    int? requestedBeforeSequence;
+    await _pumpChat(
+      tester,
+      'ops',
+      messages: messages,
+      olderMessageLoader: (conversationId, {beforeSequence}) async {
+        loadCount += 1;
+        requestedBeforeSequence = beforeSequence;
+        return [
+          ImMessage(
+            id: 'older-page',
+            conversationId: conversationId,
+            sequence: 99,
+            senderId: 'member-1',
+            content: '更早的消息',
+            kind: 'text',
+            createdAt: DateTime.utc(2026, 8, 31, 7, 59),
+          ),
+        ];
+      },
+    );
+
+    expect(find.text('加载更早消息'), findsNothing);
+    final list = find.byKey(const PageStorageKey<String>('chat-messages:ops'));
+    await tester.drag(list, const Offset(0, 1800));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(loadCount, 1);
+    expect(requestedBeforeSequence, 100);
+  });
+
+  testWidgets('failed older message load retries on the next upward scroll', (
+    tester,
+  ) async {
+    final messages = List<ImMessage>.generate(
+      30,
+      (index) => ImMessage(
+        id: 'retry-history-$index',
+        conversationId: 'ops',
+        sequence: index + 100,
+        senderId: index.isEven
+            ? PreviewData.imBootstrap.currentMember.id
+            : 'member-1',
+        content: '历史消息 $index',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 8, 31, 8, index),
+      ),
+    );
+    var loadCount = 0;
+    await _pumpChat(
+      tester,
+      'ops',
+      messages: messages,
+      olderMessageLoader: (conversationId, {beforeSequence}) async {
+        loadCount += 1;
+        if (loadCount == 1) throw StateError('temporary failure');
+        return [
+          ImMessage(
+            id: 'retry-older-page',
+            conversationId: conversationId,
+            sequence: 99,
+            senderId: 'member-1',
+            content: '重试后的更早消息',
+            kind: 'text',
+            createdAt: DateTime.utc(2026, 8, 31, 7, 59),
+          ),
+        ];
+      },
+    );
+
+    final list = find.byKey(const PageStorageKey<String>('chat-messages:ops'));
+    await tester.drag(list, const Offset(0, 1800));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(loadCount, 1);
+    expect(find.text('重试'), findsNothing);
+    expect(find.textContaining('请稍后再次上滑'), findsOneWidget);
+
+    await tester.drag(list, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    await tester.drag(list, const Offset(0, 1800));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(loadCount, 2);
+  });
 }
 
 Future<void> _pumpChat(
@@ -285,7 +561,9 @@ Future<void> _pumpChat(
   String conversationId, {
   List<ImMessage> messages = const [],
   ImBootstrap? bootstrap,
+  List<ImMember>? members,
   Uint8List? videoPreview,
+  ConversationOlderMessageLoader? olderMessageLoader,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -300,13 +578,38 @@ Future<void> _pumpChat(
         conversationMessageWindowProvider.overrideWith(
           (ref, key) async => messages,
         ),
+        conversationOlderMessageLoaderProvider.overrideWithValue(
+          olderMessageLoader ??
+              (conversationId, {beforeSequence}) async => const <ImMessage>[],
+        ),
+        imMediaCacheAccountLoaderProvider.overrideWithValue(
+          () async => 'widget-test-account',
+        ),
+        imMessageImageBytesLoaderProvider.overrideWithValue(
+          (messageId, imageId) async => _testImageBytes,
+        ),
+        imMessageImageDiskCacheReaderProvider.overrideWithValue(
+          ({
+            required accountId,
+            required imageId,
+            required sha256Value,
+          }) async => null,
+        ),
+        imMessageImageDiskCacheWriterProvider.overrideWithValue(
+          ({
+            required accountId,
+            required imageId,
+            required sha256Value,
+            required bytes,
+          }) async {},
+        ),
         imVideoPreviewProvider.overrideWith(
           (ref, key) async => videoPreview == null
               ? null
               : ImVideoPreviewSource.memory(videoPreview),
         ),
         conversationMembersProvider.overrideWith(
-          (ref, id) async => PreviewData.conversationMembers(id),
+          (ref, id) async => members ?? PreviewData.conversationMembers(id),
         ),
         conversationMemberPageProvider.overrideWith((ref, key) async {
           final members = PreviewData.conversationMembers(key.conversationId);
@@ -331,3 +634,7 @@ Future<void> _pumpChat(
   );
   await tester.pumpAndSettle();
 }
+
+final Uint8List _testImageBytes = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+);

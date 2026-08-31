@@ -333,31 +333,32 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
             .read(oaRepositoryProvider)
             .downloadAttachmentPreview(attachment.id);
         if (!mounted) return;
-        await showDialog<void>(
-          context: context,
-          barrierColor: Colors.black87,
-          builder: (context) => Dialog.fullscreen(
-            backgroundColor: Colors.black,
-            child: SafeArea(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: InteractiveViewer(
-                      minScale: 0.8,
-                      maxScale: 4,
-                      child: Center(child: Image.memory(bytes)),
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            fullscreenDialog: true,
+            builder: (context) => Scaffold(
+              backgroundColor: Colors.black,
+              body: SafeArea(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: InteractiveViewer(
+                        minScale: 0.8,
+                        maxScale: 4,
+                        child: Center(child: Image.memory(bytes)),
+                      ),
                     ),
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: IconButton(
-                      tooltip: '关闭',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: IconButton(
+                        tooltip: '关闭',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -671,7 +672,14 @@ class _AttachmentRow extends ConsumerWidget {
                       .when(
                         data: (bytes) => ClipRRect(
                           borderRadius: BorderRadius.circular(6),
-                          child: Image.memory(bytes, fit: BoxFit.cover),
+                          child: Image.memory(
+                            bytes,
+                            fit: BoxFit.cover,
+                            cacheWidth:
+                                (32 * MediaQuery.devicePixelRatioOf(context))
+                                    .round()
+                                    .clamp(32, 192),
+                          ),
                         ),
                         loading: () => const Center(
                           child: SizedBox.square(
@@ -904,6 +912,8 @@ class _TimelineItem extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       task.comment,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.secondaryText,
@@ -951,47 +961,93 @@ class _ActionRow extends StatelessWidget {
   final OaApprovalAction action;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  Widget build(BuildContext context) {
+    final actorName = action.actorName.trim();
+    final comment = action.comment.trim();
+    final actionLabel = _actionLabel(action.action);
+    final occurredAt = action.occurredAt;
+    final compactSystemEvent = actorName.isEmpty && comment.isEmpty;
+
+    if (compactSystemEvent) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
           children: [
+            const SizedBox(
+              width: 46,
+              child: Text(
+                '系统',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
             Expanded(
               child: Text(
-                action.actorName.isEmpty ? '系统' : action.actorName,
+                actionLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  color: AppColors.secondaryText,
                 ),
               ),
             ),
-            if (action.occurredAt != null)
+            if (occurredAt != null) ...[
+              const SizedBox(width: 6),
               Text(
-                DateFormat('MM-dd HH:mm').format(action.occurredAt!),
+                DateFormat('MM-dd HH:mm').format(occurredAt),
                 style: const TextStyle(
                   fontSize: 11,
                   color: AppColors.secondaryText,
                 ),
               ),
+            ],
           ],
         ),
-        const SizedBox(height: 2),
-        Text(
-          [
-            _actionLabel(action.action),
-            if (action.comment.isNotEmpty) action.comment,
-          ].join(' · '),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, color: AppColors.secondaryText),
-        ),
-      ],
-    ),
-  );
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  actorName.isEmpty ? '系统' : actorName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (occurredAt != null)
+                Text(
+                  DateFormat('MM-dd HH:mm').format(occurredAt),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            [actionLabel, if (comment.isNotEmpty) comment].join(' · '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.secondaryText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ApprovalCopies extends StatelessWidget {
@@ -1597,6 +1653,9 @@ String _actionLabel(String action) => switch (action.toLowerCase()) {
   'returned' => '退回',
   'withdrawn' => '撤回',
   'reminded' => '催办',
+  'service_queued' => '后续服务已排队',
+  'service_succeeded' => '后续服务已完成',
+  'service_failed' => '后续服务执行失败',
   _ => action,
 };
 

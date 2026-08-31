@@ -7,8 +7,10 @@ import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:hexing_terminal_mobile/features/contacts/presentation/contacts_page.dart';
 import 'package:hexing_terminal_mobile/features/shell/presentation/mobile_shell.dart';
+import 'package:hexing_terminal_mobile/features/workbench/data/managed_sites_repository.dart';
 import 'package:hexing_terminal_mobile/features/workbench/domain/app_catalog.dart';
 import 'package:hexing_terminal_mobile/features/workbench/presentation/all_apps_page.dart';
+import 'package:hexing_terminal_mobile/features/workbench/presentation/workbench_page.dart';
 
 void main() {
   test('security shortcuts keep desktop-aligned destinations distinct', () {
@@ -126,6 +128,16 @@ void main() {
 
       expect(find.text('林晨'), findsOneWidget);
       expect(find.text('我'), findsOneWidget);
+      final flatContent = tester.widget<Material>(
+        find.byKey(const Key('contacts-flat-content')),
+      );
+      expect(flatContent.type, MaterialType.transparency);
+      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+      final pageContext = tester.element(find.byType(ContactsPage));
+      expect(
+        scaffold.backgroundColor,
+        Theme.of(pageContext).colorScheme.surface,
+      );
       expect(find.byTooltip('发送消息'), findsNWidgets(3));
       expect(find.byTooltip('联系人操作'), findsNothing);
       expect(find.byIcon(Icons.wifi_off_rounded), findsNothing);
@@ -268,15 +280,15 @@ void main() {
   });
 
   testWidgets(
-    'an app shortcut pushes a detail route and back returns to apps',
+    'all apps preserves the server workbench order and application routes',
     (tester) async {
       final router = GoRouter(
         initialLocation: '/apps',
         routes: [
           GoRoute(path: '/apps', builder: (_, _) => const AllAppsPage()),
           GoRoute(
-            path: '/schedule',
-            builder: (_, _) => const Scaffold(body: Text('真实日程页')),
+            path: '/apply/:applicationKey',
+            builder: (_, _) => const Scaffold(body: Text('真实申请页')),
           ),
         ],
       );
@@ -294,12 +306,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final attendanceSection = find.byKey(const ValueKey('app-category-考勤'));
-      expect(attendanceSection, findsOneWidget);
-      expect(tester.getSize(attendanceSection).height, lessThanOrEqualTo(84));
+      expect(find.text('考勤'), findsNothing);
+      expect(find.text('费用'), findsNothing);
       expect(find.text('我的常用'), findsNothing);
       expect(find.text('请假申请'), findsOneWidget);
       expect(find.text('报销申请'), findsOneWidget);
+      expect(find.text('日程'), findsNothing);
+      expect(find.text('网络诊断'), findsNothing);
+      final leaveLabel = tester.widget<Text>(find.text('请假申请'));
+      expect(leaveLabel.maxLines, 2);
+      expect(leaveLabel.textAlign, TextAlign.center);
       expect(
         tester
             .getSize(find.byKey(const Key('all-app-icon-attendance.leave')))
@@ -307,9 +323,16 @@ void main() {
         32,
       );
 
-      await tester.tap(find.text('日程').first);
+      final labels = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((item) => item.data)
+          .whereType<String>()
+          .toList();
+      expect(labels.indexOf('请假申请'), lessThan(labels.indexOf('报销申请')));
+
+      await tester.tap(find.text('请假申请'));
       await tester.pumpAndSettle();
-      expect(find.text('真实日程页'), findsOneWidget);
+      expect(find.text('真实申请页'), findsOneWidget);
 
       router.pop();
       await tester.pumpAndSettle();
@@ -318,29 +341,177 @@ void main() {
   );
 
   testWidgets(
-    'all-app search filters the compact catalog without stale shortcuts',
+    'workbench and all apps share the exact server application names',
     (tester) async {
+      const catalog = OaApplicationCatalog(
+        catalogVersion: 'alignment-test',
+        items: [
+          OaApplicationCatalogItem(
+            applicationKey: 'purchase.request',
+            name: '采购申请',
+            category: '采购',
+            iconKey: 'purchase',
+            iconDataUrl: null,
+            displayOrder: 10,
+            configurationKind: 'approval',
+            configurationId: 'purchase-config',
+            approvalTemplateId: 'purchase-template',
+            allowOfflineDraft: true,
+            availabilitySource: 'department',
+            sourceDepartmentId: 'department-1',
+          ),
+          OaApplicationCatalogItem(
+            applicationKey: 'seal.request',
+            name: '用印申请',
+            category: '行政',
+            iconKey: 'seal',
+            iconDataUrl: null,
+            displayOrder: 20,
+            configurationKind: 'approval',
+            configurationId: 'seal-config',
+            approvalTemplateId: 'seal-template',
+            allowOfflineDraft: true,
+            availabilitySource: 'department',
+            sourceDepartmentId: 'department-1',
+          ),
+        ],
+      );
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const WorkbenchPage()),
+          GoRoute(path: '/apps', builder: (_, _) => const AllAppsPage()),
+        ],
+      );
+      addTearDown(router.dispose);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            oaApplicationCatalogProvider.overrideWith(
-              (ref) async => PreviewData.oaCatalog,
+            oaBootstrapProvider.overrideWith(
+              (ref) async => PreviewData.oaBootstrap,
             ),
+            oaApplicationCatalogProvider.overrideWith((ref) async => catalog),
+            managedSitesProvider.overrideWith((ref) async => const []),
           ],
-          child: const MaterialApp(home: AllAppsPage()),
+          child: MaterialApp.router(routerConfig: router),
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), '网络');
-      await tester.pumpAndSettle();
-      expect(find.text('网络诊断'), findsOneWidget);
-      expect(find.text('我的常用'), findsNothing);
-      expect(find.text('请假'), findsNothing);
+      expect(find.text('采购申请'), findsOneWidget);
+      expect(find.text('用印申请'), findsOneWidget);
+      expect(find.text('采购'), findsNothing);
+      expect(find.text('用印'), findsNothing);
 
-      await tester.enterText(find.byType(TextField), '不存在');
+      await tester.tap(find.text('全部应用'));
       await tester.pumpAndSettle();
-      expect(find.text('暂无匹配应用'), findsOneWidget);
+      expect(find.text('采购申请'), findsOneWidget);
+      expect(find.text('用印申请'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'workbench renders only the latest announcement as a compact row',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            oaBootstrapProvider.overrideWith(
+              (ref) async => PreviewData.oaBootstrap,
+            ),
+            oaApplicationCatalogProvider.overrideWith(
+              (ref) async => PreviewData.oaCatalog,
+            ),
+          ],
+          child: const MaterialApp(home: WorkbenchPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final announcementRow = find.ancestor(
+        of: find.text('安全提示'),
+        matching: find.byType(ListTile),
+      );
+      expect(announcementRow, findsOneWidget);
+      expect(tester.getSize(announcementRow).height, lessThanOrEqualTo(48));
+      expect(
+        tester.getTopLeft(find.text('安全提示')).dy,
+        lessThan(tester.getTopLeft(find.text('常用应用')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('安全提示')).dy,
+        lessThan(tester.getTopLeft(find.textContaining('待我处理').first).dy),
+      );
+      expect(find.text('请及时完成本周终端安全检查'), findsNothing);
+      expect(find.text('公告'), findsNothing);
+      expect(find.text('暂无公告'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'workbench omits sites, stale schedules and the empty announcement surface',
+    (tester) async {
+      final source = PreviewData.oaBootstrap;
+      final withoutAnnouncements = OaBootstrap(
+        currentMemberId: source.currentMemberId,
+        displayName: source.displayName,
+        todos: source.todos,
+        announcements: const [],
+        templates: source.templates,
+        approvalRequests: source.approvalRequests,
+        approvalRequestsNextCursor: source.approvalRequestsNextCursor,
+        approvalRequestsHasMore: source.approvalRequestsHasMore,
+        notifications: source.notifications,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            oaBootstrapProvider.overrideWith(
+              (ref) async => withoutAnnouncements,
+            ),
+            oaApplicationCatalogProvider.overrideWith(
+              (ref) async => PreviewData.oaCatalog,
+            ),
+            mobileClockProvider.overrideWithValue(DateTime(2026, 8, 31)),
+          ],
+          child: const MaterialApp(home: WorkbenchPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('常用站点'), findsNothing);
+      expect(find.text('今日日程'), findsNothing);
+      expect(find.text('今天暂无日程'), findsNothing);
+      expect(find.text('暂无公告'), findsNothing);
+      expect(find.text('公告'), findsNothing);
+    },
+  );
+
+  testWidgets('all-app search filters only the server workbench catalog', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          oaApplicationCatalogProvider.overrideWith(
+            (ref) async => PreviewData.oaCatalog,
+          ),
+        ],
+        child: const MaterialApp(home: AllAppsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '报销');
+    await tester.pumpAndSettle();
+    expect(find.text('报销申请'), findsOneWidget);
+    expect(find.text('我的常用'), findsNothing);
+    expect(find.text('请假申请'), findsNothing);
+    expect(find.text('网络诊断'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), '不存在');
+    await tester.pumpAndSettle();
+    expect(find.text('暂无匹配应用'), findsOneWidget);
+  });
 }

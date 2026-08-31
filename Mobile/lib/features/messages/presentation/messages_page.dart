@@ -53,6 +53,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     final value = ref.watch(imBootstrapProvider);
     const tabs = ['全部', '未读', '@我', '群组'];
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -139,7 +140,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: MobileSurface(
+                child: Material(
+                  key: const Key('messages-flat-content'),
+                  type: MaterialType.transparency,
                   child: value.when(
                     loading: () => const ModuleLoadingState(label: '正在加载消息'),
                     error: (error, _) => EmptyState(

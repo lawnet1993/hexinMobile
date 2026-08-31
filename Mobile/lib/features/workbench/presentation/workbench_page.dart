@@ -53,12 +53,16 @@ class _WorkbenchPageState extends ConsumerState<WorkbenchPage> {
             final unreadNotifications = data.notifications
                 .where((item) => !item.isRead)
                 .length;
+            final todayItems = data.todos
+                .where(
+                  (item) => item.dueAt != null && _isSameDate(item.dueAt!, now),
+                )
+                .toList(growable: false);
             return RefreshIndicator(
               onRefresh: () async {
                 await Future.wait([
                   ref.read(oaRepositoryProvider).refreshWorkspace(),
                   ref.read(imRepositoryProvider).refreshBootstrap(),
-                  ref.refresh(managedSitesProvider.future),
                 ]);
                 ref.invalidate(oaBootstrapProvider);
                 ref.invalidate(oaApplicationCatalogProvider);
@@ -77,9 +81,11 @@ class _WorkbenchPageState extends ConsumerState<WorkbenchPage> {
                           now: now,
                           unreadNotifications: unreadNotifications,
                         ),
-                        const SizedBox(height: 10),
-                        const _AuthorizedSitesPanel(),
-                        const SizedBox(height: 10),
+                        if (data.announcements.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _AnnouncementsPanel(item: data.announcements.first),
+                        ],
+                        const SizedBox(height: 8),
                         _ApplicationsPanel(applications: applications),
                         const SizedBox(height: 10),
                         _ActivityPanel(
@@ -89,10 +95,10 @@ class _WorkbenchPageState extends ConsumerState<WorkbenchPage> {
                           pending: pending,
                           initiated: initiated,
                         ),
-                        const SizedBox(height: 10),
-                        _SchedulePanel(items: data.todos),
-                        const SizedBox(height: 10),
-                        _AnnouncementsPanel(items: data.announcements),
+                        if (todayItems.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          _SchedulePanel(items: todayItems),
+                        ],
                         const SizedBox(height: 18),
                       ],
                     ),
@@ -175,52 +181,10 @@ String _dateLabel(DateTime value) {
   return '${value.year}年${value.month}月${value.day}日 ${weekdays[value.weekday - 1]}';
 }
 
-class _AuthorizedSitesPanel extends ConsumerWidget {
-  const _AuthorizedSitesPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final sites = ref.watch(managedSitesProvider);
-    return _SurfacePanel(
-      child: Column(
-        children: [
-          _ManagedSitesHeader(
-            count: sites.value?.length ?? 0,
-            onOpenAll: () => context.push('/sites'),
-            onRefresh: () => ref.invalidate(managedSitesProvider),
-          ),
-          const Divider(height: 1),
-          sites.when(
-            loading: () => const SizedBox(
-              height: 78,
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            ),
-            error: (error, _) => _CompactEmpty(
-              icon: TDIcons.cloud,
-              title: error is ManagedSitesSessionExpired
-                  ? '登录已失效，请退出后重新登录'
-                  : '授权站点加载失败，点击刷新',
-              onTap: () => ref.invalidate(managedSitesProvider),
-            ),
-            data: (items) => items.isEmpty
-                ? const _CompactEmpty(icon: TDIcons.cloud, title: '当前账号暂无授权站点')
-                : Column(
-                    children: items
-                        .take(3)
-                        .map(
-                          (site) => _ManagedSiteRow(
-                            site: site,
-                            onTap: () => _openManagedSite(context, ref, site),
-                          ),
-                        )
-                        .toList(),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+bool _isSameDate(DateTime left, DateTime right) =>
+    left.year == right.year &&
+    left.month == right.month &&
+    left.day == right.day;
 
 class ManagedSitesPage extends ConsumerStatefulWidget {
   const ManagedSitesPage({super.key});
@@ -316,56 +280,6 @@ class _ManagedSitesPageState extends ConsumerState<ManagedSitesPage> {
       ),
     );
   }
-}
-
-class _ManagedSitesHeader extends StatelessWidget {
-  const _ManagedSitesHeader({
-    required this.count,
-    required this.onOpenAll,
-    required this.onRefresh,
-  });
-
-  final int count;
-  final VoidCallback onOpenAll;
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 38,
-    child: Row(
-      children: [
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Text(
-            '常用站点',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-          ),
-        ),
-        TextButton(
-          onPressed: onOpenAll,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                count > 0 ? '全部站点 $count' : '全部站点',
-                style: const TextStyle(fontSize: 12),
-              ),
-              const Icon(TDIcons.chevronRight, size: 15),
-            ],
-          ),
-        ),
-        IconButton(
-          tooltip: '刷新授权站点',
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-          padding: EdgeInsets.zero,
-          onPressed: onRefresh,
-          icon: const Icon(Icons.refresh_rounded, size: 18),
-        ),
-        const SizedBox(width: 4),
-      ],
-    ),
-  );
 }
 
 class _ManagedSiteRow extends StatelessWidget {
@@ -743,7 +657,7 @@ class _ApplicationsPanel extends StatelessWidget {
               }
               final item = items[index];
               return _AppShortcut(
-                title: _shortcutTitle(item.title),
+                title: item.title,
                 icon: _tdIcon(item.title),
                 color: item.color,
                 onTap: item.route == null
@@ -802,10 +716,6 @@ class _AppShortcut extends StatelessWidget {
     ),
   );
 }
-
-String _shortcutTitle(String title) => title.endsWith('申请')
-    ? title.substring(0, title.length - '申请'.length)
-    : title;
 
 class _ActivityPanel extends StatelessWidget {
   const _ActivityPanel({
@@ -1133,51 +1043,29 @@ class _SchedulePanel extends StatelessWidget {
 }
 
 class _AnnouncementsPanel extends StatelessWidget {
-  const _AnnouncementsPanel({required this.items});
+  const _AnnouncementsPanel({required this.item});
 
-  final List<OaAnnouncement> items;
+  final OaAnnouncement item;
 
   @override
   Widget build(BuildContext context) => _SurfacePanel(
-    child: Column(
-      children: [
-        _SectionHeader(
-          title: '公告',
-          action: '全部',
-          onTap: () => context.push('/notifications?tab=announcements'),
+    child: Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        dense: true,
+        minTileHeight: 44,
+        visualDensity: const VisualDensity(vertical: -4),
+        contentPadding: const EdgeInsets.fromLTRB(12, 0, 10, 0),
+        leading: const Icon(TDIcons.sound, size: 19, color: Color(0xFFED7B2F)),
+        title: Text(
+          item.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
         ),
-        const Divider(height: 1),
-        if (items.isEmpty)
-          const _CompactEmpty(icon: TDIcons.sound, title: '暂无公告')
-        else
-          for (var index = 0; index < items.take(3).length; index++) ...[
-            if (index > 0) const Divider(height: 1, indent: 52, endIndent: 12),
-            Material(
-              type: MaterialType.transparency,
-              child: ListTile(
-                dense: true,
-                visualDensity: const VisualDensity(vertical: -2),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                leading: const Icon(
-                  TDIcons.sound,
-                  size: 19,
-                  color: Color(0xFFED7B2F),
-                ),
-                title: Text(
-                  items[index].title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(
-                  items[index].content,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                onTap: () => context.push('/notifications?tab=announcements'),
-              ),
-            ),
-          ],
-      ],
+        trailing: const Icon(TDIcons.chevronRight, size: 17),
+        onTap: () => context.push('/notifications?tab=announcements'),
+      ),
     ),
   );
 }
@@ -1284,31 +1172,24 @@ class _SurfacePanel extends StatelessWidget {
 }
 
 class _CompactEmpty extends StatelessWidget {
-  const _CompactEmpty({required this.icon, required this.title, this.onTap});
+  const _CompactEmpty({required this.icon, required this.title});
 
   final IconData icon;
   final String title;
-  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: SizedBox(
-      height: 54,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 20, color: AppColors.weakText),
-          const SizedBox(width: 9),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.secondaryText,
-            ),
-          ),
-        ],
-      ),
+  Widget build(BuildContext context) => SizedBox(
+    height: 54,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 20, color: AppColors.weakText),
+        const SizedBox(width: 9),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 12, color: AppColors.secondaryText),
+        ),
+      ],
     ),
   );
 }

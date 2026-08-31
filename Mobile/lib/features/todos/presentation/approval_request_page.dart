@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
@@ -7,15 +9,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/data/oa_local_store.dart';
 import '../../collaboration/domain/collaboration_models.dart';
+import '../domain/approval_form_calculation.dart';
 
 class ApprovalRequestPage extends ConsumerStatefulWidget {
   const ApprovalRequestPage({
@@ -49,13 +55,24 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   final _values = <String, Object?>{};
   final _attachments = <OaLocalAttachment>[];
   final _serverFieldErrors = <String, String>{};
+  final _calculationFieldErrors = <String, String>{};
   String _title = '';
+  String _defaultTitle = '';
   bool _submitting = false;
   bool _previewing = false;
+  OaWorkflowPreview? _workflowPreview;
+  Object? _workflowPreviewError;
+  String _workflowPreviewFingerprint = '';
+  int _workflowPreviewSequence = 0;
   bool _uploadingAttachment = false;
   bool _draftLoaded = false;
+  bool _draftWasRestored = false;
+  bool _hasUnsavedChanges = false;
+  bool _allowPop = false;
+  DateTime? _draftSavedAt;
   OaApprovalDraft? _draft;
   Timer? _draftTimer;
+  Timer? _workflowPreviewTimer;
 
   @override
   void initState() {
@@ -66,6 +83,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   @override
   void dispose() {
     _draftTimer?.cancel();
+    _workflowPreviewTimer?.cancel();
     super.dispose();
   }
 
@@ -140,7 +158,10 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     List<ImDepartment> departments,
   ) {
     final fields = _parseFields(template.formSchemaJson);
+    _recalculateDerivedFields(fields);
     final defaultTitle = '${data.displayName}的${template.name}';
+    _defaultTitle = defaultTitle;
+    _scheduleWorkflowPreview(template);
     final pageTheme = Theme.of(context);
     final compactInputTheme = pageTheme.inputDecorationTheme.copyWith(
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -170,174 +191,140 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
         borderSide: BorderSide(color: pageTheme.colorScheme.error, width: 1),
       ),
     );
-    return Scaffold(
-      appBar: AppBar(centerTitle: true, title: Text(template.name)),
-      body: Theme(
-        data: pageTheme.copyWith(inputDecorationTheme: compactInputTheme),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 88),
-            children: [
-              _RequesterSummary(
-                displayName: requester?.displayName.isNotEmpty == true
-                    ? requester!.displayName
-                    : data.displayName,
-                departmentName: requester?.departmentName ?? '',
-                avatarDataUrl: requester?.avatarDataUrl ?? '',
-                templateVersion: template.version,
-              ),
-              const SizedBox(height: 8),
-              MobileSurface(
-                key: const Key('approval-form-surface'),
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    TextFormField(
-                      key: ValueKey('approval-title-$_draftLoaded'),
-                      initialValue: _title.isEmpty ? defaultTitle : _title,
-                      maxLength: 120,
-                      decoration: const InputDecoration(
-                        labelText: '申请标题',
-                        counterText: '',
-                      ),
-                      validator: _requiredText,
-                      onChanged: (value) {
-                        _title = value;
-                        _scheduleDraftSave(template, allowOfflineDraft);
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    for (final field in fields) ...[
-                      if (field.type == 'attachment' || field.type == 'file')
-                        _AttachmentEditor(
-                          field: field,
-                          items: _attachments
-                              .where(
-                                (item) =>
-                                    item.formFieldId.isEmpty ||
-                                    item.formFieldId == field.id,
-                              )
-                              .toList(),
-                          uploading: _uploadingAttachment,
-                          onAdd: () => _pickAttachment(
-                            field.id,
-                            template,
-                            allowOfflineDraft,
-                          ),
-                          onDelete: (attachment) => _deleteAttachment(
-                            attachment,
-                            template,
-                            allowOfflineDraft,
-                          ),
-                        )
-                      else
-                        _SchemaField(
-                          field: field,
-                          value: _values[field.id],
-                          serverError: _serverFieldErrors[field.id],
-                          members: members,
-                          departments: departments,
-                          onChanged: (value) {
-                            setState(() {
-                              _values[field.id] = value;
-                              _serverFieldErrors.remove(field.id);
-                              _recalculateDurations(fields);
-                            });
-                            _scheduleDraftSave(template, allowOfflineDraft);
-                          },
-                        ),
-                      const SizedBox(height: 10),
-                    ],
-                    if (fields.isEmpty)
-                      const EmptyState(
-                        icon: Icons.description_outlined,
-                        title: '当前模板没有可填写字段',
-                      ),
-                    if (fields.isNotEmpty)
-                      SizedBox(
-                        key: const Key('approval-workflow-button'),
-                        height: 40,
-                        child: Material(
-                          color: const Color(0xFFF1F6FF),
-                          borderRadius: BorderRadius.circular(8),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: _previewing
-                                ? null
-                                : () => _previewWorkflow(template),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (_previewing)
-                                  const SizedBox.square(
-                                    dimension: 15,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                else
-                                  const Icon(
-                                    Icons.account_tree_outlined,
-                                    size: 18,
-                                    color: AppColors.primary,
-                                  ),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  '查看审批流程',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 18,
-                                  color: AppColors.primary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handlePop(template, allowOfflineDraft);
+      },
+      child: Scaffold(
+        appBar: AppBar(centerTitle: true, title: Text(template.name)),
+        body: Theme(
+          data: pageTheme.copyWith(inputDecorationTheme: compactInputTheme),
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 88),
+              children: [
+                _RequesterSummary(
+                  displayName: requester?.displayName.isNotEmpty == true
+                      ? requester!.displayName
+                      : data.displayName,
+                  departmentName: requester?.departmentName ?? '',
+                  avatarDataUrl: requester?.avatarDataUrl ?? '',
+                  templateVersion: template.version,
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: AppColors.border)),
-          ),
-          child: Row(
-            children: [
-              if (allowOfflineDraft) ...[
-                SizedBox(
-                  height: 42,
-                  child: OutlinedButton.icon(
-                    key: const Key('approval-draft-button'),
-                    onPressed: _submitting
-                        ? null
-                        : () => _saveDraft(template, showFeedback: true),
-                    style: OutlinedButton.styleFrom(
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    icon: const Icon(Icons.save_outlined, size: 18),
-                    label: const Text('保存草稿'),
+                const SizedBox(height: 8),
+                if (_draftSavedAt case final savedAt?) ...[
+                  _DraftStatusStrip(
+                    restored: _draftWasRestored,
+                    updatedAt: savedAt,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                MobileSurface(
+                  key: const Key('approval-form-surface'),
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      for (final field in fields) ...[
+                        if (field.type == 'attachment' || field.type == 'file')
+                          _AttachmentEditor(
+                            field: field,
+                            items: _attachments
+                                .where(
+                                  (item) =>
+                                      item.formFieldId.isEmpty ||
+                                      item.formFieldId == field.id,
+                                )
+                                .toList(),
+                            uploading: _uploadingAttachment,
+                            onAdd: () => _pickAttachment(
+                              field.id,
+                              template,
+                              allowOfflineDraft,
+                            ),
+                            onDelete: (attachment) => _deleteAttachment(
+                              attachment,
+                              template,
+                              allowOfflineDraft,
+                            ),
+                            onOpen: _openLocalAttachment,
+                          )
+                        else
+                          _SchemaField(
+                            field: field,
+                            value: _values[field.id],
+                            serverError: _serverFieldErrors[field.id],
+                            calculationError: _calculationFieldErrors[field.id],
+                            members: members,
+                            departments: departments,
+                            onChanged: (value) {
+                              setState(() {
+                                _values[field.id] = value;
+                                _serverFieldErrors.remove(field.id);
+                                _recalculateDerivedFields(fields);
+                                _hasUnsavedChanges = true;
+                              });
+                              _scheduleDraftSave(template, allowOfflineDraft);
+                              _scheduleWorkflowPreview(template);
+                            },
+                          ),
+                        const SizedBox(height: 10),
+                      ],
+                      if (fields.isEmpty)
+                        const EmptyState(
+                          icon: Icons.description_outlined,
+                          title: '当前模板没有可填写字段',
+                        ),
+                      if (fields.isNotEmpty) ...[
+                        const Divider(height: 17),
+                        ApprovalWorkflowInline(
+                          preview: _workflowPreview,
+                          loading: _previewing,
+                          error: _workflowPreviewError,
+                          templateVersion: template.version,
+                          onRetry: () =>
+                              _refreshWorkflowPreview(template, force: true),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
               ],
-              Expanded(
-                child: SizedBox(
+            ),
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: Row(
+              children: [
+                const Spacer(),
+                if (allowOfflineDraft) ...[
+                  SizedBox(
+                    width: 116,
+                    height: 42,
+                    child: OutlinedButton.icon(
+                      key: const Key('approval-draft-button'),
+                      onPressed: _submitting
+                          ? null
+                          : () => _saveDraft(template, showFeedback: true),
+                      style: OutlinedButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.save_outlined, size: 18),
+                      label: const Text('保存草稿'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                SizedBox(
+                  width: 140,
                   height: 42,
                   child: FilledButton.icon(
                     key: const Key('approval-submit-button'),
@@ -366,8 +353,8 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
                     label: const Text('提交申请'),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -439,32 +426,65 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     await ref.read(oaRepositoryProvider).discardOutbox(sourceOutboxId);
   }
 
-  Future<void> _previewWorkflow(OaApprovalTemplate template) async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _previewing = true);
+  void _scheduleWorkflowPreview(OaApprovalTemplate template) {
+    final fingerprint = jsonEncode(_values);
+    if (fingerprint == _workflowPreviewFingerprint &&
+        (_previewing ||
+            _workflowPreview != null ||
+            _workflowPreviewError != null)) {
+      return;
+    }
+    _workflowPreviewTimer?.cancel();
+    _workflowPreviewTimer = Timer(
+      const Duration(milliseconds: 350),
+      () => _refreshWorkflowPreview(template),
+    );
+  }
+
+  Future<void> _refreshWorkflowPreview(
+    OaApprovalTemplate template, {
+    bool force = false,
+  }) async {
+    final fingerprint = jsonEncode(_values);
+    if (!force &&
+        fingerprint == _workflowPreviewFingerprint &&
+        (_previewing || _workflowPreview != null)) {
+      return;
+    }
+    final sequence = ++_workflowPreviewSequence;
+    if (mounted) {
+      setState(() {
+        _previewing = true;
+        _workflowPreviewError = null;
+      });
+    }
     try {
-      final preview = await ref
-          .read(oaRepositoryProvider)
-          .previewWorkflow(
-            applicationKey: widget.applicationKey,
-            template: template,
-            formData: _values,
-          );
-      if (mounted) {
-        setState(() => _previewing = false);
-        await _showWorkflowPreview(context, preview);
+      final preview = await ref.read(oaWorkflowPreviewLoaderProvider)(
+        applicationKey: widget.applicationKey,
+        template: template,
+        formData: Map<String, Object?>.from(_values),
+      );
+      if (mounted && sequence == _workflowPreviewSequence) {
+        setState(() {
+          _workflowPreview = preview;
+          _workflowPreviewFingerprint = fingerprint;
+          _workflowPreviewError = null;
+          _previewing = false;
+        });
       }
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(_errorMessage(error))));
+      if (mounted && sequence == _workflowPreviewSequence) {
+        setState(() {
+          _workflowPreview = null;
+          _workflowPreviewFingerprint = fingerprint;
+          _workflowPreviewError = error;
+          _previewing = false;
+        });
       }
-    } finally {
-      if (mounted && _previewing) setState(() => _previewing = false);
     }
   }
 
-  void _recalculateDurations(List<_FieldDefinition> fields) {
+  void _recalculateDerivedFields(List<_FieldDefinition> fields) {
     for (final field in fields) {
       if (field.durationUnit == null ||
           field.durationStartFieldId == null ||
@@ -490,6 +510,29 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
         _values[field.id] = endDay.difference(startDay).inDays + 1;
       }
     }
+    final calculated = evaluateApprovalFormCalculations(
+      fields: fields
+          .map(
+            (field) => ApprovalFormCalculationField(
+              id: field.id,
+              label: field.label,
+              type: field.type,
+              calculation: field.calculation,
+            ),
+          )
+          .toList(growable: false),
+      sourceValues: _values,
+    );
+    for (final field in fields.where((field) => field.calculation != null)) {
+      if (calculated.values.containsKey(field.id)) {
+        _values[field.id] = calculated.values[field.id];
+      } else {
+        _values.remove(field.id);
+      }
+    }
+    _calculationFieldErrors
+      ..clear()
+      ..addAll(calculated.errors);
   }
 
   Future<void> _loadDraft() async {
@@ -508,9 +551,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       return;
     }
     try {
-      final draft = await ref
-          .read(oaRepositoryProvider)
-          .draftForTemplate(widget.templateId);
+      final draft = await ref.read(oaDraftLoaderProvider)(widget.templateId);
       if (!mounted) return;
       setState(() {
         _draft = draft;
@@ -522,6 +563,8 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
           _attachments
             ..clear()
             ..addAll(draft.attachments);
+          _draftWasRestored = true;
+          _draftSavedAt = draft.updatedAt;
         }
         _draftLoaded = true;
       });
@@ -569,7 +612,10 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
         formFieldId: formFieldId,
       );
       if (mounted) {
-        setState(() => _attachments.add(attachment));
+        setState(() {
+          _attachments.add(attachment);
+          _hasUnsavedChanges = true;
+        });
         _scheduleDraftSave(template, allowOfflineDraft);
       }
     } catch (error) {
@@ -587,8 +633,44 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     OaApprovalTemplate template,
     bool allowOfflineDraft,
   ) {
-    setState(() => _attachments.remove(attachment));
+    setState(() {
+      _attachments.remove(attachment);
+      _hasUnsavedChanges = true;
+    });
     _scheduleDraftSave(template, allowOfflineDraft);
+  }
+
+  Future<void> _openLocalAttachment(OaLocalAttachment attachment) async {
+    if (attachment.contentType.toLowerCase().startsWith('image/')) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (context) =>
+              _LocalImageAttachmentPreview(attachment: attachment),
+        ),
+      );
+      return;
+    }
+    try {
+      final directory = await getTemporaryDirectory();
+      final safeName = path.basename(attachment.fileName).trim().isEmpty
+          ? 'attachment'
+          : path.basename(attachment.fileName).trim();
+      final target = File(
+        path.join(directory.path, 'oa-${attachment.id}-$safeName'),
+      );
+      await target.writeAsBytes(attachment.bytes, flush: true);
+      final result = await OpenFilex.open(target.path);
+      if (result.type != ResultType.done && mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(result.message)));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(_errorMessage(error))));
+      }
+    }
   }
 
   void _scheduleDraftSave(OaApprovalTemplate template, bool allowOfflineDraft) {
@@ -600,34 +682,100 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     );
   }
 
-  Future<void> _saveDraft(
+  Future<bool> _saveDraft(
     OaApprovalTemplate template, {
     bool showFeedback = false,
   }) async {
     try {
-      final draft = await ref
-          .read(oaRepositoryProvider)
-          .saveDraft(
-            id: _draft?.id,
-            applicationKey: widget.applicationKey,
-            template: template,
-            title: _title.trim(),
-            formData: _values,
-            attachments: _attachments,
-          );
-      _draft = draft;
+      final draft = await ref.read(oaDraftSaverProvider)(
+        id: _draft?.id,
+        applicationKey: widget.applicationKey,
+        template: template,
+        title: _title.trim().isEmpty ? _defaultTitle : _title.trim(),
+        formData: Map<String, Object?>.from(_values),
+        attachments: List<OaLocalAttachment>.from(_attachments),
+      );
+      if (mounted) {
+        setState(() {
+          _draft = draft;
+          _draftSavedAt = draft.updatedAt;
+          _draftWasRestored = false;
+          _hasUnsavedChanges = false;
+        });
+      } else {
+        _draft = draft;
+      }
       ref.invalidate(oaDraftsProvider);
       if (showFeedback && mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('草稿已保存')));
       }
+      return true;
     } catch (error) {
       if (showFeedback && mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(_errorMessage(error))));
       }
+      return false;
     }
   }
+
+  Future<void> _handlePop(
+    OaApprovalTemplate template,
+    bool allowOfflineDraft,
+  ) async {
+    _draftTimer?.cancel();
+    if (_hasUnsavedChanges && allowOfflineDraft) {
+      final saved = await _saveDraft(template);
+      if (!saved || !mounted) return;
+    }
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    Navigator.of(context).pop();
+  }
+}
+
+class _DraftStatusStrip extends StatelessWidget {
+  const _DraftStatusStrip({required this.restored, required this.updatedAt});
+
+  final bool restored;
+  final DateTime updatedAt;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const Key('approval-draft-status'),
+    height: 30,
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF1F6FF),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.history_rounded, size: 15, color: AppColors.primary),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            restored ? '已恢复上次草稿' : '草稿已保存',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Text(
+          DateFormat('MM-dd HH:mm').format(updatedAt.toLocal()),
+          style: const TextStyle(
+            fontSize: 10.5,
+            color: AppColors.secondaryText,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _RequesterSummary extends StatelessWidget {
@@ -697,6 +845,7 @@ class _AttachmentEditor extends StatelessWidget {
     required this.uploading,
     required this.onAdd,
     required this.onDelete,
+    required this.onOpen,
   });
 
   final _FieldDefinition field;
@@ -704,6 +853,7 @@ class _AttachmentEditor extends StatelessWidget {
   final bool uploading;
   final VoidCallback onAdd;
   final ValueChanged<OaLocalAttachment> onDelete;
+  final ValueChanged<OaLocalAttachment> onOpen;
 
   @override
   Widget build(BuildContext context) => FormField<List<OaLocalAttachment>>(
@@ -717,7 +867,7 @@ class _AttachmentEditor extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                field.label,
+                _schemaFieldLabel(field),
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
@@ -760,27 +910,187 @@ class _AttachmentEditor extends StatelessWidget {
             ),
           ),
         ...items.map(
-          (item) => ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.insert_drive_file_outlined),
-            title: Text(
-              item.fileName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(_fileSize(item.size)),
-            trailing: IconButton(
-              tooltip: '删除附件',
-              onPressed: () {
-                onDelete(item);
-                state.didChange(items);
-              },
-              icon: const Icon(Icons.delete_outline_rounded),
+          (item) => Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: Material(
+              key: ValueKey('approval-attachment-${item.id}'),
+              color: const Color(0xFFF6F7F9),
+              borderRadius: BorderRadius.circular(8),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => onOpen(item),
+                child: SizedBox(
+                  height: 54,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 7),
+                      _LocalAttachmentThumbnail(attachment: item),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.fileName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _fileSize(item.size),
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: AppColors.secondaryText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '删除附件',
+                        onPressed: () {
+                          onDelete(item);
+                          state.didChange(items);
+                        },
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 40,
+                          height: 40,
+                        ),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 19,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
       ],
+    ),
+  );
+}
+
+class _LocalAttachmentThumbnail extends StatelessWidget {
+  const _LocalAttachmentThumbnail({required this.attachment});
+
+  final OaLocalAttachment attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    final isImage = attachment.contentType.toLowerCase().startsWith('image/');
+    if (isImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.memory(
+          Uint8List.fromList(attachment.bytes),
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => const _AttachmentFileIcon(),
+        ),
+      );
+    }
+    return const _AttachmentFileIcon();
+  }
+}
+
+class _AttachmentFileIcon extends StatelessWidget {
+  const _AttachmentFileIcon();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 40,
+    height: 40,
+    decoration: BoxDecoration(
+      color: AppColors.primary.withValues(alpha: 0.09),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    alignment: Alignment.center,
+    child: const Icon(
+      Icons.insert_drive_file_outlined,
+      size: 20,
+      color: AppColors.primary,
+    ),
+  );
+}
+
+class _LocalImageAttachmentPreview extends StatelessWidget {
+  const _LocalImageAttachmentPreview({required this.attachment});
+
+  final OaLocalAttachment attachment;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    key: const Key('approval-local-attachment-preview'),
+    backgroundColor: const Color(0xFF101318),
+    body: SafeArea(
+      child: Column(
+        children: [
+          SizedBox(
+            height: 48,
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: '关闭附件预览',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                ),
+                const SizedBox(width: 2),
+                Expanded(
+                  child: Text(
+                    attachment.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Text(
+                    _fileSize(attachment.size),
+                    style: const TextStyle(
+                      color: Color(0xFFB8BFCC),
+                      fontSize: 10.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4,
+              child: Center(
+                child: Image.memory(
+                  Uint8List.fromList(attachment.bytes),
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, _, _) => const Text(
+                    '图片无法预览',
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -790,6 +1100,7 @@ class _SchemaField extends StatelessWidget {
     required this.field,
     required this.value,
     required this.serverError,
+    required this.calculationError,
     required this.members,
     required this.departments,
     required this.onChanged,
@@ -798,6 +1109,7 @@ class _SchemaField extends StatelessWidget {
   final _FieldDefinition field;
   final Object? value;
   final String? serverError;
+  final String? calculationError;
   final List<ImMember> members;
   final List<ImDepartment> departments;
   final ValueChanged<Object?> onChanged;
@@ -815,7 +1127,7 @@ class _SchemaField extends StatelessWidget {
           children: [
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(field.label),
+              title: Text(_schemaFieldLabel(field)),
               value: state.value ?? false,
               onChanged: (checked) {
                 state.didChange(checked);
@@ -836,23 +1148,49 @@ class _SchemaField extends StatelessWidget {
       );
     }
     if (field.type == 'select') {
-      return DropdownButtonFormField<String>(
+      return FormField<String>(
         initialValue: value?.toString(),
-        decoration: InputDecoration(
-          labelText: field.label,
-          errorText: serverError,
-        ),
-        items: field.options
-            .map(
-              (option) => DropdownMenuItem(value: option, child: Text(option)),
-            )
-            .toList(),
         validator: (selected) =>
             serverError ??
             (field.required && (selected?.isEmpty ?? true)
                 ? '请选择${field.label}'
                 : null),
-        onChanged: onChanged,
+        builder: (state) => InkWell(
+          key: ValueKey('schema-${field.id}-select'),
+          onTap: field.options.isEmpty
+              ? null
+              : () async {
+                  final selected = await showMobileChoiceSheet<String>(
+                    context,
+                    title: field.label,
+                    selectedValue: state.value,
+                    options: field.options
+                        .map(
+                          (option) =>
+                              MobileSheetOption(value: option, label: option),
+                        )
+                        .toList(),
+                  );
+                  if (selected == null) return;
+                  state.didChange(selected);
+                  onChanged(selected);
+                },
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: _schemaFieldLabel(field),
+              errorText: serverError ?? state.errorText,
+              suffixIcon: const Icon(Icons.expand_more_rounded, size: 20),
+            ),
+            child: Text(
+              state.value?.isNotEmpty == true ? state.value! : '请选择',
+              style: TextStyle(
+                color: state.value?.isNotEmpty == true
+                    ? AppColors.text
+                    : AppColors.secondaryText,
+              ),
+            ),
+          ),
+        ),
       );
     }
     if (field.type == 'multiSelect') {
@@ -865,26 +1203,42 @@ class _SchemaField extends StatelessWidget {
             (field.required && (selected?.isEmpty ?? true)
                 ? '请选择${field.label}'
                 : null),
-        builder: (state) => InputDecorator(
-          decoration: InputDecoration(
-            labelText: field.label,
-            errorText: serverError ?? state.errorText,
-          ),
-          child: Wrap(
-            spacing: 8,
-            children: field.options.map((option) {
-              final selected = state.value?.contains(option) == true;
-              return FilterChip(
-                label: Text(option),
-                selected: selected,
-                onSelected: (checked) {
-                  final next = [...?state.value];
-                  checked ? next.add(option) : next.remove(option);
-                  state.didChange(next);
-                  onChanged(next);
+        builder: (state) => InkWell(
+          key: ValueKey('schema-${field.id}-multi-select'),
+          onTap: field.options.isEmpty
+              ? null
+              : () async {
+                  final selected = await showMobileMultiChoiceSheet<String>(
+                    context,
+                    title: field.label,
+                    selectedValues: state.value ?? const <String>[],
+                    options: field.options
+                        .map(
+                          (option) =>
+                              MobileSheetOption(value: option, label: option),
+                        )
+                        .toList(),
+                  );
+                  if (selected == null) return;
+                  state.didChange(selected);
+                  onChanged(selected);
                 },
-              );
-            }).toList(),
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: _schemaFieldLabel(field),
+              errorText: serverError ?? state.errorText,
+              suffixIcon: const Icon(Icons.expand_more_rounded, size: 20),
+            ),
+            child: Text(
+              state.value?.isNotEmpty == true ? state.value!.join('、') : '请选择',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: state.value?.isNotEmpty == true
+                    ? AppColors.text
+                    : AppColors.secondaryText,
+              ),
+            ),
           ),
         ),
       );
@@ -930,7 +1284,7 @@ class _SchemaField extends StatelessWidget {
                   },
             child: InputDecorator(
               decoration: InputDecoration(
-                labelText: field.label,
+                labelText: _schemaFieldLabel(field),
                 errorText: serverError ?? state.errorText,
                 suffixIcon: Icon(
                   field.type == 'person'
@@ -963,6 +1317,7 @@ class _SchemaField extends StatelessWidget {
                 ? '请选择${field.label}'
                 : null),
         builder: (state) => InkWell(
+          key: ValueKey('schema-${field.id}-date-range'),
           onTap: () async {
             final current = state.value ?? const <String>[];
             final start = current.isNotEmpty
@@ -971,8 +1326,8 @@ class _SchemaField extends StatelessWidget {
             final end = current.length > 1
                 ? DateTime.tryParse(current.last)
                 : null;
-            final range = await showDateRangePicker(
-              context: context,
+            final range = await showMobileDateRangePickerSheet(
+              context,
               firstDate: DateTime.now().subtract(const Duration(days: 365)),
               lastDate: DateTime.now().add(const Duration(days: 3650)),
               initialDateRange: start == null || end == null
@@ -989,7 +1344,7 @@ class _SchemaField extends StatelessWidget {
           },
           child: InputDecorator(
             decoration: InputDecoration(
-              labelText: field.label,
+              labelText: _schemaFieldLabel(field),
               errorText: serverError ?? state.errorText,
               suffixIcon: const Icon(Icons.date_range_outlined),
             ),
@@ -1016,6 +1371,7 @@ class _SchemaField extends StatelessWidget {
                 ? '请选择${field.label}'
                 : null),
         builder: (state) => InkWell(
+          key: ValueKey('schema-${field.id}-date'),
           onTap: () async {
             final selected = await _pickDateTime(
               context,
@@ -1028,7 +1384,7 @@ class _SchemaField extends StatelessWidget {
           },
           child: InputDecorator(
             decoration: InputDecoration(
-              labelText: field.label,
+              labelText: _schemaFieldLabel(field),
               errorText: serverError ?? state.errorText,
               suffixIcon: const Icon(Icons.calendar_month_outlined),
             ),
@@ -1049,28 +1405,31 @@ class _SchemaField extends StatelessWidget {
         ),
       );
     }
-    return TextFormField(
-      key: ValueKey('schema-${field.id}-${value ?? ''}'),
-      initialValue: value?.toString(),
-      readOnly: field.durationUnit != null,
+    final readOnly = field.isReadOnly;
+    final displayValue = field.formatValue(value);
+    final textField = TextFormField(
+      key: ValueKey('schema-${field.id}-$displayValue'),
+      initialValue: displayValue,
+      readOnly: readOnly,
+      canRequestFocus: !readOnly,
+      enableInteractiveSelection: !readOnly,
+      showCursor: !readOnly,
       keyboardType: field.type == 'number' || field.type == 'amount'
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
       minLines: field.type == 'textarea' ? 2 : 1,
       maxLines: field.type == 'textarea' ? 5 : 1,
       decoration: InputDecoration(
-        labelText: field.label,
+        labelText: _schemaFieldLabel(field),
         hintText: field.placeholder,
         errorText: serverError,
-        prefixText: field.type == 'amount' ? '¥ ' : null,
-        suffixText: field.durationUnit == 'hours'
-            ? '小时'
-            : field.durationUnit == 'days'
-            ? '天'
-            : null,
+        suffixText: field.displayUnit,
       ),
       validator: (text) {
         if (serverError != null) return serverError;
+        if (field.calculation != null && calculationError != null) {
+          return calculationError;
+        }
         final missing = text?.trim().isEmpty ?? true;
         if (field.required && missing) return '请填写${field.label}';
         if (!missing && (field.type == 'number' || field.type == 'amount')) {
@@ -1080,8 +1439,9 @@ class _SchemaField extends StatelessWidget {
         }
         return null;
       },
-      onChanged: onChanged,
+      onChanged: readOnly ? null : onChanged,
     );
+    return textField;
   }
 }
 
@@ -1100,6 +1460,9 @@ List<_FieldDefinition> _parseFields(String schemaJson) {
   }
 }
 
+String _schemaFieldLabel(_FieldDefinition field) =>
+    field.required ? '${field.label} *' : field.label;
+
 final class _FieldDefinition {
   const _FieldDefinition({
     required this.id,
@@ -1108,6 +1471,9 @@ final class _FieldDefinition {
     required this.required,
     required this.placeholder,
     required this.options,
+    required this.readOnly,
+    required this.unit,
+    required this.calculation,
     required this.durationStartFieldId,
     required this.durationEndFieldId,
     required this.durationUnit,
@@ -1125,6 +1491,13 @@ final class _FieldDefinition {
         options: json['options'] is List
             ? (json['options'] as List).map((item) => item.toString()).toList()
             : const [],
+        readOnly: json['readOnly'] == true,
+        unit: json['unit']?.toString().trim() ?? '',
+        calculation: json['calculation'] is Map
+            ? ApprovalFormCalculation.fromJson(
+                (json['calculation'] as Map).cast<String, Object?>(),
+              )
+            : null,
         durationStartFieldId:
             json['durationStartFieldId']?.toString().trim().isNotEmpty == true
             ? json['durationStartFieldId'].toString()
@@ -1144,9 +1517,32 @@ final class _FieldDefinition {
   final bool required;
   final String? placeholder;
   final List<String> options;
+  final bool readOnly;
+  final String unit;
+  final ApprovalFormCalculation? calculation;
   final String? durationStartFieldId;
   final String? durationEndFieldId;
   final String? durationUnit;
+
+  bool get isReadOnly =>
+      readOnly || calculation != null || durationUnit != null;
+
+  String? get displayUnit {
+    if (unit.isNotEmpty) return unit;
+    return switch (durationUnit) {
+      'hours' => '小时',
+      'days' => '天',
+      _ => null,
+    };
+  }
+
+  String formatValue(Object? value) {
+    if (value == null) return '';
+    if (calculation != null && value is num) {
+      return value.toStringAsFixed(calculation!.scale);
+    }
+    return value.toString();
+  }
 }
 
 final class _ReferenceOption {
@@ -1230,232 +1626,252 @@ Future<String?> _showReferencePicker(
   required String title,
   required List<_ReferenceOption> options,
   required String? selectedId,
-}) async {
-  final searchController = TextEditingController();
-  var query = '';
-  final result = await showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (context) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.72,
-      minChildSize: 0.45,
-      maxChildSize: 0.92,
-      builder: (context, scrollController) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          final normalized = query.trim().toLowerCase();
-          final filtered = options
-              .where(
-                (item) =>
-                    normalized.isEmpty ||
-                    item.label.toLowerCase().contains(normalized) ||
-                    item.description.toLowerCase().contains(normalized),
-              )
-              .toList();
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 10, 8, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: '关闭',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
-                child: TextField(
-                  controller: searchController,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    hintText: '搜索名称、账号或部门',
-                    prefixIcon: Icon(Icons.search_rounded),
-                  ),
-                  onChanged: (value) => setSheetState(() => query = value),
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: filtered.isEmpty
-                    ? const Center(child: Text('没有匹配结果'))
-                    : ListView.builder(
-                        controller: scrollController,
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          final item = filtered[index];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              child: Text(
-                                item.label.isEmpty ? '?' : item.label[0],
-                              ),
-                            ),
-                            title: Text(item.label),
-                            subtitle: item.description.isEmpty
-                                ? null
-                                : Text(item.description),
-                            trailing: item.id == selectedId
-                                ? const Icon(
-                                    Icons.check_rounded,
-                                    color: AppColors.primary,
-                                  )
-                                : null,
-                            onTap: () => Navigator.pop(context, item.id),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
-    ),
-  );
-  await disposeRouteTextController(searchController);
-  return result;
-}
-
-Future<void> _showWorkflowPreview(
-  BuildContext context,
-  OaWorkflowPreview preview,
-) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  builder: (context) => ApprovalWorkflowPreviewSheet(preview: preview),
+}) => showMobileChoiceSheet<String>(
+  context,
+  title: title,
+  selectedValue: selectedId,
+  searchable: true,
+  searchHint: '搜索名称、账号或部门',
+  emptyText: '没有匹配结果',
+  options: options
+      .map(
+        (item) => MobileSheetOption(
+          value: item.id,
+          label: item.label,
+          subtitle: item.description,
+        ),
+      )
+      .toList(),
 );
 
-class ApprovalWorkflowPreviewSheet extends StatelessWidget {
-  const ApprovalWorkflowPreviewSheet({required this.preview, super.key});
+class ApprovalWorkflowInline extends StatelessWidget {
+  const ApprovalWorkflowInline({
+    required this.preview,
+    required this.loading,
+    required this.error,
+    required this.templateVersion,
+    required this.onRetry,
+    super.key,
+  });
 
-  final OaWorkflowPreview preview;
+  final OaWorkflowPreview? preview;
+  final bool loading;
+  final Object? error;
+  final int templateVersion;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final maximumHeight = MediaQuery.sizeOf(context).height * 0.72;
-    final contentHeight = 72.0 + preview.nodes.length * 76.0;
-    final sheetHeight = contentHeight.clamp(220.0, maximumHeight);
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      child: SizedBox(
-        height: sheetHeight,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 8, 8, 7),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '审批流程',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${preview.requesterDepartmentName} · v${preview.templateVersion}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            color: AppColors.secondaryText,
-                          ),
-                        ),
-                      ],
+    final value = preview;
+    final metadata = value == null
+        ? 'v$templateVersion'
+        : [
+            value.requesterDepartmentName,
+            'v${value.templateVersion}',
+          ].where((item) => item.isNotEmpty).join(' · ');
+    return Container(
+      key: const Key('approval-workflow-inline'),
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFD),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '审批流程',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (loading)
+                const Padding(
+                  padding: EdgeInsets.only(right: 7),
+                  child: SizedBox.square(
+                    dimension: 13,
+                    child: CircularProgressIndicator(strokeWidth: 1.8),
+                  ),
+                ),
+              Text(
+                metadata,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: AppColors.secondaryText,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          if (value == null && loading)
+            const _WorkflowInlineStatus(
+              icon: Icons.account_tree_outlined,
+              label: '正在解析审批人…',
+            )
+          else if (value == null && error != null)
+            _WorkflowInlineStatus(
+              icon: Icons.info_outline_rounded,
+              label: '填写必填项后自动更新',
+              action: IconButton(
+                tooltip: '重新解析审批流程',
+                onPressed: onRetry,
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+              ),
+            )
+          else if (value != null && value.nodes.isEmpty)
+            const _WorkflowInlineStatus(
+              icon: Icons.info_outline_rounded,
+              label: '当前流程没有审批节点',
+            )
+          else if (value != null)
+            for (var index = 0; index < value.nodes.length; index++)
+              _WorkflowInlineNode(
+                key: ValueKey('approval-workflow-node-$index'),
+                node: value.nodes[index],
+                isLast: index == value.nodes.length - 1,
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowInlineStatus extends StatelessWidget {
+  const _WorkflowInlineStatus({
+    required this.icon,
+    required this.label,
+    this.action,
+  });
+
+  final IconData icon;
+  final String label;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 36,
+    child: Row(
+      children: [
+        Icon(icon, size: 17, color: AppColors.secondaryText),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: AppColors.secondaryText,
+            ),
+          ),
+        ),
+        ?action,
+      ],
+    ),
+  );
+}
+
+class _WorkflowInlineNode extends StatelessWidget {
+  const _WorkflowInlineNode({
+    required this.node,
+    required this.isLast,
+    super.key,
+  });
+
+  final OaWorkflowPreviewNode node;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final actorText = _workflowActorsLabel(node.actors);
+    final mode = node.actors.length > 1
+        ? node.completionMode == 'any'
+              ? '或签'
+              : '会签'
+        : '';
+    final detail = [
+      _workflowNodeTypeLabel(node.nodeType),
+      actorText,
+      mode,
+    ].where((item) => item.isNotEmpty).join(' · ');
+    final statusColor = node.isResolved
+        ? AppColors.primary
+        : Theme.of(context).colorScheme.error;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 28,
+            child: Column(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: statusColor.withValues(alpha: 0.1),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.3),
                     ),
                   ),
-                  IconButton(
-                    tooltip: '关闭',
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded),
+                  child: Text(
+                    '${node.stage}',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: statusColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(child: Container(width: 1, color: AppColors.border)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 5 : 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    node.nodeName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    detail,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      height: 1.25,
+                      color: node.isResolved
+                          ? AppColors.secondaryText
+                          : Theme.of(context).colorScheme.error,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: preview.nodes.length,
-                separatorBuilder: (_, _) =>
-                    const Divider(height: 1, indent: 66),
-                itemBuilder: (context, index) {
-                  final node = preview.nodes[index];
-                  final actorText = _workflowActorsLabel(node.actors);
-                  final mode = node.actors.length > 1
-                      ? node.completionMode == 'any'
-                            ? '或签'
-                            : '会签'
-                      : '';
-                  return ListTile(
-                    dense: true,
-                    minTileHeight: 76,
-                    minVerticalPadding: 6,
-                    leading: CircleAvatar(
-                      radius: 16,
-                      backgroundColor: node.isResolved
-                          ? AppColors.primary.withValues(alpha: 0.1)
-                          : Theme.of(context).colorScheme.errorContainer,
-                      foregroundColor: node.isResolved
-                          ? AppColors.primary
-                          : Theme.of(context).colorScheme.error,
-                      child: Text('${node.stage}'),
-                    ),
-                    title: Text(
-                      node.nodeName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      [
-                        _workflowNodeTypeLabel(node.nodeType),
-                        actorText,
-                        mode,
-                      ].where((item) => item.isNotEmpty).join(' · '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: node.isResolved
-                            ? AppColors.secondaryText
-                            : Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                    trailing: node.isResolved
-                        ? const Icon(
-                            Icons.check_circle_outline_rounded,
-                            size: 20,
-                            color: AppColors.primary,
-                          )
-                        : Icon(
-                            Icons.error_outline_rounded,
-                            size: 20,
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1506,16 +1922,16 @@ Future<String?> _pickDateTime(
   String? current,
 }) async {
   final initial = DateTime.tryParse(current ?? '') ?? DateTime.now();
-  final date = await showDatePicker(
-    context: context,
+  final date = await showMobileDatePickerSheet(
+    context,
     initialDate: initial,
     firstDate: DateTime.now().subtract(const Duration(days: 365)),
     lastDate: DateTime.now().add(const Duration(days: 3650)),
   );
   if (date == null || !context.mounted) return null;
   if (!includeTime) return DateFormat('yyyy-MM-dd').format(date);
-  final time = await showTimePicker(
-    context: context,
+  final time = await showMobileTimePickerSheet(
+    context,
     initialTime: TimeOfDay.fromDateTime(initial),
   );
   if (time == null) return null;
@@ -1544,9 +1960,6 @@ OaApprovalTemplate? _findTemplate(
   }
   return null;
 }
-
-String? _requiredText(String? value) =>
-    (value?.trim().isEmpty ?? true) ? '请填写申请标题' : null;
 
 String _errorMessage(Object error) {
   if (error is DioException && error.response?.data is Map) {

@@ -37,14 +37,17 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('今日打卡已完成'), findsWidgets);
+    expect(find.text('今日打卡已完成'), findsOneWidget);
     expect(find.byIcon(Icons.check_circle_outline_rounded), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, '今日打卡已完成'), findsOneWidget);
+    expect(find.byKey(const Key('attendance-final-status')), findsOneWidget);
     expect(
-      tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '今日打卡已完成'))
-          .onPressed,
-      isNull,
+      tester.getSize(find.byKey(const Key('attendance-final-status'))).height,
+      36,
     );
+    expect(
+      tester.getSize(find.byKey(const Key('attendance-punch-summary'))).height,
+      lessThanOrEqualTo(120),
+    );
+    expect(find.byType(FilledButton), findsNothing);
   });
 }

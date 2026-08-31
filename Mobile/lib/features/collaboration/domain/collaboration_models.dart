@@ -567,6 +567,12 @@ final class OaNotificationPage {
         hasMore: _boolean(_value(json, 'hasMore')),
       );
 
+  Map<String, Object?> toJson() => {
+    'items': items.map((item) => item.toJson()).toList(),
+    'nextCursor': nextCursor,
+    'hasMore': hasMore,
+  };
+
   final List<OaNotification> items;
   final String? nextCursor;
   final bool hasMore;

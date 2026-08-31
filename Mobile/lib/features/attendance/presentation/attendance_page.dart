@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -70,67 +71,133 @@ class _AttendancePageState extends ConsumerState<AttendancePage> {
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
         children: [
           MobileSurface(
-            padding: const EdgeInsets.all(16),
+            key: const Key('attendance-punch-summary'),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  today?.isRestDay == true
-                      ? '休息日'
-                      : (today?.shiftName.isNotEmpty == true
-                            ? today!.shiftName
-                            : '今日考勤'),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _scheduleText(today),
-                  style: const TextStyle(color: AppColors.secondaryText),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  DateFormat('HH:mm:ss').format(_now),
-                  style: const TextStyle(
-                    fontSize: 29,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: 164,
-                  height: 42,
-                  child: FilledButton.icon(
-                    onPressed: !overview.canPunch || _punching ? null : _punch,
-                    icon: _punching
-                        ? const SizedBox.square(
-                            dimension: 17,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            today?.isRestDay == true
+                                ? '休息日'
+                                : (today?.shiftName.isNotEmpty == true
+                                      ? today!.shiftName
+                                      : '今日考勤'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
                             ),
-                          )
-                        : Icon(
-                            overview.canPunch
-                                ? Icons.fingerprint_rounded
-                                : Icons.check_circle_outline_rounded,
                           ),
-                    label: Text(
-                      overview.canPunch
-                          ? _punchLabel(overview.nextPunchType)
-                          : '今日打卡已完成',
+                          const SizedBox(height: 3),
+                          Text(
+                            _scheduleText(today),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.secondaryText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      DateFormat('HH:mm:ss').format(_now),
+                      key: const Key('attendance-live-clock'),
+                      style: const TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 11),
+                if (overview.canPunch)
+                  Row(
+                    children: [
+                      if (overview.punchMessage.isNotEmpty) ...[
+                        Expanded(
+                          child: Text(
+                            overview.punchMessage,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.secondaryText,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ] else
+                        const Spacer(),
+                      SizedBox(
+                        width: 132,
+                        height: 40,
+                        child: FilledButton.icon(
+                          key: const Key('attendance-punch-button'),
+                          onPressed: _punching ? null : _punch,
+                          style: FilledButton.styleFrom(
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: _punching
+                              ? const SizedBox.square(
+                                  dimension: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.fingerprint_rounded, size: 18),
+                          label: Text(_punchLabel(overview.nextPunchType)),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Container(
+                    key: const Key('attendance-final-status'),
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F6FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle_outline_rounded,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            overview.punchMessage.trim().isEmpty
+                                ? '当前不可打卡'
+                                : overview.punchMessage,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                if (overview.punchMessage.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    overview.punchMessage,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.secondaryText),
-                  ),
-                ],
               ],
             ),
           ),
@@ -556,14 +623,24 @@ class _AttendanceRecordRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
+    dense: true,
+    minTileHeight: 48,
     contentPadding: EdgeInsets.zero,
-    leading: const Icon(Icons.access_time_rounded, color: AppColors.primary),
-    title: Text(_punchLabel(record.type)),
-    subtitle: Text(record.source.isEmpty ? '终端打卡' : record.source),
+    leading: const Icon(
+      Icons.access_time_rounded,
+      size: 20,
+      color: AppColors.primary,
+    ),
+    title: Text(_punchLabel(record.type), style: const TextStyle(fontSize: 13)),
+    subtitle: Text(
+      record.source.isEmpty ? '终端打卡' : record.source,
+      style: const TextStyle(fontSize: 11),
+    ),
     trailing: Text(
       record.occurredAt == null
           ? '-'
           : DateFormat('MM-dd HH:mm').format(record.occurredAt!),
+      style: const TextStyle(fontSize: 12, color: AppColors.secondaryText),
     ),
   );
 }
@@ -644,15 +721,15 @@ Future<_CorrectionDraft?> _showCorrectionSheet(
               const SizedBox(height: 14),
               OutlinedButton.icon(
                 onPressed: () async {
-                  final date = await showDatePicker(
-                    context: context,
+                  final date = await showMobileDatePickerSheet(
+                    context,
                     initialDate: selected,
                     firstDate: selected.subtract(const Duration(days: 31)),
                     lastDate: DateTime.now(),
                   );
                   if (date == null || !context.mounted) return;
-                  final time = await showTimePicker(
-                    context: context,
+                  final time = await showMobileTimePickerSheet(
+                    context,
                     initialTime: TimeOfDay.fromDateTime(selected),
                   );
                   if (time == null) return;

@@ -11,6 +11,7 @@ import '../../../core/updates/client_update_repository.dart';
 import '../../../core/security/managed_security_repository.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../collaboration/application/im_sync_coordinator.dart';
+import '../../collaboration/application/mobile_device_authorization_coordinator.dart';
 import '../../collaboration/application/mobile_presence_coordinator.dart';
 import '../../collaboration/application/oa_catalog_sync_coordinator.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -31,6 +32,8 @@ class _MobileShellState extends ConsumerState<MobileShell>
   late final MobilePresenceCoordinator _presenceCoordinator;
   late final ImSyncCoordinator _imSyncCoordinator;
   late final OaSyncCoordinator _oaSyncCoordinator;
+  late final MobileDeviceAuthorizationCoordinator
+  _deviceAuthorizationCoordinator;
   late final MobilePushRegistration _pushRegistration;
   late final ManagedTerminalCommandCoordinator _terminalCommandCoordinator;
 
@@ -40,6 +43,9 @@ class _MobileShellState extends ConsumerState<MobileShell>
     _presenceCoordinator = ref.read(mobilePresenceCoordinatorProvider);
     _imSyncCoordinator = ref.read(imSyncCoordinatorProvider);
     _oaSyncCoordinator = ref.read(oaCatalogSyncCoordinatorProvider);
+    _deviceAuthorizationCoordinator = ref.read(
+      mobileDeviceAuthorizationCoordinatorProvider,
+    );
     _pushRegistration = ref.read(mobilePushRegistrationProvider);
     _terminalCommandCoordinator = ref.read(
       managedTerminalCommandCoordinatorProvider,
@@ -56,6 +62,13 @@ class _MobileShellState extends ConsumerState<MobileShell>
   }
 
   Future<void> _synchronizeCollaboration() async {
+    try {
+      await _deviceAuthorizationCoordinator.synchronize();
+    } catch (_) {
+      // Device authorization is retried on app resume and remains visible in
+      // the dedicated device page when collaboration is temporarily offline.
+    }
+    if (!mounted) return;
     try {
       await _pushRegistration.start(onOpenRoute: _openPushRoute);
     } catch (_) {
@@ -92,6 +105,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
       _presenceCoordinator.synchronizeNow();
       _oaSyncCoordinator.synchronizeNow();
       _pushRegistration.synchronize().ignore();
+      _deviceAuthorizationCoordinator.synchronize().ignore();
       _checkClientUpdate();
       _checkActiveInspection();
       _terminalCommandCoordinator.synchronizeNow();
