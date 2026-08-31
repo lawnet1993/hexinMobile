@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDisplayName</key><string>安全连接</string>
+  <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundlePackageType</key><string>XPC!</string>
+  <key>MobileArtifactSigningPublicKeys</key>
+  <string>$(MOBILE_ARTIFACT_PUBLIC_KEYS)</string>
+  <key>MobileMihomoCoreVersion</key>
+  <string>$(MOBILE_MIHOMO_CORE_VERSION)</string>
+  <key>MobileMihomoCoreSha256</key>
+  <string>$(MOBILE_MIHOMO_CORE_SHA256)</string>
+  <key>NSExtension</key>
+  <dict>
+    <key>NSExtensionPointIdentifier</key><string>com.apple.networkextension.packet-tunnel</string>
+    <key>NSExtensionPrincipalClass</key><string>$(PRODUCT_MODULE_NAME).PacketTunnelProvider</string>
+  </dict>
+</dict>
+</plist>

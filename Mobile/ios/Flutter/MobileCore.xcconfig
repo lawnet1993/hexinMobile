@@ -1,0 +1,2 @@
+MOBILE_MIHOMO_CORE_VERSION=mihomo-80362fc1895d+flclash-7c831855efed
+#include? "MobileCore.generated.xcconfig"

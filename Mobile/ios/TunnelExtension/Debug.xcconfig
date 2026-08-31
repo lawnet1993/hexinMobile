@@ -1,0 +1,2 @@
+#include "../Flutter/MobileCore.xcconfig"
+MOBILE_ARTIFACT_PUBLIC_KEYS=mobile-development-1:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=

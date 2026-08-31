@@ -1,0 +1,4 @@
+#include "Generated.xcconfig"
+#include "MobileCore.xcconfig"
+// Inject MOBILE_ARTIFACT_PUBLIC_KEYS from CI. Release validation rejects an empty value.
+MOBILE_ARTIFACT_PUBLIC_KEYS=
