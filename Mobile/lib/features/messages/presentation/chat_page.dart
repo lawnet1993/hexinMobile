@@ -17,6 +17,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/data/im_video_thumbnail.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 import '../../collaboration/application/im_sync_coordinator.dart';
 import 'conversation_detail_page.dart';
@@ -41,6 +42,7 @@ class ChatPage extends ConsumerStatefulWidget {
 class _ChatPageState extends ConsumerState<ChatPage> {
   ImRepository? _repository;
   final _controller = TextEditingController();
+  final _messageScrollController = ScrollController();
   bool _sending = false;
   bool _sendingAttachment = false;
   int _lastReadSequence = 0;
@@ -52,7 +54,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Timer? _presenceTimer;
   bool _loadingOlder = false;
   bool _hasOlder = true;
+  int _messageTake = 80;
+  bool _didInitialMessageScroll = false;
+  bool _scrollToBottomAfterRefresh = false;
+  ({double pixels, double maxExtent})? _historyAnchor;
   int _resourceTab = 0;
+
+  ConversationMessageWindowKey get _messageWindowKey =>
+      (conversationId: widget.conversationId, take: _messageTake);
 
   @override
   void initState() {
@@ -90,29 +99,54 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void dispose() {
     _presenceTimer?.cancel();
     _repository?.leaveActiveConversation().ignore();
+    _messageScrollController.dispose();
     _controller.dispose();
     super.dispose();
   }
 
-  void _refreshConversationState() {
+  void _refreshConversationState({bool scrollToBottom = false}) {
     if (!mounted) return;
+    _scrollToBottomAfterRefresh |= scrollToBottom;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.invalidate(conversationMessagesProvider(widget.conversationId));
+      ref.invalidate(conversationMessageWindowProvider(_messageWindowKey));
       ref.invalidate(imBootstrapProvider);
     });
   }
 
   Future<void> _loadOlderMessages() async {
     if (_loadingOlder || !_hasOlder) return;
+    final position = _messageScrollController.hasClients
+        ? _messageScrollController.position
+        : null;
+    final anchor = position == null
+        ? null
+        : (pixels: position.pixels, maxExtent: position.maxScrollExtent);
     setState(() => _loadingOlder = true);
     try {
+      final current = ref
+          .read(conversationMessageWindowProvider(_messageWindowKey))
+          .value;
+      final sequenced = (current ?? const <ImMessage>[])
+          .where((message) => message.sequence > 0)
+          .toList(growable: false);
+      final beforeSequence = sequenced.isEmpty
+          ? null
+          : sequenced
+                .map((message) => message.sequence)
+                .reduce((left, right) => left < right ? left : right);
       final older = await ref
           .read(imRepositoryProvider)
-          .loadOlderMessages(widget.conversationId);
+          .loadOlderMessages(
+            widget.conversationId,
+            beforeSequence: beforeSequence,
+          );
       if (!mounted) return;
-      setState(() => _hasOlder = older.length >= 80);
-      ref.invalidate(conversationMessagesProvider(widget.conversationId));
+      if (older.isNotEmpty) _historyAnchor = anchor;
+      setState(() {
+        _hasOlder = older.length >= 80;
+        _messageTake += older.length;
+      });
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -128,7 +162,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     await ref
         .read(imRepositoryProvider)
         .retryMessage(widget.conversationId, message.clientMessageId);
-    _refreshConversationState();
+    _refreshConversationState(scrollToBottom: true);
   }
 
   Future<void> _send() async {
@@ -162,7 +196,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         _mentionAll = false;
         _replyTo = null;
       });
-      _refreshConversationState();
+      _refreshConversationState(scrollToBottom: true);
       Future<void>.delayed(const Duration(milliseconds: 120), () {
         if (mounted) ref.read(imSyncCoordinatorProvider).synchronizeNow();
       });
@@ -191,10 +225,40 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       await ref
           .read(imRepositoryProvider)
           .markRead(widget.conversationId, sequence);
-      _refreshConversationState();
+      if (mounted) ref.invalidate(imBootstrapProvider);
     } catch (_) {
       _lastReadSequence = 0;
     }
+  }
+
+  void _handleMessageWindow(List<ImMessage> items) {
+    unawaited(_markRead(items));
+    final nearBottom =
+        !_messageScrollController.hasClients ||
+        _messageScrollController.position.maxScrollExtent -
+                _messageScrollController.position.pixels <
+            120;
+    final shouldScrollToBottom =
+        !_didInitialMessageScroll || _scrollToBottomAfterRefresh || nearBottom;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_messageScrollController.hasClients) return;
+      final position = _messageScrollController.position;
+      final anchor = _historyAnchor;
+      if (anchor != null) {
+        _historyAnchor = null;
+        _didInitialMessageScroll = true;
+        final target =
+            anchor.pixels + position.maxScrollExtent - anchor.maxExtent;
+        _messageScrollController.jumpTo(
+          target.clamp(position.minScrollExtent, position.maxScrollExtent),
+        );
+        return;
+      }
+      if (!shouldScrollToBottom) return;
+      _didInitialMessageScroll = true;
+      _scrollToBottomAfterRefresh = false;
+      _messageScrollController.jumpTo(position.maxScrollExtent);
+    });
   }
 
   Future<void> _showAttachmentMenu(ImBootstrap? bootstrap) async {
@@ -300,6 +364,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
     setState(() => _sendingAttachment = true);
     try {
+      final thumbnail = isVideo
+          ? await createImVideoThumbnail(
+              videoBytes: bytes,
+              fileName: selected.name,
+            )
+          : null;
       await ref
           .read(imRepositoryProvider)
           .sendMedia(
@@ -310,8 +380,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             contentType: _contentType(
               path.extension(selected.name).replaceFirst('.', ''),
             ),
+            coverBytes: thumbnail?.bytes,
+            coverWidth: thumbnail?.width,
+            coverHeight: thumbnail?.height,
           );
-      _refreshConversationState();
+      _refreshConversationState(scrollToBottom: true);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -348,7 +421,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       await ref
           .read(imRepositoryProvider)
           .sendImages(conversationId: widget.conversationId, files: files);
-      _refreshConversationState();
+      _refreshConversationState(scrollToBottom: true);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -382,7 +455,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               path.extension(selected.name).replaceFirst('.', ''),
             ),
           );
-      _refreshConversationState();
+      _refreshConversationState(scrollToBottom: true);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -406,7 +479,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       await ref
           .read(imRepositoryProvider)
           .sendContactCard(widget.conversationId, member.id);
-      _refreshConversationState();
+      _refreshConversationState(scrollToBottom: true);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -988,7 +1061,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 unreadCount: 0,
               ));
     final messages = ref.watch(
-      conversationMessagesProvider(widget.conversationId),
+      conversationMessageWindowProvider(_messageWindowKey),
     );
     final resourceCount =
         messages.asData?.value.where(_isConversationResource).length ?? 0;
@@ -1022,8 +1095,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       for (final member in <ImMember?>[currentMember, ...?members].nonNulls)
         member.id: member,
     };
-    ref.listen(conversationMessagesProvider(widget.conversationId), (_, next) {
-      next.whenData(_markRead);
+    ref.listen(conversationMessageWindowProvider(_messageWindowKey), (_, next) {
+      next.whenData(_handleMessageWindow);
     });
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
@@ -1179,7 +1252,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 title: '消息加载失败',
                 description: error.toString(),
                 onRetry: () => ref.invalidate(
-                  conversationMessagesProvider(widget.conversationId),
+                  conversationMessageWindowProvider(_messageWindowKey),
                 ),
               ),
               data: (items) {
@@ -1214,6 +1287,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         title: '没有匹配的消息',
                       )
                     : ListView.builder(
+                        controller: _messageScrollController,
                         padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
                         itemCount: visibleItems.length,
                         itemBuilder: (context, index) {
@@ -2357,79 +2431,79 @@ class _MediaMessageContent extends ConsumerWidget {
     final attachment = message.attachments.first;
     final video = message.kind == 'video';
     final color = mine ? Colors.white : AppColors.primary;
+    final preview = video
+        ? ref.watch(
+            imVideoPreviewProvider((
+              attachmentId: attachment.id,
+              fileName: attachment.fileName,
+              coverObjectId: attachment.coverObjectId,
+              sha256: attachment.sha256,
+              size: attachment.size,
+            )),
+          )
+        : null;
+    final previewSource = preview?.asData?.value;
     return SizedBox(
-      width: video ? 220 : 210,
+      width: video ? 200 : 210,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (video && attachment.coverObjectId.isNotEmpty)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                width: 220,
-                height: 120,
-                child: ref
-                    .watch(
-                      imMediaAttachmentProvider((
-                        attachmentId: attachment.id,
-                        cover: true,
-                      )),
-                    )
-                    .when(
-                      loading: () => const ColoredBox(
-                        color: Color(0xFFE9EDF3),
-                        child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
+          if (video && preview != null)
+            preview.when(
+              loading: () => const _VideoPreviewLoading(),
+              error: (_, _) => const SizedBox.shrink(),
+              data: (source) => source == null
+                  ? const SizedBox.shrink()
+                  : _VideoPreview(
+                      source: source,
+                      fileName: attachment.fileName,
+                      durationSeconds: attachment.durationSeconds,
+                    ),
+            ),
+          if (!video || (previewSource == null && preview?.isLoading != true))
+            Row(
+              children: [
+                Icon(
+                  video ? Icons.play_circle_outline : Icons.graphic_eq_rounded,
+                  color: color,
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (!video)
+                        Text(
+                          attachment.fileName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      Text(
+                        [
+                          if (attachment.durationSeconds != null)
+                            '${attachment.durationSeconds!.round()} 秒',
+                          _fileSize(attachment.size),
+                        ].join(' · '),
+                        style: TextStyle(
+                          color: mine
+                              ? Colors.white70
+                              : AppColors.secondaryText,
+                          fontSize: 11,
                         ),
                       ),
-                      error: (_, _) => const ColoredBox(
-                        color: Color(0xFFE9EDF3),
-                        child: Icon(Icons.videocam_outlined),
-                      ),
-                      data: (bytes) => Image.memory(bytes, fit: BoxFit.cover),
-                    ),
-              ),
-            ),
-          Row(
-            children: [
-              Icon(
-                video ? Icons.play_circle_outline : Icons.graphic_eq_rounded,
-                color: color,
-                size: 24,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      attachment.fileName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      [
-                        if (attachment.durationSeconds != null)
-                          '${attachment.durationSeconds!.round()} 秒',
-                        _fileSize(attachment.size),
-                      ].join(' · '),
-                      style: TextStyle(
-                        color: mine ? Colors.white70 : AppColors.secondaryText,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Icon(Icons.open_in_new_rounded, color: color, size: 18),
-            ],
-          ),
-          if (message.content.trim().isNotEmpty) ...[
+                Icon(Icons.open_in_new_rounded, color: color, size: 18),
+              ],
+            ),
+          if (!video && message.content.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(message.content, style: TextStyle(color: color)),
           ],
@@ -2437,6 +2511,107 @@ class _MediaMessageContent extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _VideoPreview extends StatelessWidget {
+  const _VideoPreview({
+    required this.source,
+    required this.fileName,
+    required this.durationSeconds,
+  });
+
+  final ImVideoPreviewSource source;
+  final String fileName;
+  final double? durationSeconds;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: '视频预览，$fileName',
+    image: true,
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        key: const ValueKey('message-video-preview'),
+        width: 200,
+        height: 112,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (source.bytes case final bytes?)
+              Image.memory(
+                bytes,
+                fit: BoxFit.cover,
+                cacheWidth: (200 * MediaQuery.devicePixelRatioOf(context))
+                    .round(),
+                filterQuality: FilterQuality.low,
+              )
+            else
+              Image.file(
+                File(source.filePath),
+                fit: BoxFit.cover,
+                cacheWidth: (200 * MediaQuery.devicePixelRatioOf(context))
+                    .round(),
+                filterQuality: FilterQuality.low,
+              ),
+            const ColoredBox(color: Color(0x1F000000)),
+            Center(
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: Color(0xD9FFFFFF),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: AppColors.primary,
+                  size: 26,
+                ),
+              ),
+            ),
+            if (durationSeconds != null)
+              Positioned(
+                right: 7,
+                bottom: 7,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x99000000),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _videoDuration(durationSeconds!),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _VideoPreviewLoading extends StatelessWidget {
+  const _VideoPreviewLoading();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    width: 200,
+    height: 112,
+    child: ColoredBox(
+      color: Color(0xFFE9EDF3),
+      child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+    ),
+  );
 }
 
 class _AttachmentContent extends StatelessWidget {
@@ -2636,6 +2811,13 @@ String _fileSize(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
   return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+}
+
+String _videoDuration(double seconds) {
+  final total = seconds.isFinite && seconds > 0 ? seconds.round() : 0;
+  final minutes = total ~/ 60;
+  final remainder = total % 60;
+  return '$minutes:${remainder.toString().padLeft(2, '0')}';
 }
 
 class _GroupAvatar extends StatelessWidget {

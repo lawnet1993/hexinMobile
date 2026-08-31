@@ -36,6 +36,7 @@ migrate_working_dir/
 android/.gradle/
 android/.gradle.codex-backup-*/
 android/replay_pid*.log
+android/build/
 docs/device-acceptance/
 test/failures/
 

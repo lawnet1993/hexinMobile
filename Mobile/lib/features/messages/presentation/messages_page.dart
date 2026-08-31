@@ -59,7 +59,6 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
             EnterprisePageHeader(
               title: '消息',
               actions: [
-                const NetworkIndicator(size: 19),
                 IconButton(
                   tooltip: '我的收藏',
                   onPressed: () => context.push('/message-favorites'),

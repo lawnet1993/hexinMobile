@@ -620,16 +620,34 @@ final class ImLocalStore {
 
   Future<List<ImMessage>> readMessages(
     String accountId,
-    String conversationId,
-  ) async {
+    String conversationId, {
+    int? limit,
+  }) async {
     final database = await _database;
     final rows = await database.query(
       'im_messages',
       where: 'account_id = ? AND conversation_id = ? AND is_deleted = 0',
       whereArgs: [accountId, conversationId],
-      orderBy: 'CASE WHEN sequence = 0 THEN 1 ELSE 0 END, sequence, created_at',
+      orderBy: limit == null
+          ? 'CASE WHEN sequence = 0 THEN 1 ELSE 0 END, sequence, created_at'
+          : 'CASE WHEN sequence = 0 THEN 1 ELSE 0 END DESC, sequence DESC, created_at DESC',
+      limit: limit,
     );
-    return Future.wait(rows.map((row) => _messageFromRow(accountId, row)));
+    final messages = await Future.wait(
+      rows.map((row) => _messageFromRow(accountId, row)),
+    );
+    if (limit != null) {
+      messages.sort((left, right) {
+        if (left.sequence == 0 && right.sequence != 0) return 1;
+        if (left.sequence != 0 && right.sequence == 0) return -1;
+        final sequence = left.sequence.compareTo(right.sequence);
+        if (sequence != 0) return sequence;
+        return (left.createdAt ?? DateTime(0)).compareTo(
+          right.createdAt ?? DateTime(0),
+        );
+      });
+    }
+    return messages;
   }
 
   Future<void> mergeMessages(

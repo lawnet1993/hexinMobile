@@ -13,6 +13,7 @@ final imSyncCoordinatorProvider = Provider<ImSyncCoordinator>((ref) {
       ref.invalidate(imBootstrapProvider);
       ref.invalidate(imBadgeSummaryProvider);
       ref.invalidate(conversationMessagesProvider);
+      ref.invalidate(conversationMessageWindowProvider);
       ref.invalidate(conversationMembersProvider);
       ref.invalidate(groupProfileProvider);
     },

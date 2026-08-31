@@ -468,3 +468,70 @@ final result: simulator passed; physical device pending
 - [已修复 P1] 通知设置不再仅依赖服务端旧设备登记判断“已启用”，必须同时存在当前安装包的真实运行时推送 Token。
 - [阻塞 P1] 当前 APK 没有厂商推送 Service 和 Token，不能在进程被杀后接收实时系统通知；设置页如实显示“未注册”，并说明打开应用后自动同步。
 - 保持原有紧凑设置行，没有新增大开关或大段产品说明。`flutter analyze` 0 issue，完整测试 146/146，Golden 12/12。
+
+## 2026-08-31 消息页标题栏状态语义复核
+
+- 桌面参考：[452-current-desktop-messages-reference.png](docs/device-acceptance/evidence/452-current-desktop-messages-reference.png)。
+- 真机调整前后：[444-current-mobile-messages-audit.png](docs/device-acceptance/evidence/444-current-mobile-messages-audit.png)、[450-real-device-messages-header-final.png](docs/device-acceptance/evidence/450-real-device-messages-header-final.png)。
+
+### Findings
+
+- [已修复 P1] 消息页的橙色断网图标实际表示安全隧道内核缺失，不代表 IM 离线；移除后不会再与联系人灰色离线点、聊天内“最后在线”或群聊在线人数产生语义冲突。
+- [已通过] 桌面端同页的搜索、筛选、收藏和发起会话映射仍完整；移动端只做标题栏收敛，没有增加说明文字、放大按钮或改变单聊/群聊边界。
+- [已通过] 真机 360dp 逻辑宽度下标题、收藏和新增操作留有稳定间距，搜索框、四个筛选和会话行均无位移或溢出。
+
+### 验证
+
+- Golden 差异仅为被移除图标，114px（0.03%）；更新后 Golden 12/12。
+- `flutter analyze` 0 issue，完整测试 148/148；最终 APK 已覆盖安装，真机日志关键异常 0。
+
+## 2026-08-31 真机视频消息预览与重复信息收敛
+
+- 真机终态：[首次打开](docs/device-acceptance/480-video-no-duplicate-name.png)、[退出会话后重进](docs/device-acceptance/481-video-cache-reopen.png)。
+
+### Findings
+
+- [已修复 P1] 视频消息原先同时显示封面播放按钮和下方文件名/播放入口，同一动作与名称重复占用两行空间；封面可用时现仅保留真实首帧、居中播放按钮和右下角时长。
+- [已通过] 封面生成或下载失败时仍回退为文件名、大小和打开入口，不会因收敛正常状态而丢失失败状态的可操作性；音频消息保持独立文件名与打开入口。
+- [已通过] 退出群聊后重新进入，预览直接复用应用私有目录中的稳定 JPEG；文件大小 3820 字节、修改时间仍为 15:35，没有重新下载或重新生成封面。
+- [已通过] 视频预览保持 200×112dp，播放按钮 38dp，时长使用紧凑角标；没有增加说明文字、放大消息气泡或混用音频/视频表现。
+
+### 验证
+
+- 新增组件断言：真实预览存在时渲染封面和 `0:18` 时长，但不可见文本中不再出现视频文件名；视频上传、封面上传和消息元数据契约测试继续通过。
+- `flutter analyze` 0 issue，完整测试 151/151，Golden 12/12；最新 Debug APK SHA-256 为 `745839B6C491FBA68D15154C0DA72E8B3F24C059DC2789D1AD02CEC4AEEAFB85`，已覆盖安装到 realme 真机，最近 1200 行日志关键异常 0。
+
+## 2026-08-31 IM 会话重进与滚动性能
+
+- 性能记录：[486-im-performance-profile-20260831.md](docs/device-acceptance/486-im-performance-profile-20260831.md)。
+- 真机终态：[Profile 快速重进](docs/device-acceptance/483-profile-fast-reopen-cached.png)、[最终 Debug 稳定页](docs/device-acceptance/485-final-debug-chat-stable.png)。
+
+### Findings
+
+- [已修复 P1] 消息窗口只读取最新 80 条，历史按 80 条向前分页，并在加载后保持原滚动位置；列表继续使用惰性构建，不因进入会话一次创建全部消息控件。
+- [已修复 P2] 消息窗口和视频预览离开页面后保留 5 分钟，短时间返回并重新进入直接复用；超时自动释放，避免把访问过的所有会话永久留在内存。
+- [已通过] Profile 冷启动 660ms；连续快速退出/重进 8 次后封面立即显示，私有缓存仍为 3820 字节、15:35，没有重新生成。
+- [已通过] SurfaceFlinger 连续滚动采样 127 帧：P99 16.62ms，最大活跃帧间隔 16.66ms，超过 25ms 的活跃帧 0；`gfxinfo` 的宿主视图单帧结果已排除，不作为结论。
+
+### 验证
+
+- `flutter analyze` 0 issue，完整测试 151/151，Golden 12/12；Profile APK SHA-256 为 `248E51CE387C7018FB65C2E5A7896C145437CB15CD50ACAB186CB8ED57D05B83`。
+- 最终 Debug APK SHA-256 为 `619684A79785C648512BFF7EBF45D5D041A9532619D6C2F3B343519814D21986`，已恢复覆盖安装到 realme 真机；最终稳定页无加载态，最近 1200 行关键异常 0。
+
+## 2026-08-31 OA 待办与审批底栏对照
+
+- 完整对照：[496-oa-desktop-mobile-audit-20260831.md](docs/device-acceptance/496-oa-desktop-mobile-audit-20260831.md)。
+- 桌面基准：[487-current-desktop-todos-audit.png](docs/device-acceptance/487-current-desktop-todos-audit.png)。
+- 真机终态：[待办](docs/device-acceptance/488-current-mobile-todos-audit.png)、[审批详情底栏](docs/device-acceptance/494-mobile-approval-more-button-final.png)、[更多操作](docs/device-acceptance/495-mobile-approval-more-sheet-final.png)。
+
+### Findings
+
+- [已通过] 待我处理、我发起的、抄送我的、已完成、草稿箱和待同步六视图，与桌面端搜索及类型/应用/状态/时间筛选语义一致；新建待办和新建申请保持独立。
+- [已修复 P2] 审批详情底栏原来只显示孤立“…”；真实催办和撤回虽然可用，但入口像未完成占位。现改为 80×42dp“更多”描边按钮，和驳回/同意同高，不扩大底栏。
+- [已通过] 点击“更多”仍只展示服务端允许的真实动作；本轮账号为催办、撤回，没有伪造转交、加签或审批权限。
+- [已通过] Android 语义名称为“更多”，按钮边界 80×42dp；页面无横向溢出。TalkBack 阅读顺序和动态字体仍不能由截图单独证明。
+
+### 验证
+
+- `flutter analyze` 0 issue，OA 定向测试 25/25，Golden 12/12；真机最近 1200 行关键异常 0。
+- 最新 Debug APK SHA-256 为 `23296DA71234DF0C7F3F71A8BF5EAFCD4B31E9ECF93F3D73D815C8CF9312639D`，已覆盖安装到 realme 真机；本轮只读打开菜单，没有执行任何远端操作。

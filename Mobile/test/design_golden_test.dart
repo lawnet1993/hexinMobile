@@ -141,6 +141,10 @@ void main() {
             conversationMessagesProvider.overrideWith(
               (ref, id) async => PreviewData.messages,
             ),
+            conversationMessageWindowProvider.overrideWith(
+              (ref, key) async => PreviewData.messages,
+            ),
+            imVideoPreviewProvider.overrideWith((ref, key) async => null),
             conversationMembersProvider.overrideWith(
               (ref, id) async => PreviewData.conversationMembers(id),
             ),

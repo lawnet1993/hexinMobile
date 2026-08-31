@@ -938,6 +938,11 @@ void main() {
       42,
     );
     expect(tester.getSize(find.widgetWithText(FilledButton, '同意')).height, 42);
+    expect(
+      tester.getSize(find.byKey(const Key('approval-more-actions'))),
+      const Size(80, 42),
+    );
+    expect(find.widgetWithText(OutlinedButton, '更多'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(OutlinedButton, '驳回'));
     await tester.pumpAndSettle();

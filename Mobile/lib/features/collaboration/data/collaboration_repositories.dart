@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 
 import '../../../core/config/app_environment.dart';
@@ -13,6 +15,7 @@ import '../../../core/storage/im_cache_cipher.dart';
 import '../../../core/storage/secure_session_store.dart';
 import '../domain/collaboration_models.dart';
 import 'im_local_store.dart';
+import 'im_video_thumbnail.dart';
 import 'oa_local_store.dart';
 
 const _demoSession = MobileSession(
@@ -195,6 +198,22 @@ final conversationMessagesProvider =
       return ref.read(imRepositoryProvider).messagesCacheFirst(id);
     });
 
+typedef ConversationMessageWindowKey = ({String conversationId, int take});
+
+final conversationMessageWindowProvider = FutureProvider.autoDispose
+    .family<List<ImMessage>, ConversationMessageWindowKey>((ref, key) async {
+      _retainForConversationReopen(ref);
+      if (AppEnvironment.demoMode) {
+        final messages = PreviewData.conversationMessages(key.conversationId);
+        return messages.length <= key.take
+            ? messages
+            : messages.sublist(messages.length - key.take);
+      }
+      return ref
+          .read(imRepositoryProvider)
+          .messagesCacheFirst(key.conversationId, take: key.take);
+    });
+
 final imMessageImageProvider =
     FutureProvider.family<Uint8List, ({String messageId, String imageId})>((
       ref,
@@ -214,6 +233,75 @@ final imMediaAttachmentProvider =
           .read(imRepositoryProvider)
           .downloadMediaAttachment(key.attachmentId, cover: key.cover);
     });
+
+typedef ImVideoPreviewKey = ({
+  String attachmentId,
+  String fileName,
+  String coverObjectId,
+  String sha256,
+  int size,
+});
+
+final class ImVideoPreviewSource {
+  const ImVideoPreviewSource.file(this.filePath) : bytes = null;
+
+  const ImVideoPreviewSource.memory(this.bytes) : filePath = '';
+
+  final String filePath;
+  final Uint8List? bytes;
+}
+
+final imVideoPreviewProvider = FutureProvider.autoDispose
+    .family<ImVideoPreviewSource?, ImVideoPreviewKey>((ref, key) async {
+      _retainForConversationReopen(ref);
+      final repository = ref.read(imRepositoryProvider);
+      final cacheKey = imVideoPreviewCacheKey(
+        attachmentId: key.attachmentId,
+        sha256Value: key.sha256,
+        coverObjectId: key.coverObjectId,
+      );
+      final cachedPath = await readImVideoPreviewCachePath(cacheKey);
+      if (cachedPath != null) return ImVideoPreviewSource.file(cachedPath);
+      Uint8List? preview;
+      if (key.coverObjectId.isNotEmpty) {
+        try {
+          preview = await repository.downloadMediaAttachment(
+            key.attachmentId,
+            cover: true,
+          );
+        } catch (_) {
+          preview = null;
+        }
+      }
+      if ((preview == null || preview.isEmpty) &&
+          !AppEnvironment.demoMode &&
+          key.size <= 32 * 1024 * 1024) {
+        final videoBytes = await repository.downloadMediaAttachment(
+          key.attachmentId,
+        );
+        preview = (await createImVideoThumbnail(
+          videoBytes: videoBytes,
+          fileName: key.fileName,
+        ))?.bytes;
+      }
+      if (preview == null || preview.isEmpty) return null;
+      final filePath = await writeImVideoPreviewCache(cacheKey, preview);
+      return filePath == null ? null : ImVideoPreviewSource.file(filePath);
+    });
+
+void _retainForConversationReopen(Ref ref) {
+  final keepAlive = ref.keepAlive();
+  Timer? expiry;
+  ref.onCancel(() {
+    expiry?.cancel();
+    expiry = Timer(const Duration(minutes: 5), keepAlive.close);
+  });
+  ref.onResume(() {
+    expiry?.cancel();
+    expiry = null;
+  });
+  ref.onDispose(() => expiry?.cancel());
+}
 
 final oaAttachmentThumbnailProvider = FutureProvider.family<Uint8List, String>((
   ref,
@@ -1918,9 +2006,16 @@ final class ImRepository {
     await refreshBootstrap();
   }
 
-  Future<List<ImMessage>> messagesCacheFirst(String conversationId) async {
+  Future<List<ImMessage>> messagesCacheFirst(
+    String conversationId, {
+    int? take,
+  }) async {
     final session = await _session();
-    final cached = await _store.readMessages(session.userId, conversationId);
+    final cached = await _store.readMessages(
+      session.userId,
+      conversationId,
+      limit: take,
+    );
     return cached.isNotEmpty ? cached : refreshMessages(conversationId);
   }
 
@@ -2020,27 +2115,38 @@ final class ImRepository {
     return _store.readMessages(session.userId, conversationId);
   }
 
-  Future<List<ImMessage>> loadOlderMessages(String conversationId) async {
+  Future<List<ImMessage>> loadOlderMessages(
+    String conversationId, {
+    int? beforeSequence,
+  }) async {
     final session = await _session();
-    final cached = await _store.readMessages(session.userId, conversationId);
-    final sequenced = cached.where((message) => message.sequence > 0).toList();
-    if (sequenced.isEmpty) return const [];
-    final beforeSequence = sequenced
-        .map((message) => message.sequence)
-        .reduce((left, right) => left < right ? left : right);
-    if (beforeSequence <= 1) return const [];
+    var cursor = beforeSequence;
+    if (cursor == null) {
+      final cached = await _store.readMessages(
+        session.userId,
+        conversationId,
+        limit: 80,
+      );
+      final sequenced = cached
+          .where((message) => message.sequence > 0)
+          .toList();
+      if (sequenced.isEmpty) return const [];
+      cursor = sequenced
+          .map((message) => message.sequence)
+          .reduce((left, right) => left < right ? left : right);
+    }
+    if (cursor <= 1) return const [];
     final dio = await _client.forIm();
     final response = await dio.get<List<Object?>>(
       '/api/im/conversations/$conversationId/messages',
-      queryParameters: {'beforeSequence': beforeSequence, 'take': 80},
+      queryParameters: {'beforeSequence': cursor, 'take': 80},
     );
     final older =
         (response.data ?? const <Object?>[])
             .whereType<Map>()
             .map((item) => ImMessage.fromJson(item.cast<String, Object?>()))
             .where(
-              (message) =>
-                  message.sequence > 0 && message.sequence < beforeSequence,
+              (message) => message.sequence > 0 && message.sequence < cursor!,
             )
             .toList()
           ..sort((left, right) => left.sequence.compareTo(right.sequence));
@@ -2540,6 +2646,9 @@ final class ImRepository {
     required String fileName,
     required Uint8List bytes,
     required String contentType,
+    Uint8List? coverBytes,
+    int? coverWidth,
+    int? coverHeight,
     String caption = '',
   }) async {
     final normalizedKind = kind.trim().toLowerCase();
@@ -2564,6 +2673,26 @@ final class ImRepository {
     final uploaded = uploadResponse.data ?? <String, Object?>{};
     final objectId = uploaded['objectId']?.toString() ?? '';
     if (objectId.isEmpty) throw StateError('媒体上传未返回对象标识');
+    Map<String, Object?> cover = const {};
+    if (normalizedKind == 'video' &&
+        coverBytes != null &&
+        coverBytes.isNotEmpty) {
+      try {
+        final coverResponse = await dio.post<Map<String, Object?>>(
+          '/api/im/upload/picture',
+          data: FormData.fromMap({
+            'file': MultipartFile.fromBytes(
+              coverBytes,
+              filename: '${path.basenameWithoutExtension(fileName)}-cover.jpg',
+              contentType: DioMediaType.parse('image/jpeg'),
+            ),
+          }),
+        );
+        cover = coverResponse.data ?? const {};
+      } catch (_) {
+        // A missing cover must not discard a successfully uploaded video.
+      }
+    }
     final response = await dio.post<Map<String, Object?>>(
       '/api/im/conversations/$conversationId/media-messages',
       data: {
@@ -2579,9 +2708,9 @@ final class ImRepository {
             'sha256': uploaded['sha256']?.toString() ?? '',
             'width': uploaded['width'],
             'height': uploaded['height'],
-            'coverObjectId': '',
-            'coverWidth': null,
-            'coverHeight': null,
+            'coverObjectId': cover['objectId']?.toString() ?? '',
+            'coverWidth': coverWidth ?? cover['width'],
+            'coverHeight': coverHeight ?? cover['height'],
             'durationSeconds': uploaded['durationSeconds'],
           },
         ],
@@ -2589,6 +2718,20 @@ final class ImRepository {
       options: Options(contentType: Headers.jsonContentType),
     );
     final message = ImMessage.fromJson(response.data ?? <String, Object?>{});
+    if (normalizedKind == 'video' &&
+        coverBytes != null &&
+        coverBytes.isNotEmpty &&
+        message.attachments.isNotEmpty) {
+      final attachment = message.attachments.first;
+      await writeImVideoPreviewCache(
+        imVideoPreviewCacheKey(
+          attachmentId: attachment.id,
+          sha256Value: attachment.sha256,
+          coverObjectId: attachment.coverObjectId,
+        ),
+        coverBytes,
+      );
+    }
     await _store.mergeMessages(session.userId, conversationId, [message]);
     await refreshBootstrap();
     return message;

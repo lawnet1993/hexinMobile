@@ -207,24 +207,34 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
                 child: Row(
                   children: [
                     if (secondaryActions.isNotEmpty) ...[
-                      IconButton(
-                        tooltip: '更多操作',
-                        onPressed: _submitting
-                            ? null
-                            : () async {
-                                final action = await _showSecondaryActionsSheet(
-                                  context,
-                                  secondaryActions,
-                                );
-                                if (action == null || !mounted) return;
-                                await _runSecondaryAction(
-                                  request,
-                                  task,
-                                  action,
-                                  members,
-                                );
-                              },
-                        icon: const Icon(Icons.more_horiz_rounded),
+                      Tooltip(
+                        message: '更多操作',
+                        child: OutlinedButton.icon(
+                          key: const Key('approval-more-actions'),
+                          onPressed: _submitting
+                              ? null
+                              : () async {
+                                  final action =
+                                      await _showSecondaryActionsSheet(
+                                        context,
+                                        secondaryActions,
+                                      );
+                                  if (action == null || !mounted) return;
+                                  await _runSecondaryAction(
+                                    request,
+                                    task,
+                                    action,
+                                    members,
+                                  );
+                                },
+                          style: _compactApprovalButtonStyle().copyWith(
+                            minimumSize: const WidgetStatePropertyAll(
+                              Size(80, 42),
+                            ),
+                          ),
+                          icon: const Icon(Icons.more_horiz_rounded, size: 18),
+                          label: const Text('更多'),
+                        ),
                       ),
                       const SizedBox(width: 6),
                     ],

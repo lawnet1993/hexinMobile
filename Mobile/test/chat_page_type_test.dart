@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -171,6 +174,12 @@ void main() {
     expect(find.text('冯逸'), findsOneWidget);
     expect(find.textContaining('term.sz02'), findsOneWidget);
     expect(find.text('唐泽'), findsNothing);
+    expect(
+      find.textContaining('https://docs.example.com/im/mobile'),
+      findsOneWidget,
+    );
+    await tester.drag(find.byType(ListView).first, const Offset(0, 900));
+    await tester.pumpAndSettle();
     expect(find.text('周报数据已更新，请帮忙确认。'), findsOneWidget);
     expect(find.byTooltip('个人资料'), findsOneWidget);
   });
@@ -195,6 +204,55 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('设为群置顶'), findsOneWidget);
+  });
+
+  testWidgets('video message renders a cached real preview before metadata', (
+    tester,
+  ) async {
+    final preview = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLQkwAAAABJRU5ErkJggg==',
+    );
+    final message = ImMessage(
+      id: 'video-message',
+      conversationId: 'ops',
+      sequence: 12,
+      senderId: '1',
+      // The server mirrors the attachment name into content for video
+      // messages. It must not be rendered below the preview a second time.
+      content: '现场验收.mp4',
+      kind: 'video',
+      attachments: const [
+        ImMessageAttachment(
+          id: 'video-attachment',
+          type: 'video',
+          fileName: '现场验收.mp4',
+          contentType: 'video/mp4',
+          size: 4096,
+          sha256: 'video-sha256',
+          durationSeconds: 18,
+        ),
+      ],
+      createdAt: DateTime(2026, 8, 31, 12),
+    );
+
+    await _pumpChat(tester, 'ops', messages: [message], videoPreview: preview);
+
+    expect(find.byKey(const ValueKey('message-video-preview')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('message-video-preview'))),
+      const Size(200, 112),
+    );
+    expect(find.text('0:18'), findsOneWidget);
+    expect(find.text('现场验收.mp4'), findsNothing);
+    final semantics = tester.widget<Semantics>(
+      find
+          .ancestor(
+            of: find.byKey(const ValueKey('message-video-preview')),
+            matching: find.byType(Semantics),
+          )
+          .first,
+    );
+    expect(semantics.properties.label, '视频预览，现场验收.mp4');
   });
 
   testWidgets('reply action follows the server message configuration', (
@@ -227,6 +285,7 @@ Future<void> _pumpChat(
   String conversationId, {
   List<ImMessage> messages = const [],
   ImBootstrap? bootstrap,
+  Uint8List? videoPreview,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -238,6 +297,14 @@ Future<void> _pumpChat(
           (ref) async => PreviewData.oaBootstrap,
         ),
         conversationMessagesProvider.overrideWith((ref, id) async => messages),
+        conversationMessageWindowProvider.overrideWith(
+          (ref, key) async => messages,
+        ),
+        imVideoPreviewProvider.overrideWith(
+          (ref, key) async => videoPreview == null
+              ? null
+              : ImVideoPreviewSource.memory(videoPreview),
+        ),
         conversationMembersProvider.overrideWith(
           (ref, id) async => PreviewData.conversationMembers(id),
         ),

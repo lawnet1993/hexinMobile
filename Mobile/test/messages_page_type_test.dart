@@ -5,8 +5,7 @@ import 'package:hexing_terminal_mobile/core/demo/preview_data.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration_repositories.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:hexing_terminal_mobile/features/messages/presentation/messages_page.dart';
-import 'package:hexing_terminal_mobile/features/network/application/tunnel_controller.dart';
-import 'package:secure_tunnel/secure_tunnel.dart';
+import 'package:hexing_terminal_mobile/shared/widgets/mobile_primitives.dart';
 
 void main() {
   test('bootstrap rejects unsupported conversation types', () {
@@ -124,12 +123,14 @@ void main() {
           imBootstrapProvider.overrideWith(
             (ref) async => PreviewData.imBootstrap,
           ),
-          tunnelControllerProvider.overrideWith(_TestTunnelController.new),
         ],
         child: const MaterialApp(home: MessagesPage()),
       ),
     );
     await tester.pumpAndSettle();
+
+    expect(find.byType(NetworkIndicator), findsNothing);
+    expect(find.byTooltip('我的收藏'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField).first, 'term.gz01');
     await tester.pump();
@@ -154,7 +155,6 @@ void main() {
           imBootstrapProvider.overrideWith(
             (ref) async => PreviewData.imBootstrap,
           ),
-          tunnelControllerProvider.overrideWith(_TestTunnelController.new),
         ],
         child: const MaterialApp(home: MessagesPage()),
       ),
@@ -195,11 +195,4 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
-}
-
-final class _TestTunnelController extends TunnelController {
-  @override
-  Future<TunnelConnectionState> build() async => const TunnelConnectionState(
-    status: TunnelStatus(phase: TunnelPhase.disconnected),
-  );
 }

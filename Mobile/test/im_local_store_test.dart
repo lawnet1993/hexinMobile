@@ -558,6 +558,38 @@ void main() {
   );
 
   test(
+    'message window reads only the newest requested rows in order',
+    () async {
+      await store.mergeMessages(
+        'account-a',
+        'conversation-a',
+        List.generate(
+          200,
+          (index) => ImMessage(
+            id: 'message-${index + 1}',
+            conversationId: 'conversation-a',
+            sequence: index + 1,
+            senderId: 'member-a',
+            content: '消息 ${index + 1}',
+            kind: 'text',
+            createdAt: DateTime.utc(2026, 8, 31).add(Duration(seconds: index)),
+          ),
+        ),
+      );
+
+      final window = await store.readMessages(
+        'account-a',
+        'conversation-a',
+        limit: 80,
+      );
+
+      expect(window, hasLength(80));
+      expect(window.first.sequence, 121);
+      expect(window.last.sequence, 200);
+    },
+  );
+
+  test(
     'event projection is idempotent and advances cursor transactionally',
     () async {
       final created = ImSyncEvent(
