@@ -1,0 +1,48 @@
+--------- beginning of main
+09-01 08:08:25.111 25844 25844 I terminal_mobile: Late-enabling -Xcheck:jni
+09-01 08:08:25.481 25844 25844 I terminal_mobile: Using CollectorTypeCMC GC.
+09-01 08:08:25.496 25844 25844 W terminal_mobile: Unexpected CPU variant for x86: x86_64.
+09-01 08:08:25.496 25844 25844 W terminal_mobile: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+09-01 08:08:25.806 25844 25844 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+09-01 08:08:26.157 25844 25844 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+09-01 08:08:26.157 25844 25844 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+09-01 08:08:26.452 25844 25844 D nativeloader: Configuring clns-9 for other apk /data/app/~~XeBWjSaJOHLYby3cRXKbow==/com.hexing.zhilian.hexing_terminal_mobile-3p_VMAbvuUoIaHoAqJH0Aw==/base.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~XeBWjSaJOHLYby3cRXKbow==/com.hexing.zhilian.hexing_terminal_mobile-3p_VMAbvuUoIaHoAqJH0Aw==/lib/x86_64:/data/app/~~XeBWjSaJOHLYby3cRXKbow==/com.hexing.zhilian.hexing_terminal_mobile-3p_VMAbvuUoIaHoAqJH0Aw==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.hexing.zhilian.hexing_terminal_mobile
+09-01 08:08:26.498 25844 25844 I terminal_mobile: AssetManager2(0x71d280227a18) locale list changing from [] to [en-US]
+09-01 08:08:26.583 25844 25844 V GraphicsEnvironment: Currently set values for:
+09-01 08:08:26.583 25844 25844 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+09-01 08:08:26.583 25844 25844 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+09-01 08:08:26.583 25844 25844 V GraphicsEnvironment: com.hexing.zhilian.hexing_terminal_mobile is not listed in per-application setting
+09-01 08:08:26.584 25844 25844 V GraphicsEnvironment: ANGLE allowlist from config: 
+09-01 08:08:26.584 25844 25844 V GraphicsEnvironment: com.hexing.zhilian.hexing_terminal_mobile is not listed in ANGLE allowlist or settings, returning default
+09-01 08:08:26.584 25844 25844 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+--------- beginning of system
+09-01 08:08:26.780 25844 25861 I DisplayManager: Choreographer implicitly registered for the refresh rate.
+09-01 08:08:26.790 25844 25844 I terminal_mobile: AssetManager2(0x71d280228cd8) locale list changing from [] to [en-US]
+09-01 08:08:26.879 25844 25844 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+09-01 08:08:26.935 25844 25861 I EGL_emulation: Opening libGLESv1_CM_emulation.so
+09-01 08:08:26.939 25844 25861 I EGL_emulation: Opening libGLESv2_emulation.so
+09-01 08:08:26.948 25844 25861 W HWUI    : Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+09-01 08:08:26.948 25844 25861 W HWUI    : Failed to initialize 101010-2 format, error = EGL_SUCCESS
+09-01 08:08:27.140 25844 25863 D nativeloader: Load /data/app/~~XeBWjSaJOHLYby3cRXKbow==/com.hexing.zhilian.hexing_terminal_mobile-3p_VMAbvuUoIaHoAqJH0Aw==/base.apk!/lib/x86_64/libflutter.so using class loader ns clns-9 (caller=/data/app/~~XeBWjSaJOHLYby3cRXKbow==/com.hexing.zhilian.hexing_terminal_mobile-3p_VMAbvuUoIaHoAqJH0Aw==/base.apk): ok
+09-01 08:08:27.181 25844 25864 D skia    : [SkFontMgr Android Parser] '/product/etc/fonts_customization.xml' could not be opened
+09-01 08:08:27.246 25844 25844 I terminal_mobile: AssetManager2(0x71d28022b898) locale list changing from [] to [en-US]
+09-01 08:08:27.403 25844 25844 W terminal_mobile: type=1400 audit(0.0:1296): avc:  denied  { read } for  name="max_map_count" dev="proc" ino=509738 scontext=u:r:untrusted_app:s0:c219,c256,c512,c768 tcontext=u:object_r:proc_max_map_count:s0 tclass=file permissive=0 app=com.hexing.zhilian.hexing_terminal_mobile
+09-01 08:08:27.529 25844 25871 I flutter : The Dart VM service is listening on http://127.0.0.1:45761/gjO2uQEICsc=/
+09-01 08:08:27.546 25844 25844 D DesktopModeFlags: Toggle override initialized to: OVERRIDE_UNSET
+09-01 08:08:27.566 25844 25865 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+09-01 08:08:28.003 25844 25844 D nativeloader: Load /data/app/~~XeBWjSaJOHLYby3cRXKbow==/com.hexing.zhilian.hexing_terminal_mobile-3p_VMAbvuUoIaHoAqJH0Aw==/base.apk!/lib/x86_64/libdartjni.so using class loader ns clns-9 (caller=/data/app/~~XeBWjSaJOHLYby3cRXKbow==/com.hexing.zhilian.hexing_terminal_mobile-3p_VMAbvuUoIaHoAqJH0Aw==/base.apk!classes6.dex): ok
+09-01 08:08:28.191 25844 25844 I terminal_mobile: hiddenapi: Accessing hidden method Landroid/view/accessibility/AccessibilityNodeInfo;->getSourceNodeId()J (runtime_flags=0, domain=platform, api=unsupported,test-api) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+09-01 08:08:28.191 25844 25844 I terminal_mobile: hiddenapi: Accessing hidden method Landroid/view/accessibility/AccessibilityRecord;->getSourceNodeId()J (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+09-01 08:08:28.191 25844 25844 I terminal_mobile: hiddenapi: Accessing hidden field Landroid/view/accessibility/AccessibilityNodeInfo;->mChildNodeIds:Landroid/util/LongArray; (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+09-01 08:08:28.191 25844 25844 I terminal_mobile: hiddenapi: Accessing hidden method Landroid/util/LongArray;->get(I)J (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+09-01 08:08:28.267 25844 25844 D CompatChangeReporter: Compat change id reported: 377864165; UID 10219; state: ENABLED
+09-01 08:08:28.334 25844 25844 W HWUI    : Unknown dataspace 0
+09-01 08:08:28.545 25844 25844 I WindowExtensionsImpl: Initializing Window Extensions, vendor API level=9, activity embedding enabled=true
+09-01 08:08:29.124 25844 25851 I terminal_mobile: Compiler allocated 5042KB to compile void android.view.ViewRootImpl.performTraversals()
+09-01 08:08:29.897 25844 25844 I Choreographer: Skipped 69 frames!  The application may be doing too much work on its main thread.
+09-01 08:08:30.315 25844 25844 D WindowLayoutComponentImpl: Register WindowLayoutInfoListener on Context=com.hexing.zhilian.hexing_terminal_mobile.MainActivity@752208e, of which baseContext=android.app.ContextImpl@78eecec
+09-01 08:08:30.711 25844 25844 D InsetsController: hide(ime(), fromIme=false)
+09-01 08:08:30.711 25844 25844 I ImeTracker: com.hexing.zhilian.hexing_terminal_mobile:ff4b14b0: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+09-01 08:08:32.202 25844 25885 D ProfileInstaller: Installing profile for com.hexing.zhilian.hexing_terminal_mobile
+09-01 08:08:33.209 25844 25882 I SQLiteConnection: Long db operation: /data/user/0/com.hexing.zhilian.hexing_terminal_mobile/databases/hexing-mobile-im.db
+09-01 08:09:14.243 25844 25844 I terminal_mobile: AssetManager2(0x71d28024cbd8) locale list changing from [] to [en-US]

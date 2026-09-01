@@ -625,30 +625,46 @@ class _DetailRow extends StatelessWidget {
   final String value;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 84,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.secondaryText,
+  Widget build(BuildContext context) {
+    final displayValue = value.isEmpty ? '-' : value;
+    final isContinuousLongValue =
+        displayValue.length >= 28 && !RegExp(r'\s').hasMatch(displayValue);
+    final valueText = Text(
+      displayValue,
+      key: ValueKey<String>('approval-detail-value-$label'),
+      maxLines: isContinuousLongValue ? 1 : null,
+      softWrap: !isContinuousLongValue,
+      overflow: isContinuousLongValue ? TextOverflow.ellipsis : null,
+      style: TextStyle(fontSize: isContinuousLongValue ? 13 : 14),
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 84,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.secondaryText,
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: Text(
-            value.isEmpty ? '-' : value,
-            style: const TextStyle(fontSize: 14),
+          Expanded(
+            child: isContinuousLongValue && displayValue.length <= 48
+                ? FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: valueText,
+                  )
+                : valueText,
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _AttachmentRow extends ConsumerWidget {

@@ -53,6 +53,8 @@ void main() {
     final registrations = <MobilePushToken>[];
     final routes = <String>[];
     var unregisterCount = 0;
+    var securelyStoredToken = '';
+    var secureTokenCleared = false;
     final registration = MobilePushRegistration(
       source,
       register:
@@ -72,10 +74,13 @@ void main() {
             expect(privacyMode, 'summary');
           },
       unregister: () async => unregisterCount += 1,
+      saveSecureToken: (value) async => securelyStoredToken = value,
+      clearSecureToken: () async => secureTokenCleared = true,
     );
 
     await registration.start(onOpenRoute: routes.add);
     expect(registrations.map((item) => item.value), ['initial-token']);
+    expect(securelyStoredToken, contains('initial-token'));
     expect(routes, ['/messages']);
 
     source.emitToken(
@@ -97,6 +102,7 @@ void main() {
     expect(registrations, hasLength(2));
     await registration.unregister();
     expect(unregisterCount, 1);
+    expect(secureTokenCleared, isTrue);
     registration.stop();
     await source.close();
   });

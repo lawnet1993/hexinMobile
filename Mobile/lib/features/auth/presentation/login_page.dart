@@ -26,6 +26,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final notice = ref.read(sessionTerminationNoticeProvider.notifier).take();
+      if (notice != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(notice), behavior: SnackBarBehavior.floating),
+        );
+      }
       final saved = await ref
           .read(authControllerProvider.notifier)
           .savedCredential();

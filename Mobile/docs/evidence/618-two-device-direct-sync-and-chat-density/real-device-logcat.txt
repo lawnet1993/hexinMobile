@@ -1,0 +1,18 @@
+--------- beginning of system
+09-01 16:08:28.173 27865 27865 D ResourcesManagerExtImpl: applyConfigurationToAppResourcesLocked app.getDisplayId() return callback.displayId:-1
+09-01 16:08:28.197 27865 27865 D ResourcesManagerExtImpl: applyConfigurationToAppResourcesLocked app.getDisplayId() return callback.displayId:-1
+09-01 16:08:28.304 27865 27865 D OplusInputMethodUtil: init sDebug to false, init sDebugIme to false, init sAlwaysOn to false
+09-01 16:08:28.305 27865 27865 D OplusInputMethodUtil: updateDebugToClass InputMethodManager.DEBUG = false
+09-01 16:08:28.305 27865 27865 D OplusInputMethodUtil: updateDebugToClass ImeFocusController.DEBUG = false
+09-01 16:08:28.305 27865 27865 D OplusInputMethodUtil: updateDebugToClass BaseInputConnection.DEBUG = false
+09-01 16:08:28.340 27865 27865 D ActivityThread: ComponentInfo{com.hexing.zhilian.hexing_terminal_mobile/com.hexing.zhilian.hexing_terminal_mobile.MainActivity} checkFinished=false 2
+09-01 16:08:28.340 27865 27865 D ResourcesManagerExtImpl: applyConfigurationToAppResourcesLocked app.getDisplayId() return callback.displayId:-1
+09-01 16:08:28.361 27865 27865 D ResourcesManagerExtImpl: applyConfigurationToAppResourcesLocked app.getDisplayId() return callback.displayId:-1
+09-01 16:08:28.378 27865 27865 I Quality : Skipped: false 2 cost 38.75417 refreshRate 16559003 bit true processName com.hexing.zhilian.hexing_terminal_mobile
+09-01 16:08:28.414 27865 27865 D VRI[MainActivity]: relayoutWindow result, sizeChanged:true, surfaceControlChanged:true, transformHintChanged:true, mSurfaceSize:Point(1080, 2400), mLastSurfaceSize:Point(0, 0), mWidth:-1, mHeight:-1, requestedWidth:1080, requestedHeight:2400, transformHint:0, lastTransformHint:-2147483648, installOrientation:0, displayRotation:0, isSurfaceValid:true, attr.flag:-2122252032, useBlast:true, tmpFrames:ClientWindowFrames{frame=[0,0][1080,2400] display=[0,0][1080,2400] parentFrame=[0,0][0,0]}
+09-01 16:08:28.414 27865 27865 W VRI[MainActivity]: updateBlastSurfaceIfNeeded, surfaceSize:Point(1080, 2400), lastSurfaceSize:Point(0, 0), format:-3, blastBufferQueue:null
+09-01 16:08:28.540 27865 27865 I Quality : Skipped: false 7 cost 122.81631 refreshRate 16561266 bit true processName com.hexing.zhilian.hexing_terminal_mobile
+09-01 16:08:28.546 27865 27865 D VRI[MainActivity]: relayoutWindow result, sizeChanged:false, surfaceControlChanged:false, transformHintChanged:false, mSurfaceSize:Point(1080, 2400), mLastSurfaceSize:Point(1080, 2400), mWidth:1080, mHeight:2400, requestedWidth:1080, requestedHeight:2400, transformHint:0, lastTransformHint:0, installOrientation:0, displayRotation:0, isSurfaceValid:true, attr.flag:-2122252032, useBlast:true, tmpFrames:ClientWindowFrames{frame=[0,0][1080,2400] display=[0,0][1080,2400] parentFrame=[0,0][0,0]}
+09-01 16:08:28.547 27865 27865 W VRI[MainActivity]: updateBlastSurfaceIfNeeded, surfaceSize:Point(1080, 2400), lastSurfaceSize:Point(1080, 2400), format:-3, blastBufferQueue:android.graphics.BLASTBufferQueue@76abb42
+09-01 16:08:28.558 27865 27865 W VRI[MainActivity]: handleResized, msg:5, frameChanged:false, configChanged:false, displayChanged:false, attachedFrameChanged:false, compatScaleChanged:false, pendingDragResizing=false
+09-01 16:09:16.305 27865 27865 D OplusInputMethodManagerInternal: get inputMethodManager extension: com.android.internal.view.IInputMethodManager$Stub$Proxy@b299303

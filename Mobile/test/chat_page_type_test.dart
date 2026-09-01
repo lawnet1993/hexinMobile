@@ -254,10 +254,16 @@ void main() {
     expect(loadCount, 0);
     final receiptRect = tester.getRect(receiptAction);
     final bubbleTextRect = tester.getRect(find.text('请查收'));
+    expect(receiptRect.width, lessThanOrEqualTo(18));
     expect(
       (receiptRect.center.dy - bubbleTextRect.center.dy).abs(),
       lessThan(12),
       reason: '已读状态应与消息气泡保持同一视觉行，不能折到气泡下方',
+    );
+    expect(
+      receiptRect.left,
+      greaterThan(bubbleTextRect.right),
+      reason: '自己发送的消息应先展示气泡，再在右侧紧跟已读状态',
     );
 
     await tester.tap(receiptAction);
@@ -518,6 +524,26 @@ void main() {
     expect(find.text('复制群聊'), findsNothing);
     expect(find.text('解散群聊'), findsNothing);
     expect(find.text('群成员（3）'), findsNothing);
+  });
+
+  testWidgets('empty chat matches desktop and search keeps result copy', (
+    tester,
+  ) async {
+    await _pumpChat(tester, 'tang');
+
+    expect(find.text('发送第一条消息开始协作'), findsOneWidget);
+    expect(find.byKey(const Key('chat-empty-start')), findsOneWidget);
+    expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsNothing);
+    expect(find.text('没有匹配的消息'), findsNothing);
+
+    await tester.tap(find.byTooltip('搜索聊天记录'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'not-found');
+    await tester.pump();
+
+    expect(find.text('发送第一条消息开始协作'), findsNothing);
+    expect(find.text('没有匹配的消息'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

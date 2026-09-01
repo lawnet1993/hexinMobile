@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_environment.dart';
+import '../storage/secure_session_store.dart';
 import '../../features/collaboration/data/collaboration_repositories.dart';
 
 final class MobilePushToken {
@@ -181,10 +182,13 @@ final mobilePushRuntimeTokenProvider = StreamProvider<MobilePushToken?>((
 
 final mobilePushRegistrationProvider = Provider<MobilePushRegistration>((ref) {
   final repository = ref.read(imRepositoryProvider);
+  final store = ref.read(secureSessionStoreProvider);
   final registration = MobilePushRegistration.withCallbacks(
     ref.read(mobilePushTokenSourceProvider),
     repository.registerPushDevice,
     repository.unregisterPushDevice,
+    saveSecureToken: store.savePushToken,
+    clearSecureToken: store.clearPushToken,
   );
   ref.onDispose(registration.stop);
   return registration;
@@ -202,34 +206,48 @@ final class MobilePushRegistration {
     MobilePushTokenSource tokenSource, {
     required RegisterMobilePushToken register,
     required Future<void> Function() unregister,
-  }) : this.withCallbacks(tokenSource, register, unregister);
+    Future<void> Function(String value)? saveSecureToken,
+    Future<void> Function()? clearSecureToken,
+  }) : this.withCallbacks(
+         tokenSource,
+         register,
+         unregister,
+         saveSecureToken: saveSecureToken,
+         clearSecureToken: clearSecureToken,
+       );
 
   MobilePushRegistration.withCallbacks(
     this._tokenSource,
     this._register,
-    this._unregister,
-  );
+    this._unregister, {
+    this.saveSecureToken,
+    this.clearSecureToken,
+  });
 
   final MobilePushTokenSource _tokenSource;
   final RegisterMobilePushToken _register;
   final Future<void> Function() _unregister;
+  final Future<void> Function(String value)? saveSecureToken;
+  final Future<void> Function()? clearSecureToken;
   StreamSubscription<MobilePushToken>? _tokenSubscription;
   StreamSubscription<String>? _notificationSubscription;
   String _lastRegisteredFingerprint = '';
   bool _started = false;
 
-  Future<void> start({required void Function(String route) onOpenRoute}) async {
+  Future<void> start({
+    required FutureOr<void> Function(String route) onOpenRoute,
+  }) async {
     if (_started) return;
     _started = true;
     _tokenSubscription = _tokenSource.tokenChanges.listen(
       (token) => unawaited(_registerToken(token)),
     );
     _notificationSubscription = _tokenSource.notificationClicks.listen(
-      onOpenRoute,
+      (route) => unawaited(Future<void>.sync(() => onOpenRoute(route))),
     );
     await synchronize();
     final initialRoute = await _tokenSource.initialTargetRoute();
-    if (initialRoute != null) onOpenRoute(initialRoute);
+    if (initialRoute != null) await onOpenRoute(initialRoute);
   }
 
   Future<bool> synchronize({String privacyMode = 'summary'}) async {
@@ -250,6 +268,7 @@ final class MobilePushRegistration {
       token: token.value,
       privacyMode: privacyMode,
     );
+    await saveSecureToken?.call(token.fingerprint);
     _lastRegisteredFingerprint = registrationFingerprint;
     return true;
   }
@@ -257,6 +276,7 @@ final class MobilePushRegistration {
   Future<void> unregister() async {
     _lastRegisteredFingerprint = '';
     await _unregister();
+    await clearSecureToken?.call();
   }
 
   void stop() {

@@ -28,7 +28,12 @@ final managedSitesProvider = FutureProvider<List<ManagedAccessSite>>((
     final refreshed = await ref
         .read(authControllerProvider.notifier)
         .refreshSession();
-    if (refreshed == null) throw const ManagedSitesSessionExpired();
+    if (refreshed == null) {
+      await ref
+          .read(authControllerProvider.notifier)
+          .terminateSession(message: '登录已失效或已到期，请重新登录');
+      throw const ManagedSitesSessionExpired();
+    }
     return repository.sites(refreshed.deviceId);
   }
 }, retry: (_, _) => null);

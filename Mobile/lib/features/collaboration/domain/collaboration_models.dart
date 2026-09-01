@@ -1144,6 +1144,7 @@ final class ImConversation {
     required this.updatedAt,
     required this.unreadCount,
     this.lastMessageSequence = 0,
+    this.lastReadSequence = 0,
     this.isPinned = false,
     this.isMuted = false,
     this.unreadMentionSequences = const [],
@@ -1157,6 +1158,7 @@ final class ImConversation {
     updatedAt: _date(_value(json, 'updatedAt')),
     unreadCount: _integer(_value(json, 'unreadCount')),
     lastMessageSequence: _integer(_value(json, 'lastMessageSequence')),
+    lastReadSequence: _integer(_value(json, 'lastReadSequence')),
     isPinned: _boolean(_value(json, 'isPinned')),
     isMuted: _boolean(_value(json, 'isMuted')),
     unreadMentionSequences:
@@ -1175,10 +1177,12 @@ final class ImConversation {
   final DateTime? updatedAt;
   final int unreadCount;
   final int lastMessageSequence;
+  final int lastReadSequence;
   final bool isPinned;
   final bool isMuted;
   final List<int> unreadMentionSequences;
   bool get hasUnreadMention => unreadMentionSequences.isNotEmpty;
+  int? get firstUnreadSequence => unreadCount > 0 ? lastReadSequence + 1 : null;
   ImConversationKind get kind => switch (type.trim().toLowerCase()) {
     'direct' => ImConversationKind.direct,
     'group' => ImConversationKind.group,

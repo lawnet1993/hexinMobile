@@ -62,6 +62,37 @@ void main() {
     expect(imDirectConversationPeer([current, peer], current.id), peer);
   });
 
+  test('单聊成员接口不可用时仍从目录剔除当前用户', () {
+    const conversation = ImConversation(
+      id: 'direct-1',
+      type: 'direct',
+      title: '我、对方',
+      preview: '',
+      updatedAt: null,
+      unreadCount: 0,
+    );
+
+    expect(
+      imConversationDisplayTitle(
+        conversation,
+        const [],
+        current.id,
+        currentDisplayName: current.displayName,
+        contacts: const [peer],
+      ),
+      '对方',
+    );
+    expect(
+      imDirectConversationPeer(
+        const [],
+        current.id,
+        conversation: conversation,
+        contacts: const [peer],
+      ),
+      peer,
+    );
+  });
+
   test('群聊列表保留群名称', () {
     const conversation = ImConversation(
       id: 'group-1',

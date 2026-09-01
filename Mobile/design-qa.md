@@ -807,3 +807,59 @@ final result: simulator passed; physical device pending
 - 最终结果：通过。
 
 final result: passed
+
+## 2026-09-01 OA 真实会签流程与详情新鲜度
+
+- 完整验收：[617-oa-cross-account-real-flow-and-detail-freshness-20260901.md](docs/617-oa-cross-account-real-flow-and-detail-freshness-20260901.md)。
+- 真实证据：[申请人最终详情](docs/evidence/617-oa-cross-device-flow/22-applicant-final-fresh.png)、[通知与已读同步](docs/evidence/617-oa-cross-device-flow/23-notifications-read-synced.png)。
+
+### Findings
+
+- [已通过] `OA-20260901-8990C6` 经五个真实处理人完成，双人会签在两人都同意前不流转。
+- [已通过] 中间节点通知只显示继续流转，最后一个必需节点完成后申请人才收到“审批已通过”。
+- [已修复 P1] 审批详情原先永久优先本地快照，跨账号回切后会将最终通过误显示为旧待办。现联网时优先取服务器，仅网络无响应时使用该账号缓存。
+- [已通过] 审批结果和抄送通知分别打开后，未读数真实从 14 降到 12。
+- [已修复 P2] 34 位请款地址在固定标签列后只剩末字符换行。现在连续长值保持原双栏结构，以紧凑字号在同一行完整缩放显示；异常超长值保持单行省略，不增加卡片高度。
+
+### 验证
+
+- `flutter analyze` 0 issue；完整自动化 240/240 通过（含 13 组 Golden）。
+- Profile APK SHA-256 为 `018E96B340763E3C3E66948F88A9E7C73782F49CA5088967E30150DE9FC1D331`，已覆盖安装到模拟器和 realme。
+- 真机终态：[长地址同栏单行完整显示](docs/evidence/617-oa-cross-device-flow/25-real-device-long-address-single-line.png)；两台设备关键异常均为 0。Windows 桌面终端当前已登录 `laowang`，但不是本申请审批人，桌面同申请证据仍未冒充完成。
+
+final result: partial pass
+
+## 2026-09-01 IM 已读状态右置与占位压缩
+
+### 对照与证据
+
+- 视觉问题来源：用户真机局部截图 [01-user-reported-receipt-spacing.png](docs/evidence/618-two-device-direct-sync-and-chat-density/01-user-reported-receipt-spacing.png)，543 × 105 px。
+- 实现全视图：[03-real-device-compact-receipt.png](docs/evidence/618-two-device-direct-sync-and-chat-density/03-real-device-compact-receipt.png)，realme RMX3366，1080 × 2400 px，Profile 运行态。
+- 模拟器全视图：[02-emulator-compact-receipt.png](docs/evidence/618-two-device-direct-sync-and-chat-density/02-emulator-compact-receipt.png)，Android 模拟器，1080 × 2400 px。
+- 同屏局部对照：[05-receipt-spacing-before-after.png](docs/evidence/618-two-device-direct-sync-and-chat-density/05-receipt-spacing-before-after.png)，1086 × 121 px；实现区域从 1030 × 230 px 裁切后缩放到 543 × 121 px，参考图只做 8 px 垂直补白，没有拉伸。
+- 页面状态：林川与青山的真实双向单聊，两条消息均由服务端持久化；自己发送的消息显示双勾并可打开真实已读详情。
+
+### Findings
+
+- [已修复 P2] 已读入口放在气泡左侧，打断从消息内容到状态的阅读顺序。现改为“气泡 → 双勾 → 自己头像”，不换行、不显示“回执”文字。
+- [已修复 P2] 双勾图标只有 14dp，但外层原来占 28 × 28dp，导致视觉上仍留出大段空白。当前外层压缩为 16 × 22dp，图标为 13dp，并移除气泡与状态之间额外 2dp 间隔。
+- [已通过] 真机点击压缩后的双勾仍打开底部抽屉，显示真实 `已读 1/1` 和读取时间；没有牺牲业务能力。
+
+### 五项视觉检查
+
+- 字体：状态只使用图标，不增加标签或解释文字；消息正文的字号、行高和换行未改变。
+- 间距：状态可见占位由 28dp 降到 16dp，紧贴气泡右侧；长消息仅正文自身换行。
+- 色彩：沿用主色双勾、白色本人气泡文字和既有浅色背景，没有新增令牌。
+- 图标与资源：继续使用项目现有 `done_all_rounded`，头像仍由真实成员资料加载，没有字符或占位资产。
+- 文案与内容：两条 `AI-UAT-*` 测试消息、双方姓名、在线状态和已读数据均来自当前测试环境。
+
+### 比较历史与验证
+
+1. 第一轮将双勾从气泡左侧移到右侧，但 28dp 点击容器仍产生明显空档。
+2. 第二轮按用户真机截图继续压缩到 16 × 22dp，并在相同真实会话重新截图；同屏对照不再存在可见的大块留白。
+3. 242/242 自动化通过，`flutter analyze` 0 issue；Profile APK SHA-256 为 `8A013FB5F8E6187868FCCD29905766BEACACE0AC92D815D486D63F54172DE872`，已覆盖安装到模拟器和 realme 真机。
+4. 真机已读详情：[04-real-device-read-detail.png](docs/evidence/618-two-device-direct-sync-and-chat-density/04-real-device-read-detail.png)；两台设备当前进程日志中崩溃、未处理 Flutter 异常、RenderFlex、ANR 和 OOM 命中均为 0。
+
+当前没有可执行的 P0/P1/P2 视觉差异；本轮不需要额外局部对照。
+
+final result: passed

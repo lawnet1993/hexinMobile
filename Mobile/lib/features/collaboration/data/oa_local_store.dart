@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/config/app_environment.dart';
 import '../../../core/storage/im_cache_cipher.dart';
 
 final class OaApprovalDraft {
@@ -139,8 +140,10 @@ final class OaLocalStore {
   final ImCacheCipher _cipher;
   Future<Database>? _opening;
 
-  static Future<String> _defaultPath() async =>
-      path.join(await getDatabasesPath(), 'hexing-mobile-oa.db');
+  static Future<String> _defaultPath() async => path.join(
+    await getDatabasesPath(),
+    AppEnvironment.databaseFileName('oa'),
+  );
 
   Future<Database> get _database => _opening ??= _open();
 

@@ -44,7 +44,8 @@ void main() {
     const session = MobileSession(
       accessToken: 'access-old',
       refreshToken: 'refresh-old',
-      deviceId: 'device',
+      deviceId: 'server-device',
+      installationId: 'installation-device',
       userId: 'user',
       displayName: 'Tester',
       username: 'tester',
@@ -64,7 +65,9 @@ void main() {
 
     expect(saved?.accessToken, 'access-new');
     expect(saved?.refreshToken, 'refresh-new');
-    expect(saved?.deviceId, 'device');
+    expect(saved?.deviceId, 'server-device');
+    expect(saved?.installationId, 'installation-device');
+    expect(saved?.syncDeviceId, 'installation-device');
   });
 
   test(

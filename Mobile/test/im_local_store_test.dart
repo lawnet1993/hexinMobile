@@ -259,7 +259,7 @@ void main() {
         expect(value as String, startsWith('enc:v1:'));
       }
       expect(message['content'], isNot(contains('private message body')));
-      expect(await raw.getVersion(), 10);
+      expect(await raw.getVersion(), 11);
     } finally {
       await raw.close();
     }
@@ -625,11 +625,13 @@ void main() {
 
       await store.applySyncBatch(
         accountId: 'account-a',
+        deviceId: 'mobile-device-a',
         events: [created, edited],
         bootstrap: _bootstrap('a', unread: 1),
       );
       await store.applySyncBatch(
         accountId: 'account-a',
+        deviceId: 'mobile-device-a',
         events: [created, edited],
         bootstrap: _bootstrap('a', unread: 1),
       );
@@ -637,9 +639,89 @@ void main() {
       final messages = await store.readMessages('account-a', 'conversation-a');
       expect(messages, hasLength(1));
       expect(messages.single.content, 'edited');
-      expect(await store.lastEventSequence('account-a'), 0);
-      await store.markEventsAcked('account-a', 12);
-      expect(await store.lastEventSequence('account-a'), 12);
+      expect(await store.lastEventSequence('account-a', 'mobile-device-a'), 12);
+      expect(
+        await store.lastAckedEventSequence('account-a', 'mobile-device-a'),
+        0,
+      );
+      await store.markEventsAcked('account-a', 'mobile-device-a', 12);
+      expect(
+        await store.lastAckedEventSequence('account-a', 'mobile-device-a'),
+        12,
+      );
+    },
+  );
+
+  test('event cursors are isolated by account and mobile device', () async {
+    final event = ImSyncEvent(
+      sequence: 31,
+      id: 'event-device-a',
+      type: 'presence.changed',
+      payloadJson: jsonEncode({'conversationId': 'conversation-a'}),
+      createdAt: DateTime.utc(2026, 9, 1),
+    );
+    await store.applySyncBatch(
+      accountId: 'account-a',
+      deviceId: 'mobile-device-a',
+      events: [event],
+      bootstrap: _bootstrap('a', unread: 0),
+    );
+
+    expect(await store.lastEventSequence('account-a', 'mobile-device-a'), 31);
+    expect(await store.lastEventSequence('account-a', 'mobile-device-b'), 0);
+    expect(await store.lastEventSequence('account-b', 'mobile-device-a'), 0);
+  });
+
+  test(
+    'own conversation.read event persists max read state idempotently',
+    () async {
+      ImSyncEvent messageEvent(int eventSequence, int messageSequence) =>
+          ImSyncEvent(
+            sequence: eventSequence,
+            id: 'event-message-$messageSequence',
+            type: 'message.created',
+            payloadJson: jsonEncode({
+              'Id': 'message-$messageSequence',
+              'ConversationId': 'conversation-a',
+              'Sequence': messageSequence,
+              'SenderId': 'member-b',
+              'ClientMessageId': 'remote-$messageSequence',
+              'Content': 'message $messageSequence',
+              'Kind': 'text',
+            }),
+            createdAt: DateTime.utc(2026, 9, 1),
+          );
+
+      final readEvent = ImSyncEvent(
+        sequence: 43,
+        id: 'event-read-10',
+        type: 'conversation.read',
+        payloadJson: jsonEncode({
+          'ConversationId': 'conversation-a',
+          'ReaderId': 'member-a',
+          'Sequence': 10,
+        }),
+        createdAt: DateTime.utc(2026, 9, 1),
+      );
+      await store.applySyncBatch(
+        accountId: 'account-a',
+        deviceId: 'mobile-device-a',
+        events: [messageEvent(41, 10), messageEvent(42, 11), readEvent],
+        bootstrap: _bootstrap('a', unread: 2),
+      );
+      await store.applySyncBatch(
+        accountId: 'account-a',
+        deviceId: 'mobile-device-a',
+        events: [readEvent],
+        bootstrap: _bootstrap('a', unread: 2),
+      );
+
+      final conversation = (await store.readBootstrap('account-a'))!
+          .conversations
+          .single;
+      expect(conversation.lastReadSequence, 10);
+      expect(conversation.unreadCount, 1);
+      expect(conversation.unreadMentionSequences, [11]);
     },
   );
 }

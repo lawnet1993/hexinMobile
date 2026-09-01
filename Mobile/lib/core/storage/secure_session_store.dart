@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../config/app_environment.dart';
+
 final secureSessionStoreProvider = Provider<SecureSessionStore>(
   (ref) => SecureSessionStore(),
 );
@@ -12,6 +14,7 @@ final class MobileSession {
   const MobileSession({
     required this.accessToken,
     required this.deviceId,
+    this.installationId = '',
     required this.userId,
     required this.displayName,
     required this.username,
@@ -24,6 +27,10 @@ final class MobileSession {
   factory MobileSession.fromJson(Map<String, Object?> json) => MobileSession(
     accessToken: json['accessToken']?.toString() ?? '',
     deviceId: json['deviceId']?.toString() ?? '',
+    installationId:
+        json['installationId']?.toString() ??
+        json['deviceId']?.toString() ??
+        '',
     userId: json['userId']?.toString() ?? '',
     displayName: json['displayName']?.toString() ?? '',
     username: json['username']?.toString() ?? '',
@@ -34,7 +41,12 @@ final class MobileSession {
   );
 
   final String accessToken;
+
+  /// Server-confirmed device record id used by authenticated APIs.
   final String deviceId;
+
+  /// Stable per-install id used for login identity and local sync isolation.
+  final String installationId;
   final String userId;
   final String displayName;
   final String username;
@@ -49,6 +61,7 @@ final class MobileSession {
   }) => MobileSession(
     accessToken: accessToken,
     deviceId: deviceId,
+    installationId: installationId,
     userId: userId,
     displayName: displayName,
     username: username,
@@ -61,6 +74,7 @@ final class MobileSession {
   Map<String, Object?> toJson() => {
     'accessToken': accessToken,
     'deviceId': deviceId,
+    'installationId': installationId,
     'userId': userId,
     'displayName': displayName,
     'username': username,
@@ -69,6 +83,9 @@ final class MobileSession {
     'oaApiUrl': oaApiUrl,
     'refreshToken': refreshToken,
   };
+
+  String get syncDeviceId =>
+      installationId.isNotEmpty ? installationId : deviceId;
 }
 
 final class SavedCredential {
@@ -81,10 +98,16 @@ final class SecureSessionStore {
   SecureSessionStore({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage();
 
-  static const _sessionKey = 'mobile.session.v1';
-  static const _credentialKey = 'mobile.credential.v1';
-  static const _deviceKey = 'mobile.device.id';
-  static const _imCacheKeyPrefix = 'mobile.im.cache-key.v1.';
+  static String get _sessionKey =>
+      AppEnvironment.secureStorageKey('mobile.session.v1');
+  static String get _credentialKey =>
+      AppEnvironment.secureStorageKey('mobile.credential.v1');
+  static String get _deviceKey =>
+      AppEnvironment.secureStorageKey('mobile.device.id');
+  static String get _pushTokenKey =>
+      AppEnvironment.secureStorageKey('mobile.push.token.v1');
+  static String get _imCacheKeyPrefix =>
+      AppEnvironment.secureStorageKey('mobile.im.cache-key.v1.');
   final FlutterSecureStorage _storage;
   MobileSession? _cachedSession;
 
@@ -133,6 +156,11 @@ final class SecureSessionStore {
   Future<String?> readDeviceId() => _storage.read(key: _deviceKey);
   Future<void> saveDeviceId(String value) =>
       _storage.write(key: _deviceKey, value: value);
+
+  Future<String?> readPushToken() => _storage.read(key: _pushTokenKey);
+  Future<void> savePushToken(String value) =>
+      _storage.write(key: _pushTokenKey, value: value);
+  Future<void> clearPushToken() => _storage.delete(key: _pushTokenKey);
 
   Future<List<int>> readOrCreateImCacheKey(String accountId) async {
     final key = '$_imCacheKeyPrefix${_storageKeySuffix(accountId)}';

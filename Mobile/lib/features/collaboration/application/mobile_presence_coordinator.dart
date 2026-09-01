@@ -1,16 +1,14 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../core/device/mobile_device_identity.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/security/managed_security_repository.dart';
 import '../../../core/storage/secure_session_store.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../network/application/tunnel_controller.dart';
-import '../data/collaboration_repositories.dart';
 
 final mobilePresenceCoordinatorProvider = Provider<MobilePresenceCoordinator>((
   ref,
@@ -26,17 +24,21 @@ final class MobilePresenceCoordinator {
   final Ref _ref;
   Timer? _timer;
   bool _syncing = false;
+  bool _running = false;
 
   Future<void> start() async {
-    if (_timer != null) return;
+    if (_running) return;
+    _running = true;
     await synchronizeNow();
+    if (!_running) return;
     _timer = Timer.periodic(
-      const Duration(seconds: 25),
+      const Duration(seconds: 30),
       (_) => synchronizeNow().ignore(),
     );
   }
 
   void stop() {
+    _running = false;
     _timer?.cancel();
     _timer = null;
   }
@@ -47,7 +49,7 @@ final class MobilePresenceCoordinator {
     try {
       final session = await _ref.read(secureSessionStoreProvider).readSession();
       if (session == null || session.accessToken.isEmpty) return;
-      final package = await PackageInfo.fromPlatform();
+      final identity = await _ref.read(mobileDeviceIdentityProvider).resolve();
       final policyVersion =
           _ref.read(managedPolicyStatusProvider).value?.policyVersion ?? '';
       final tunnelConnected =
@@ -58,11 +60,12 @@ final class MobilePresenceCoordinator {
           .post<void>(
             '/api/client/heartbeat',
             data: {
+              // The control plane authorizes heartbeats against the device
+              // record returned by login. The stable installation id remains
+              // separate and is reused in future login requests/local cursors.
               'deviceId': session.deviceId,
-              'operatingSystem': Platform.isAndroid
-                  ? 'Android'
-                  : Platform.operatingSystem,
-              'clientVersion': package.version,
+              'operatingSystem': identity.operatingSystem,
+              'clientVersion': identity.clientVersion,
               'policyVersion': policyVersion,
               'systemProxyEnabled': false,
               'tunEnabled': tunnelConnected,
@@ -70,11 +73,18 @@ final class MobilePresenceCoordinator {
             },
             options: Options(contentType: Headers.jsonContentType),
           );
-      await _ref.read(imRepositoryProvider).refreshBootstrap();
-      _ref.invalidate(imBootstrapProvider);
     } on DioException catch (error) {
-      if (error.response?.statusCode == 401) {
-        await _ref.read(authControllerProvider.notifier).refreshSession();
+      final disposition = classifyMobileHeartbeatFailure(error);
+      if (disposition == MobileHeartbeatDisposition.sessionReplaced) {
+        stop();
+        await _ref
+            .read(authControllerProvider.notifier)
+            .terminateSession(message: '当前移动端已在另一台设备登录，请重新登录');
+      } else if (disposition == MobileHeartbeatDisposition.sessionExpired) {
+        stop();
+        await _ref
+            .read(authControllerProvider.notifier)
+            .terminateSession(message: '登录已失效或已到期，请重新登录');
       }
       // Presence refresh is retried by the next heartbeat and app resume.
     } catch (_) {
@@ -83,4 +93,19 @@ final class MobilePresenceCoordinator {
       _syncing = false;
     }
   }
+}
+
+enum MobileHeartbeatDisposition { retry, sessionReplaced, sessionExpired }
+
+MobileHeartbeatDisposition classifyMobileHeartbeatFailure(DioException error) {
+  final status = error.response?.statusCode;
+  final body = error.response?.data;
+  final code = body is Map
+      ? (body['code'] ?? body['Code'])?.toString().trim().toLowerCase()
+      : '';
+  if (status == 409 && code == 'session_replaced') {
+    return MobileHeartbeatDisposition.sessionReplaced;
+  }
+  if (status == 401) return MobileHeartbeatDisposition.sessionExpired;
+  return MobileHeartbeatDisposition.retry;
 }

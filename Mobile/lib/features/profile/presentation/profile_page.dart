@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:secure_tunnel/secure_tunnel.dart';
 
-import '../../../core/notifications/mobile_push_registration.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
@@ -217,11 +216,6 @@ class ProfilePage extends ConsumerWidget {
       destructive: true,
     );
     if (confirmed == true) {
-      try {
-        await ref.read(mobilePushRegistrationProvider).unregister();
-      } catch (_) {
-        // Session removal remains available when push registration is offline.
-      }
       await ref.read(authControllerProvider.notifier).logout();
     }
   }

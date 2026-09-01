@@ -906,6 +906,72 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('approval detail keeps long continuous values on one row', (
+    tester,
+  ) async {
+    const address = 'TYMwi5vZDcJXrHkCN8TuUwNQhJZBKPjZMh';
+    final source = PreviewData.oaBootstrap.approvalRequests.first;
+    final request = OaApprovalRequest(
+      id: 'single-line-address',
+      requesterId: source.requesterId,
+      title: '请款审批',
+      formDataJson: jsonEncode({'address': address}),
+      formSchemaSnapshotJson: jsonEncode({
+        'fields': [
+          {'id': 'address', 'label': '请款地址', 'type': 'text'},
+        ],
+      }),
+      status: 'approved',
+      createdAt: source.createdAt,
+      updatedAt: source.updatedAt,
+      requesterName: source.requesterName,
+      requesterDepartmentName: source.requesterDepartmentName,
+      templateName: source.templateName,
+      templateCategory: source.templateCategory,
+      allowedActions: const [],
+      tasks: const [],
+      actions: const [],
+      attachments: const [],
+    );
+    await _pump(
+      tester,
+      ApprovalDetailPage(approvalId: request.id),
+      overrides: [
+        oaApprovalRequestProvider(request.id)
+            .overrideWith((ref) async => request),
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+      ],
+    );
+
+    final labelFinder = find.text('请款地址');
+    final valueFinder = find.byKey(
+      const ValueKey<String>('approval-detail-value-请款地址'),
+    );
+    final value = tester.widget<Text>(valueFinder);
+    expect(value.data, address);
+    expect(value.maxLines, 1);
+    expect(value.softWrap, isFalse);
+    expect(value.overflow, TextOverflow.ellipsis);
+    expect(
+      (tester.getTopLeft(valueFinder).dy - tester.getTopLeft(labelFinder).dy)
+          .abs(),
+      lessThan(2),
+    );
+    expect(
+      find.ancestor(of: valueFinder, matching: find.byType(FittedBox)),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'approval detail never exposes visual-form configuration as business data',
     (tester) async {

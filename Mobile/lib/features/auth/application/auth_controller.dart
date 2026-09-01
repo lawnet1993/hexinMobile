@@ -1,20 +1,34 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:crypto/crypto.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/config/app_environment.dart';
+import '../../../core/device/mobile_device_identity.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/collaboration_client.dart';
 import '../../../core/storage/secure_session_store.dart';
 
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, MobileSession?>(AuthController.new);
+
+final sessionTerminationNoticeProvider =
+    NotifierProvider<SessionTerminationNoticeController, String?>(
+      SessionTerminationNoticeController.new,
+    );
+
+final class SessionTerminationNoticeController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void showOnce(String message) => state ??= message;
+
+  String? take() {
+    final value = state;
+    state = null;
+    return value;
+  }
+
+  void clear() => state = null;
+}
 
 final class LoginFailure implements Exception {
   const LoginFailure(this.message);
@@ -50,6 +64,7 @@ class AuthController extends AsyncNotifier<MobileSession?> {
     required String password,
     required bool remember,
   }) async {
+    ref.read(sessionTerminationNoticeProvider.notifier).clear();
     state = const AsyncLoading();
     state = await AsyncValue.guard(
       () => _authenticate(username, password, remember: remember),
@@ -62,30 +77,26 @@ class AuthController extends AsyncNotifier<MobileSession?> {
     required bool remember,
   }) async {
     final store = ref.read(secureSessionStoreProvider);
-    final identity = await _deviceIdentity(store);
-    final package = await PackageInfo.fromPlatform();
+    final identity = await ref.read(mobileDeviceIdentityProvider).resolve();
     try {
       final response = await ref
           .read(dioProvider)
           .post<Map<String, Object?>>(
             '/api/client/login',
-            data: {
-              'username': username.trim(),
-              'password': password,
-              'deviceId': identity.id,
-              'deviceName': identity.name,
-              'fingerprint': identity.fingerprint,
-              'operatingSystem': identity.operatingSystem,
-              'clientVersion': package.version,
-              'region': '',
-            },
+            data: buildMobileLoginRequest(
+              username: username,
+              password: password,
+              identity: identity,
+            ),
           );
       final body = response.data ?? const <String, Object?>{};
       final device = _map(body['device']);
       final collaboration = _map(body['collaboration']);
+      final serverDeviceId = device['id']?.toString().trim() ?? '';
       final session = MobileSession(
         accessToken: body['accessToken']?.toString() ?? '',
-        deviceId: device['id']?.toString() ?? identity.id,
+        deviceId: serverDeviceId.isNotEmpty ? serverDeviceId : identity.id,
+        installationId: identity.id,
         userId: device['userId']?.toString() ?? '',
         displayName: username.trim(),
         username: username.trim(),
@@ -116,16 +127,14 @@ class AuthController extends AsyncNotifier<MobileSession?> {
   Future<void> clearSavedCredential() =>
       ref.read(secureSessionStoreProvider).clearCredential();
 
-  Future<MobileSession?> refreshSession({bool forceCredential = false}) async {
+  Future<MobileSession?> refreshSession() async {
     final active = _refreshing;
     if (active != null) {
-      final refreshed = !forceCredential
-          ? await active
-          : await active.then((_) => _refreshSession(forceCredential: true));
+      final refreshed = await active;
       if (refreshed != null) state = AsyncData(refreshed);
       return refreshed;
     }
-    final refresh = _refreshSession(forceCredential: forceCredential);
+    final refresh = _refreshSession();
     _refreshing = refresh;
     try {
       final refreshed = await refresh;
@@ -136,14 +145,12 @@ class AuthController extends AsyncNotifier<MobileSession?> {
     }
   }
 
-  Future<MobileSession?> _refreshSession({
-    required bool forceCredential,
-  }) async {
+  Future<MobileSession?> _refreshSession() async {
     final store = ref.read(secureSessionStoreProvider);
     final current = await store.readSession();
     if (current == null) return null;
 
-    if (!forceCredential && current.refreshToken.isNotEmpty) {
+    if (current.refreshToken.isNotEmpty) {
       try {
         final response =
             await Dio(
@@ -179,23 +186,45 @@ class AuthController extends AsyncNotifier<MobileSession?> {
           return refreshed;
         }
       } on DioException {
-        // Match the desktop terminal: fall back to remembered credentials.
+        return null;
       }
     }
-
-    final credential = await store.readCredential();
-    if (credential == null || credential.password.isEmpty) return null;
-    return _authenticate(
-      credential.username,
-      credential.password,
-      remember: true,
-    );
+    return null;
   }
 
   Future<void> logout({bool clearCredential = false}) async {
-    await ref
-        .read(secureSessionStoreProvider)
-        .clearSession(clearCredential: clearCredential);
+    final store = ref.read(secureSessionStoreProvider);
+    final current = await store.readSession();
+    try {
+      if (current != null && current.imApiUrl.trim().isNotEmpty) {
+        await Dio(
+          BaseOptions(
+            baseUrl: collaborationOrigin(current.imApiUrl, '/api/im'),
+            connectTimeout: const Duration(seconds: 8),
+            receiveTimeout: const Duration(seconds: 8),
+            headers: <String, Object?>{
+              'Authorization': 'Bearer ${current.accessToken}',
+              'X-Device-Id': current.deviceId,
+              'X-Terminal-Device-Id': current.deviceId,
+              'X-Terminal-Account-Id': current.userId,
+            },
+          ),
+        ).delete<void>('/api/im/push/devices/current');
+      }
+    } on DioException {
+      // Logging out must remain possible while the push endpoint is offline.
+    }
+    await store.clearPushToken();
+    await store.clearSession(clearCredential: clearCredential);
+    state = const AsyncData(null);
+  }
+
+  Future<void> terminateSession({required String message}) async {
+    final store = ref.read(secureSessionStoreProvider);
+    if (await store.readSession() == null && state.value == null) return;
+    await store.clearPushToken();
+    await store.clearSession();
+    ref.read(sessionTerminationNoticeProvider.notifier).showOnce(message);
     state = const AsyncData(null);
   }
 
@@ -219,54 +248,20 @@ class AuthController extends AsyncNotifier<MobileSession?> {
     }
     return detail?.isNotEmpty == true ? detail! : '登录失败，请稍后重试';
   }
-
-  Future<_DeviceIdentity> _deviceIdentity(SecureSessionStore store) async {
-    final info = DeviceInfoPlugin();
-    final existingId = await store.readDeviceId();
-    final id = existingId?.isNotEmpty == true ? existingId! : const Uuid().v4();
-    if (existingId == null) await store.saveDeviceId(id);
-
-    if (kIsWeb) {
-      return _DeviceIdentity(
-        id: id,
-        name: 'Web 预览终端',
-        fingerprint: sha256.convert(utf8.encode('web|$id')).toString(),
-        operatingSystem: 'Web',
-      );
-    }
-
-    var name = '移动终端';
-    var source = id;
-    var operatingSystem = Platform.operatingSystem;
-    if (Platform.isAndroid) {
-      final value = await info.androidInfo;
-      name = '${value.brand} ${value.model}'.trim();
-      source = '${value.id}|${value.brand}|${value.model}|$id';
-      operatingSystem = 'Android ${value.version.release}';
-    } else if (Platform.isIOS) {
-      final value = await info.iosInfo;
-      name = value.name;
-      source = '${value.identifierForVendor}|${value.utsname.machine}|$id';
-      operatingSystem = '${value.systemName} ${value.systemVersion}';
-    }
-    return _DeviceIdentity(
-      id: id,
-      name: name,
-      fingerprint: sha256.convert(utf8.encode(source)).toString(),
-      operatingSystem: operatingSystem,
-    );
-  }
 }
 
-final class _DeviceIdentity {
-  const _DeviceIdentity({
-    required this.id,
-    required this.name,
-    required this.fingerprint,
-    required this.operatingSystem,
-  });
-  final String id;
-  final String name;
-  final String fingerprint;
-  final String operatingSystem;
-}
+Map<String, Object?> buildMobileLoginRequest({
+  required String username,
+  required String password,
+  required MobileDeviceIdentity identity,
+}) => <String, Object?>{
+  'username': username.trim(),
+  'password': password,
+  'clientPlatform': 'mobile',
+  'deviceId': identity.id,
+  'deviceName': identity.name,
+  'fingerprint': identity.fingerprint,
+  'operatingSystem': identity.operatingSystem,
+  'clientVersion': identity.clientVersion,
+  'region': '',
+};

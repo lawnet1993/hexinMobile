@@ -16,6 +16,25 @@ final class AppEnvironment {
     'RELEASE_CHANNEL',
     defaultValue: 'stable',
   );
+  static const environmentName = String.fromEnvironment(
+    'APP_ENVIRONMENT',
+    defaultValue: 'test',
+  );
+
+  static String get storageNamespace {
+    final normalized = environmentName.trim().toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9_-]'),
+      '-',
+    );
+    return normalized.isEmpty ? 'test' : normalized;
+  }
+
+  static String secureStorageKey(String legacyKey) =>
+      storageNamespace == 'test' ? legacyKey : '$storageNamespace.$legacyKey';
+
+  static String databaseFileName(String feature) => storageNamespace == 'test'
+      ? 'hexing-mobile-$feature.db'
+      : 'hexing-mobile-$storageNamespace-$feature.db';
 
   static const _releaseArtifactPublicKeys = String.fromEnvironment(
     'MOBILE_ARTIFACT_PUBLIC_KEYS',

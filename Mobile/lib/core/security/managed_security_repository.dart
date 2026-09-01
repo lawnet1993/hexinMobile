@@ -196,7 +196,15 @@ final class ManagedTerminalCommandCoordinator {
       }
     } on DioException catch (error) {
       if (error.response?.statusCode == 401) {
-        await _ref.read(authControllerProvider.notifier).refreshSession();
+        final refreshed = await _ref
+            .read(authControllerProvider.notifier)
+            .refreshSession();
+        if (refreshed == null) {
+          await _ref
+              .read(authControllerProvider.notifier)
+              .terminateSession(message: '登录已失效或已到期，请重新登录');
+          stop();
+        }
       }
     } catch (_) {
       // The next foreground synchronization or polling cycle retries safely.

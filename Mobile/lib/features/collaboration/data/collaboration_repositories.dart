@@ -101,7 +101,7 @@ final oaApprovalRequestLoaderProvider = Provider<OaApprovalRequestLoader>((
   ref,
 ) {
   final repository = ref.read(oaRepositoryProvider);
-  return repository.approvalRequestCacheFirst;
+  return repository.approvalRequestNetworkFirst;
 });
 
 final oaAttachmentThumbnailBytesLoaderProvider =
@@ -944,6 +944,23 @@ final class OaRepository {
     final cached = await _store.readObject(session.userId, cacheKey);
     if (cached != null) return OaApprovalRequest.fromJson(cached);
     return refreshApprovalRequest(requestId);
+  }
+
+  Future<OaApprovalRequest> approvalRequestNetworkFirst(
+    String requestId,
+  ) async {
+    try {
+      return await refreshApprovalRequest(requestId);
+    } on DioException catch (error) {
+      if (error.response != null) rethrow;
+      final session = await _session();
+      final cached = await _store.readObject(
+        session.userId,
+        'approval:$requestId',
+      );
+      if (cached == null) rethrow;
+      return OaApprovalRequest.fromJson(cached);
+    }
   }
 
   Future<OaApprovalRequest> refreshApprovalRequest(String requestId) async {
@@ -3905,6 +3922,7 @@ final class ImRepository {
           _compactError(error),
         );
         conversationIds.add(item.conversationId);
+        if (_isTransientOutboxFailure(error)) break;
       }
     }
     return ImOutboxFlushResult(
@@ -3971,8 +3989,17 @@ final class ImRepository {
     CancelToken? cancelToken,
   }) async {
     final session = await _session();
-    final cursor = await _store.lastEventSequence(session.userId);
+    final syncDeviceId = session.syncDeviceId;
+    final cursor = await _store.lastEventSequence(session.userId, syncDeviceId);
     final dio = await _client.forIm();
+    final acked = await _store.lastAckedEventSequence(
+      session.userId,
+      syncDeviceId,
+    );
+    if (cursor > acked) {
+      await _ackEvents(dio, cursor, cancelToken: cancelToken);
+      await _store.markEventsAcked(session.userId, syncDeviceId, cursor);
+    }
     final response = await dio.get<Map<String, Object?>>(
       '/api/im/sync/events',
       queryParameters: {
@@ -3990,7 +4017,7 @@ final class ImRepository {
               .map(
                 (value) => ImSyncEvent.fromJson(value.cast<String, Object?>()),
               )
-              .where((event) => event.sequence > cursor)
+              .where((event) => event.sequence > 0 && event.id.isNotEmpty)
               .toList()
         : <ImSyncEvent>[];
     if (events.isEmpty) {
@@ -4000,21 +4027,29 @@ final class ImRepository {
     final bootstrap = await _fetchBootstrap();
     await _store.applySyncBatch(
       accountId: session.userId,
+      deviceId: syncDeviceId,
       events: events,
       bootstrap: bootstrap,
     );
-    final latestSequence = events.last.sequence;
-    await dio.post<void>(
-      '/api/im/sync/ack',
-      data: {'eventSequence': latestSequence},
-      options: Options(contentType: Headers.jsonContentType),
+    final latestSequence = events.fold<int>(
+      cursor,
+      (latest, event) => event.sequence > latest ? event.sequence : latest,
     );
-    await _store.markEventsAcked(session.userId, latestSequence);
+    await _ackEvents(dio, latestSequence, cancelToken: cancelToken);
+    await _store.markEventsAcked(session.userId, syncDeviceId, latestSequence);
     return ImSyncPullResult.fromEvents(
       latestSequence: latestSequence,
-      events: events,
+      events: events.where((event) => event.sequence > cursor).toList(),
     );
   }
+
+  Future<void> _ackEvents(Dio dio, int sequence, {CancelToken? cancelToken}) =>
+      dio.post<void>(
+        '/api/im/sync/ack',
+        data: {'eventSequence': sequence},
+        cancelToken: cancelToken,
+        options: Options(contentType: Headers.jsonContentType),
+      );
 
   Future<void> markRead(String conversationId, int sequence) async {
     if (sequence <= 0) return;
@@ -4025,7 +4060,7 @@ final class ImRepository {
       data: {'sequence': sequence},
       options: Options(contentType: Headers.jsonContentType),
     );
-    await _store.markConversationRead(session.userId, conversationId);
+    await _store.markConversationRead(session.userId, conversationId, sequence);
     try {
       final mentions = await unreadMentions(conversationId: conversationId);
       final visibleIds = mentions
@@ -4137,14 +4172,24 @@ final class ImRepository {
 
   static String _compactError(Object error) {
     if (error is DioException) {
-      final data = error.response?.data;
-      if (data is Map) {
-        final message = data['message']?.toString();
-        if (message != null && message.isNotEmpty) return message;
-      }
-      return error.message ?? error.type.name;
+      final status = error.response?.statusCode;
+      if (status != null) return '消息服务请求失败（HTTP $status）';
+      return switch (error.type) {
+        DioExceptionType.connectionTimeout ||
+        DioExceptionType.sendTimeout ||
+        DioExceptionType.receiveTimeout => '网络超时，等待自动重试',
+        DioExceptionType.connectionError => '网络不可用，等待自动重试',
+        _ => '消息发送失败，等待自动重试',
+      };
     }
-    return error.toString();
+    return '消息发送失败，等待自动重试';
+  }
+
+  static bool _isTransientOutboxFailure(Object error) {
+    if (error is! DioException) return true;
+    final status = error.response?.statusCode;
+    if (status != null) return status >= 500 || status == 408 || status == 429;
+    return true;
   }
 }
 
@@ -4168,6 +4213,7 @@ final class ImSyncPullResult {
     required this.messageConversationIds,
     required this.memberConversationIds,
     required this.groupProfileConversationIds,
+    required this.eventCount,
   });
 
   factory ImSyncPullResult.fromEvents({
@@ -4194,7 +4240,7 @@ final class ImSyncPullResult {
       if (conversationId.isEmpty) continue;
       conversationIds.add(conversationId);
       final type = event.type.trim().toLowerCase();
-      if (type.startsWith('message.')) {
+      if (type.startsWith('message.') || type == 'conversation.read') {
         messageConversationIds.add(conversationId);
       }
       if (type.contains('.member.') ||
@@ -4215,6 +4261,7 @@ final class ImSyncPullResult {
       messageConversationIds: messageConversationIds,
       memberConversationIds: memberConversationIds,
       groupProfileConversationIds: groupProfileConversationIds,
+      eventCount: events.length,
     );
   }
 
@@ -4225,6 +4272,7 @@ final class ImSyncPullResult {
     messageConversationIds: const <String>{},
     memberConversationIds: const <String>{},
     groupProfileConversationIds: const <String>{},
+    eventCount: 0,
   );
 
   final bool changed;
@@ -4233,6 +4281,7 @@ final class ImSyncPullResult {
   final Set<String> messageConversationIds;
   final Set<String> memberConversationIds;
   final Set<String> groupProfileConversationIds;
+  final int eventCount;
 }
 
 final class ImOutboxFlushResult {

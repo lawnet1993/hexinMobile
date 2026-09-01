@@ -45,6 +45,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
   _deviceAuthorizationCoordinator;
   late final MobilePushRegistration _pushRegistration;
   late final ManagedTerminalCommandCoordinator _terminalCommandCoordinator;
+  bool _sessionRuntimeStopped = false;
 
   @override
   void initState() {
@@ -59,6 +60,11 @@ class _MobileShellState extends ConsumerState<MobileShell>
     _terminalCommandCoordinator = ref.read(
       managedTerminalCommandCoordinatorProvider,
     );
+    ref.listenManual(authControllerProvider, (previous, next) {
+      if (previous?.value != null && next.value == null) {
+        _stopSessionRuntime();
+      }
+    });
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -77,39 +83,48 @@ class _MobileShellState extends ConsumerState<MobileShell>
       // Device authorization is retried on app resume and remains visible in
       // the dedicated device page when collaboration is temporarily offline.
     }
-    if (!mounted) return;
+    if (!mounted || _sessionRuntimeStopped) return;
+    await _presenceCoordinator.start();
+    if (!mounted || _sessionRuntimeStopped) return;
+    await _imSyncCoordinator.start();
+    if (!mounted || _sessionRuntimeStopped) return;
+    await _oaSyncCoordinator.start();
+    if (!mounted || _sessionRuntimeStopped) return;
     try {
       await _pushRegistration.start(onOpenRoute: _openPushRoute);
     } catch (_) {
       // Push registration must not block local cache and foreground sync.
     }
-    if (!mounted) return;
-    await _presenceCoordinator.start();
-    if (!mounted) return;
-    await _imSyncCoordinator.start();
-    if (!mounted) return;
-    await _oaSyncCoordinator.start();
   }
 
-  void _openPushRoute(String route) {
-    if (!mounted) return;
+  Future<void> _openPushRoute(String route) async {
+    if (!mounted || _sessionRuntimeStopped) return;
+    await _imSyncCoordinator.synchronizeNowAndWait();
+    if (!mounted || _sessionRuntimeStopped) return;
     context.go(route);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _stopSessionRuntime();
+    super.dispose();
+  }
+
+  void _stopSessionRuntime() {
+    if (_sessionRuntimeStopped) return;
+    _sessionRuntimeStopped = true;
     _pushRegistration.stop();
     _presenceCoordinator.stop();
     _imSyncCoordinator.stop();
     _oaSyncCoordinator.stop();
     _terminalCommandCoordinator.stop();
-    super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      if (_sessionRuntimeStopped) return;
       _imSyncCoordinator.synchronizeNow();
       _presenceCoordinator.synchronizeNow();
       _oaSyncCoordinator.synchronizeNow();

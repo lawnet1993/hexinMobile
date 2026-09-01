@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/config/app_environment.dart';
 import '../../../core/storage/im_cache_cipher.dart';
 import '../domain/collaboration_models.dart';
 
@@ -55,8 +56,10 @@ final class ImLocalStore {
   final ImCacheCipher _cipher;
   Future<Database>? _opening;
 
-  static Future<String> _defaultPath() async =>
-      path.join(await getDatabasesPath(), 'hexing-mobile-im.db');
+  static Future<String> _defaultPath() async => path.join(
+    await getDatabasesPath(),
+    AppEnvironment.databaseFileName('im'),
+  );
 
   Future<Database> get _database => _opening ??= _open();
 
@@ -64,7 +67,7 @@ final class ImLocalStore {
     final database = await _factory.openDatabase(
       await _pathResolver(),
       options: OpenDatabaseOptions(
-        version: 10,
+        version: 11,
         onConfigure: (database) async {
           await database.execute('PRAGMA foreign_keys = ON');
           // journal_mode returns a result row on Android SQLite and therefore
@@ -102,6 +105,7 @@ final class ImLocalStore {
             updated_at TEXT,
             unread_count INTEGER NOT NULL,
             last_message_sequence INTEGER NOT NULL,
+            last_read_sequence INTEGER NOT NULL DEFAULT 0,
             is_pinned INTEGER NOT NULL,
             is_muted INTEGER NOT NULL,
             unread_mention_sequences_json TEXT NOT NULL DEFAULT '[]',
@@ -224,6 +228,9 @@ final class ImLocalStore {
           if (oldVersion < 10) {
             await _addGroupProfileCurrentUserRoleColumn(database);
           }
+          if (oldVersion < 11) {
+            await _addConversationReadSequenceColumn(database);
+          }
         },
       ),
     );
@@ -276,6 +283,23 @@ final class ImLocalStore {
     if (!columns.contains('unread_mention_sequences_json')) {
       await database.execute(
         "ALTER TABLE im_conversations ADD COLUMN unread_mention_sequences_json TEXT NOT NULL DEFAULT '[]'",
+      );
+    }
+  }
+
+  static Future<void> _addConversationReadSequenceColumn(
+    DatabaseExecutor database,
+  ) async {
+    final tables = await database.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'im_conversations'",
+    );
+    if (tables.isEmpty) return;
+    final columns = (await database.rawQuery(
+      'PRAGMA table_info(im_conversations)',
+    )).map((row) => row['name']?.toString() ?? '').toSet();
+    if (!columns.contains('last_read_sequence')) {
+      await database.execute(
+        'ALTER TABLE im_conversations ADD COLUMN last_read_sequence INTEGER NOT NULL DEFAULT 0',
       );
     }
   }
@@ -991,22 +1015,29 @@ final class ImLocalStore {
   Future<void> markConversationRead(
     String accountId,
     String conversationId,
+    int sequence,
   ) async {
     final database = await _database;
-    await database.update(
-      'im_conversations',
-      {'unread_count': 0},
-      where: 'account_id = ? AND id = ?',
-      whereArgs: [accountId, conversationId],
-    );
+    await database.transaction((transaction) async {
+      await _applyOwnRead(transaction, accountId, conversationId, sequence);
+    });
   }
 
-  Future<int> lastEventSequence(String accountId) async {
-    final value = await _readState(accountId, 'events.last_sequence');
+  Future<int> lastEventSequence(String accountId, String deviceId) async {
+    final value = await _readState(accountId, _eventSequenceKey(deviceId));
     return int.tryParse(value ?? '') ?? 0;
   }
 
-  Future<void> markEventsAcked(String accountId, int sequence) async {
+  Future<int> lastAckedEventSequence(String accountId, String deviceId) async {
+    final value = await _readState(accountId, _eventAckSequenceKey(deviceId));
+    return int.tryParse(value ?? '') ?? 0;
+  }
+
+  Future<void> markEventsAcked(
+    String accountId,
+    String deviceId,
+    int sequence,
+  ) async {
     if (sequence <= 0) return;
     final database = await _database;
     await database.transaction((transaction) async {
@@ -1014,7 +1045,7 @@ final class ImLocalStore {
         'im_sync_state',
         columns: ['value'],
         where: 'account_id = ? AND state_key = ?',
-        whereArgs: [accountId, 'events.last_sequence'],
+        whereArgs: [accountId, _eventAckSequenceKey(deviceId)],
         limit: 1,
       );
       final current = rows.isEmpty
@@ -1024,7 +1055,7 @@ final class ImLocalStore {
       await _writeState(
         transaction,
         accountId,
-        'events.last_sequence',
+        _eventAckSequenceKey(deviceId),
         next.toString(),
       );
     });
@@ -1032,13 +1063,15 @@ final class ImLocalStore {
 
   Future<void> applySyncBatch({
     required String accountId,
+    required String deviceId,
     required List<ImSyncEvent> events,
     required ImBootstrap bootstrap,
   }) async {
     final database = await _database;
     await database.transaction((transaction) async {
+      await _replaceBootstrap(transaction, accountId, bootstrap);
       for (final event in events) {
-        final inserted = await transaction.insert('im_event_inbox', {
+        await transaction.insert('im_event_inbox', {
           'account_id': accountId,
           'sequence': event.sequence,
           'event_id': event.id,
@@ -1046,11 +1079,29 @@ final class ImLocalStore {
           'payload_json': await _cipher.protect(accountId, event.payloadJson),
           'created_at': event.createdAt?.toUtc().toIso8601String(),
         }, conflictAlgorithm: ConflictAlgorithm.ignore);
-        if (inserted > 0) {
-          await _applyEvent(transaction, accountId, event);
-        }
+        await _applyEvent(
+          transaction,
+          accountId,
+          bootstrap.currentMember.id,
+          event,
+        );
       }
-      await _replaceBootstrap(transaction, accountId, bootstrap);
+      final current = await _readStateFromExecutor(
+        transaction,
+        accountId,
+        _eventSequenceKey(deviceId),
+      );
+      final currentSequence = int.tryParse(current ?? '') ?? 0;
+      final latestSequence = events.fold<int>(
+        currentSequence,
+        (latest, event) => event.sequence > latest ? event.sequence : latest,
+      );
+      await _writeState(
+        transaction,
+        accountId,
+        _eventSequenceKey(deviceId),
+        latestSequence.toString(),
+      );
       await transaction.rawDelete(
         '''
         DELETE FROM im_event_inbox
@@ -1067,6 +1118,7 @@ final class ImLocalStore {
   Future<void> _applyEvent(
     DatabaseExecutor executor,
     String accountId,
+    String currentMemberId,
     ImSyncEvent event,
   ) async {
     Map<String, Object?> payload;
@@ -1077,6 +1129,22 @@ final class ImLocalStore {
     }
     if (event.type == 'message.created') {
       await _upsertMessage(executor, accountId, ImMessage.fromJson(payload));
+      return;
+    }
+    if (event.type == 'conversation.read') {
+      final readerId = _jsonText(payload, 'readerId');
+      final conversationId = _jsonText(payload, 'conversationId');
+      final sequence = int.tryParse(_jsonText(payload, 'sequence')) ?? 0;
+      if ((readerId == currentMemberId || readerId == accountId) &&
+          conversationId.isNotEmpty) {
+        await _applyOwnRead(
+          executor,
+          accountId,
+          conversationId,
+          sequence,
+          currentMemberId: currentMemberId,
+        );
+      }
       return;
     }
     final messageId = _jsonText(payload, 'id');
@@ -1120,6 +1188,16 @@ final class ImLocalStore {
     String accountId,
     ImBootstrap value,
   ) async {
+    final previousConversationRows = await executor.query(
+      'im_conversations',
+      columns: ['id', 'last_read_sequence'],
+      where: 'account_id = ?',
+      whereArgs: [accountId],
+    );
+    final previousReadSequences = <String, int>{
+      for (final row in previousConversationRows)
+        row['id']!.toString(): row['last_read_sequence'] as int? ?? 0,
+    };
     await executor.delete(
       'im_members',
       where: 'account_id = ?',
@@ -1135,6 +1213,11 @@ final class ImLocalStore {
       await _writeMember(executor, accountId, member, false, true);
     }
     for (final conversation in value.conversations) {
+      final previousReadSequence = previousReadSequences[conversation.id] ?? 0;
+      final lastReadSequence =
+          conversation.lastReadSequence > previousReadSequence
+          ? conversation.lastReadSequence
+          : previousReadSequence;
       await executor.insert('im_conversations', {
         'account_id': accountId,
         'id': conversation.id,
@@ -1144,6 +1227,7 @@ final class ImLocalStore {
         'updated_at': conversation.updatedAt?.toUtc().toIso8601String(),
         'unread_count': conversation.unreadCount,
         'last_message_sequence': conversation.lastMessageSequence,
+        'last_read_sequence': lastReadSequence,
         'is_pinned': conversation.isPinned ? 1 : 0,
         'is_muted': conversation.isMuted ? 1 : 0,
         'unread_mention_sequences_json': jsonEncode(
@@ -1156,6 +1240,12 @@ final class ImLocalStore {
       accountId,
       'bootstrap.permissions',
       jsonEncode(value.permissions.toJson()),
+    );
+    await _writeState(
+      executor,
+      accountId,
+      'bootstrap.current_member_id',
+      value.currentMember.id,
     );
     await _writeState(
       executor,
@@ -1300,6 +1390,87 @@ final class ImLocalStore {
     return rows.isEmpty ? null : rows.single['value'] as String;
   }
 
+  Future<String?> _readStateFromExecutor(
+    DatabaseExecutor executor,
+    String accountId,
+    String key,
+  ) async {
+    final rows = await executor.query(
+      'im_sync_state',
+      columns: ['value'],
+      where: 'account_id = ? AND state_key = ?',
+      whereArgs: [accountId, key],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.single['value'] as String;
+  }
+
+  Future<void> _applyOwnRead(
+    DatabaseExecutor executor,
+    String accountId,
+    String conversationId,
+    int sequence, {
+    String currentMemberId = '',
+  }) async {
+    if (sequence <= 0) return;
+    final resolvedCurrentMemberId = currentMemberId.isNotEmpty
+        ? currentMemberId
+        : await _readStateFromExecutor(
+                executor,
+                accountId,
+                'bootstrap.current_member_id',
+              ) ??
+              '';
+    final rows = await executor.query(
+      'im_conversations',
+      columns: ['last_read_sequence', 'unread_mention_sequences_json'],
+      where: 'account_id = ? AND id = ?',
+      whereArgs: [accountId, conversationId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+    final current = rows.single['last_read_sequence'] as int? ?? 0;
+    final next = sequence > current ? sequence : current;
+    final mentions = _decodeIntegerList(
+      rows.single['unread_mention_sequences_json']?.toString() ?? '[]',
+    ).where((value) => value > next).toList();
+    final unreadRows = await executor.rawQuery(
+      '''
+      SELECT COUNT(*) AS unread_count
+      FROM im_messages
+      WHERE account_id = ? AND conversation_id = ? AND sequence > ?
+        AND is_deleted = 0
+        ${resolvedCurrentMemberId.isEmpty ? '' : 'AND sender_id <> ?'}
+      ''',
+      [
+        accountId,
+        conversationId,
+        next,
+        if (resolvedCurrentMemberId.isNotEmpty) resolvedCurrentMemberId,
+      ],
+    );
+    final unread = Sqflite.firstIntValue(unreadRows) ?? 0;
+    await executor.update(
+      'im_conversations',
+      {
+        'last_read_sequence': next,
+        'unread_count': unread,
+        'unread_mention_sequences_json': jsonEncode(mentions),
+      },
+      where: 'account_id = ? AND id = ?',
+      whereArgs: [accountId, conversationId],
+    );
+  }
+
+  static String _eventSequenceKey(String deviceId) =>
+      'events.last_sequence.${_stateKeySuffix(deviceId)}';
+
+  static String _eventAckSequenceKey(String deviceId) =>
+      'events.last_ack_sequence.${_stateKeySuffix(deviceId)}';
+
+  static String _stateKeySuffix(String value) =>
+      base64Url.encode(utf8.encode(value)).replaceAll('=', '');
+
   Future<DateTime?> _readStateDate(String accountId, String key) async {
     final value = await _readState(accountId, key);
     return value == null ? null : DateTime.tryParse(value)?.toLocal();
@@ -1392,6 +1563,7 @@ final class ImLocalStore {
         ?.toLocal(),
     unreadCount: row['unread_count'] as int,
     lastMessageSequence: row['last_message_sequence'] as int,
+    lastReadSequence: row['last_read_sequence'] as int? ?? 0,
     isPinned: (row['is_pinned'] as int) != 0,
     isMuted: (row['is_muted'] as int) != 0,
     unreadMentionSequences: _decodeIntegerList(

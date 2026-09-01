@@ -180,7 +180,8 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
                           separatorBuilder: (_, _) => const Divider(indent: 62),
                           itemBuilder: (context, index) => _ConversationTile(
                             item: items[index],
-                            currentMemberId: data.currentMember.id,
+                            currentMember: data.currentMember,
+                            contacts: data.contacts,
                           ),
                         ),
                       );
@@ -430,10 +431,15 @@ class _NewConversationSheetState extends State<_NewConversationSheet> {
 }
 
 class _ConversationTile extends ConsumerWidget {
-  const _ConversationTile({required this.item, required this.currentMemberId});
+  const _ConversationTile({
+    required this.item,
+    required this.currentMember,
+    required this.contacts,
+  });
 
   final ImConversation item;
-  final String currentMemberId;
+  final ImMember currentMember;
+  final List<ImMember> contacts;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -441,9 +447,20 @@ class _ConversationTile extends ConsumerWidget {
         ? const <ImMember>[]
         : ref.watch(conversationMembersProvider(item.id)).value ??
               const <ImMember>[];
-    final title = imConversationDisplayTitle(item, members, currentMemberId);
+    final title = imConversationDisplayTitle(
+      item,
+      members,
+      currentMember.id,
+      currentDisplayName: currentMember.displayName,
+      contacts: contacts,
+    );
     final peer = item.isDirect
-        ? imDirectConversationPeer(members, currentMemberId)
+        ? imDirectConversationPeer(
+            members,
+            currentMember.id,
+            conversation: item,
+            contacts: contacts,
+          )
         : null;
     return InkWell(
       onTap: () => context.push('/chat/${item.id}'),
@@ -567,27 +584,62 @@ class _ConversationTile extends ConsumerWidget {
 String imConversationDisplayTitle(
   ImConversation conversation,
   List<ImMember> members,
-  String currentMemberId,
-) {
+  String currentMemberId, {
+  String currentDisplayName = '',
+  List<ImMember> contacts = const <ImMember>[],
+}) {
   if (conversation.isGroup) return conversation.title;
   if (!conversation.isDirect) return '不支持的会话';
-  for (final member in members) {
-    if (member.id != currentMemberId && member.displayName.trim().isNotEmpty) {
-      return member.displayName.trim();
-    }
+  final peer = imDirectConversationPeer(
+    members,
+    currentMemberId,
+    conversation: conversation,
+    contacts: contacts,
+  );
+  if (peer != null && peer.displayName.trim().isNotEmpty) {
+    return peer.displayName.trim();
   }
+  final titleParts = _directConversationTitleParts(conversation.title);
+  final normalizedCurrentName = currentDisplayName.trim().toLowerCase();
+  final peerParts = normalizedCurrentName.isEmpty
+      ? titleParts
+      : titleParts
+            .where((part) => part.toLowerCase() != normalizedCurrentName)
+            .toList(growable: false);
+  if (peerParts.length == 1) return peerParts.single;
   return conversation.title;
 }
 
 ImMember? imDirectConversationPeer(
   List<ImMember> members,
-  String currentMemberId,
-) {
+  String currentMemberId, {
+  ImConversation? conversation,
+  List<ImMember> contacts = const <ImMember>[],
+}) {
   for (final member in members) {
     if (member.id != currentMemberId) return member;
   }
+  if (conversation == null || !conversation.isDirect) return null;
+  final titleParts = _directConversationTitleParts(conversation.title)
+      .map((part) => part.toLowerCase())
+      .toSet();
+  for (final contact in contacts) {
+    if (contact.id == currentMemberId) continue;
+    final displayName = contact.displayName.trim().toLowerCase();
+    final username = contact.username.trim().toLowerCase();
+    if ((displayName.isNotEmpty && titleParts.contains(displayName)) ||
+        (username.isNotEmpty && titleParts.contains(username))) {
+      return contact;
+    }
+  }
   return null;
 }
+
+List<String> _directConversationTitleParts(String title) => title
+    .split(RegExp(r'[、,，]'))
+    .map((value) => value.trim())
+    .where((value) => value.isNotEmpty)
+    .toList(growable: false);
 
 bool imConversationMatchesQuery(
   ImConversation conversation,

@@ -25,6 +25,8 @@ import '../../collaboration/domain/collaboration_models.dart';
 import '../../collaboration/application/im_sync_coordinator.dart';
 import 'conversation_detail_page.dart';
 import 'message_favorites_page.dart';
+import 'messages_page.dart'
+    show imConversationDisplayTitle, imDirectConversationPeer;
 
 final conversationMessageWindowMemoryProvider =
     Provider<ConversationMessageWindowMemory>(
@@ -140,6 +142,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   ImRepository? _repository;
   final _controller = TextEditingController();
   final _messageScrollController = ScrollController();
+  final _messageViewportKey = GlobalKey();
+  final Map<String, GlobalKey> _messageItemKeys = <String, GlobalKey>{};
+  List<ImMessage> _renderedMessages = const <ImMessage>[];
+  bool _visibleReadCheckScheduled = false;
   bool _sending = false;
   bool _sendingAttachment = false;
   int _lastReadSequence = 0;
@@ -239,6 +245,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   void _handleMessageScroll() {
+    _scheduleVisibleRead(_renderedMessages);
     if (!_didInitialMessageScroll ||
         _resourceTab != 0 ||
         _query.isNotEmpty ||
@@ -371,11 +378,37 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
-  Future<void> _markRead(List<ImMessage> items) async {
-    final sequence = items.fold<int>(
-      0,
-      (latest, item) => item.sequence > latest ? item.sequence : latest,
-    );
+  void _scheduleVisibleRead(List<ImMessage> items) {
+    if (_resourceTab != 0 || _query.isNotEmpty) return;
+    _renderedMessages = items;
+    if (_visibleReadCheckScheduled) return;
+    _visibleReadCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _visibleReadCheckScheduled = false;
+      if (mounted) unawaited(_markVisibleMessagesRead());
+    });
+  }
+
+  Future<void> _markVisibleMessagesRead() async {
+    final viewport = _messageViewportKey.currentContext?.findRenderObject();
+    if (viewport is! RenderBox || !viewport.attached) return;
+    final viewportRect = Offset.zero & viewport.size;
+    var sequence = 0;
+    for (final item in _renderedMessages) {
+      final renderObject = _messageItemKeys[item.id]?.currentContext
+          ?.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.attached) continue;
+      final origin = renderObject.localToGlobal(
+        Offset.zero,
+        ancestor: viewport,
+      );
+      final itemRect = origin & renderObject.size;
+      final visibleHeight = itemRect.intersect(viewportRect).height;
+      final threshold = renderObject.size.height.clamp(1, 24) / 2;
+      if (visibleHeight >= threshold && item.sequence > sequence) {
+        sequence = item.sequence;
+      }
+    }
     if (sequence <= _lastReadSequence) return;
     _lastReadSequence = sequence;
     try {
@@ -389,7 +422,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   void _handleMessageWindow(List<ImMessage> items) {
-    unawaited(_markRead(items));
     final nearBottom =
         !_messageScrollController.hasClients ||
         _messageScrollController.position.maxScrollExtent -
@@ -415,6 +447,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       _didInitialMessageScroll = true;
       _scrollToBottomAfterRefresh = false;
       _messageScrollController.jumpTo(position.maxScrollExtent);
+      _scheduleVisibleRead(items);
     });
   }
 
@@ -1322,15 +1355,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
     final composerEnabled = composerRestriction == null;
     final directMember = conversation?.isDirect == true
-        ? members
-                  ?.where((member) => member.id != currentMember?.id)
-                  .firstOrNull ??
-              bootstrap?.contacts
-                  .where((member) => member.displayName == conversation?.title)
-                  .firstOrNull
+        ? imDirectConversationPeer(
+            members ?? const <ImMember>[],
+            currentMember?.id ?? '',
+            conversation: conversation,
+            contacts: bootstrap?.contacts ?? const <ImMember>[],
+          )
         : null;
+    final directTitle = conversation?.isDirect == true
+        ? imConversationDisplayTitle(
+            conversation!,
+            members ?? const <ImMember>[],
+            currentMember?.id ?? '',
+            currentDisplayName: currentMember?.displayName ?? '',
+            contacts: bootstrap?.contacts ?? const <ImMember>[],
+          )
+        : conversation?.title ?? '会话';
     final memberMap = <String, ImMember>{
-      for (final member in <ImMember?>[currentMember, ...?members].nonNulls)
+      for (final member in <ImMember?>[
+        currentMember,
+        directMember,
+        ...?members,
+      ].nonNulls)
         member.id: member,
     };
     ref.listen(conversationMessageWindowProvider(_messageWindowKey), (_, next) {
@@ -1346,7 +1392,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               const _GroupAvatar(size: 34)
             else
               InitialAvatar(
-                name: directMember?.displayName ?? conversation?.title ?? '会话',
+                name: directTitle,
                 radius: 17,
                 online: presence?.peerOnline ?? directMember?.isOnline,
                 avatarKey: directMember?.avatarKey ?? '',
@@ -1358,7 +1404,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    directMember?.displayName ?? conversation?.title ?? '会话',
+                    directTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1537,103 +1583,129 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     ValueKey<String>('message:${visibleItems[index].id}'):
                         index,
                 };
+                _scheduleVisibleRead(visibleItems);
                 return visibleItems.isEmpty
-                    ? const EmptyState(
-                        icon: Icons.chat_bubble_outline_rounded,
-                        title: '没有匹配的消息',
-                      )
-                    : ListView.builder(
-                        key: PageStorageKey<String>(
-                          'chat-messages:${widget.conversationId}',
-                        ),
-                        controller: _messageScrollController,
-                        padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-                        itemCount: visibleItems.length,
-                        findChildIndexCallback: (key) => messageIndexes[key],
-                        itemBuilder: (context, index) {
-                          final item = visibleItems[index];
-                          return Column(
-                            key: ValueKey<String>('message:${item.id}'),
-                            children: [
-                              if (index == 0)
-                                Column(
-                                  children: [
-                                    if (_query.isEmpty && _loadingOlder)
-                                      const Padding(
-                                        padding: EdgeInsets.only(bottom: 10),
-                                        child: SizedBox.square(
-                                          key: ValueKey<String>(
-                                            'older-messages-loading',
-                                          ),
-                                          dimension: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                      ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 14,
-                                      ),
-                                      child: Text(
-                                        item.createdAt == null
-                                            ? '今天'
-                                            : DateFormat('MM-dd HH:mm')
-                                                  .format(item.createdAt!),
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.weakText,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              _MessageBubble(
-                                item: item,
-                                mine:
-                                    item.senderId ==
-                                    bootstrap?.currentMember.id,
-                                currentMemberName:
-                                    bootstrap?.currentMember.displayName ?? '',
-                                currentMemberAvatarDataUrl:
-                                    bootstrap?.currentMember.avatarDataUrl ??
-                                    '',
-                                sender: memberMap[item.senderId],
-                                showSenderName: conversation?.isGroup == true,
-                                onOpenAttachment: item.kind == 'file'
-                                    ? () => _openAttachment(item)
-                                    : const {
-                                            'video',
-                                            'audio',
-                                          }.contains(item.kind) &&
-                                          item.attachments.isNotEmpty
-                                    ? () => _openMediaAttachment(
-                                        item.attachments.first,
-                                      )
-                                    : null,
-                                onRetry:
-                                    item.localStatus ==
-                                        ImLocalMessageStatus.failed
-                                    ? () => _retryMessage(item)
-                                    : null,
-                                showReadReceiptAction:
-                                    item.localStatus ==
-                                        ImLocalMessageStatus.sent &&
-                                    item.id.trim().isNotEmpty &&
-                                    (bootstrap?.permissions.readReceipt ??
-                                        false),
-                                onOpenReadReceipt: () =>
-                                    _showReadReceipts(item),
-                                onLongPress: () => _showMessageActions(
-                                  item,
-                                  item.senderId == bootstrap?.currentMember.id,
-                                  conversation?.isGroup == true,
-                                  bootstrap,
+                    ? query.isEmpty
+                          ? const Center(
+                              child: Text(
+                                '发送第一条消息开始协作',
+                                key: Key('chat-empty-start'),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.secondaryText,
                                 ),
                               ),
-                            ],
-                          );
-                        },
+                            )
+                          : const EmptyState(
+                              icon: Icons.search_off_rounded,
+                              title: '没有匹配的消息',
+                            )
+                    : KeyedSubtree(
+                        key: _messageViewportKey,
+                        child: ListView.builder(
+                          key: PageStorageKey<String>(
+                            'chat-messages:${widget.conversationId}',
+                          ),
+                          controller: _messageScrollController,
+                          padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                          itemCount: visibleItems.length,
+                          findChildIndexCallback: (key) => messageIndexes[key],
+                          itemBuilder: (context, index) {
+                            final item = visibleItems[index];
+                            return Column(
+                              key: ValueKey<String>('message:${item.id}'),
+                              children: [
+                                if (index == 0)
+                                  Column(
+                                    children: [
+                                      if (_query.isEmpty && _loadingOlder)
+                                        const Padding(
+                                          padding: EdgeInsets.only(bottom: 10),
+                                          child: SizedBox.square(
+                                            key: ValueKey<String>(
+                                              'older-messages-loading',
+                                            ),
+                                            dimension: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                        ),
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 14,
+                                        ),
+                                        child: Text(
+                                          item.createdAt == null
+                                              ? '今天'
+                                              : DateFormat('MM-dd HH:mm')
+                                                    .format(item.createdAt!),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.weakText,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                KeyedSubtree(
+                                  key: _messageItemKeys.putIfAbsent(
+                                    item.id,
+                                    GlobalKey.new,
+                                  ),
+                                  child: _MessageBubble(
+                                    item: item,
+                                    mine:
+                                        item.senderId ==
+                                        bootstrap?.currentMember.id,
+                                    currentMemberName:
+                                        bootstrap?.currentMember.displayName ??
+                                        '',
+                                    currentMemberAvatarDataUrl:
+                                        bootstrap
+                                            ?.currentMember
+                                            .avatarDataUrl ??
+                                        '',
+                                    sender: memberMap[item.senderId],
+                                    showSenderName:
+                                        conversation?.isGroup == true,
+                                    onOpenAttachment: item.kind == 'file'
+                                        ? () => _openAttachment(item)
+                                        : const {
+                                                'video',
+                                                'audio',
+                                              }.contains(item.kind) &&
+                                              item.attachments.isNotEmpty
+                                        ? () => _openMediaAttachment(
+                                            item.attachments.first,
+                                          )
+                                        : null,
+                                    onRetry:
+                                        item.localStatus ==
+                                            ImLocalMessageStatus.failed
+                                        ? () => _retryMessage(item)
+                                        : null,
+                                    showReadReceiptAction:
+                                        item.localStatus ==
+                                            ImLocalMessageStatus.sent &&
+                                        item.id.trim().isNotEmpty &&
+                                        (bootstrap?.permissions.readReceipt ??
+                                            false),
+                                    onOpenReadReceipt: () =>
+                                        _showReadReceipts(item),
+                                    onLongPress: () => _showMessageActions(
+                                      item,
+                                      item.senderId ==
+                                          bootstrap?.currentMember.id,
+                                      conversation?.isGroup == true,
+                                      bootstrap,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       );
               },
             ),
@@ -2645,29 +2717,6 @@ class _MessageBubble extends StatelessWidget {
                       : MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    if (mine && showReadReceiptAction) ...[
-                      Semantics(
-                        button: true,
-                        label: '查看已读详情',
-                        child: InkWell(
-                          key: ValueKey<String>(
-                            'message-read-receipt-${item.id}',
-                          ),
-                          onTap: onOpenReadReceipt,
-                          borderRadius: BorderRadius.circular(4),
-                          child: const SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: Icon(
-                              Icons.done_all_rounded,
-                              size: 14,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                    ],
                     Flexible(
                       fit: FlexFit.loose,
                       child: InkWell(
@@ -2775,6 +2824,28 @@ class _MessageBubble extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (mine && showReadReceiptAction) ...[
+                      Semantics(
+                        button: true,
+                        label: '查看已读详情',
+                        child: InkWell(
+                          key: ValueKey<String>(
+                            'message-read-receipt-${item.id}',
+                          ),
+                          onTap: onOpenReadReceipt,
+                          borderRadius: BorderRadius.circular(4),
+                          child: const SizedBox(
+                            width: 16,
+                            height: 22,
+                            child: Icon(
+                              Icons.done_all_rounded,
+                              size: 13,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 if (mine && item.localStatus != ImLocalMessageStatus.sent) ...[
