@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ class TodosPage extends ConsumerStatefulWidget {
 class _TodosPageState extends ConsumerState<TodosPage> {
   int _tab = 0;
   final _searchController = TextEditingController();
+  final _approvalScrollController = ScrollController();
   String _search = '';
   String _itemType = '';
   String _applicationKey = '';
@@ -32,11 +34,26 @@ class _TodosPageState extends ConsumerState<TodosPage> {
   String? _nextCursor;
   bool? _hasMore;
   bool _loadingMore = false;
+  bool _autoLoadScheduled = false;
+  bool _autoLoadRetryBlocked = false;
+  bool _pagingExhausted = false;
+  bool _pagingError = false;
+  int _paginationGeneration = 0;
+  OaBootstrap? _visibleBootstrap;
   String _todoActionId = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _approvalScrollController.addListener(_onApprovalScroll);
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _approvalScrollController
+      ..removeListener(_onApprovalScroll)
+      ..dispose();
     super.dispose();
   }
 
@@ -99,6 +116,7 @@ class _TodosPageState extends ConsumerState<TodosPage> {
           onRetry: () => ref.invalidate(oaBootstrapProvider),
         ),
         data: (data) {
+          _visibleBootstrap = data;
           final approvals = _loadedApprovals ?? data.approvalRequests;
           final pendingCount =
               data.todos
@@ -115,75 +133,97 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                 (item) => item.memberId == data.currentMemberId && !item.isRead,
               )
               .length;
+          if (_tab < 4) _scheduleAutoLoad(data);
           return Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
             child: Material(
               key: const Key('todos-flat-content'),
               type: MaterialType.transparency,
               child: Column(
                 children: [
                   SizedBox(
-                    height: 44,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _Tab(
-                            label: '待我处理',
-                            badge: pendingCount,
-                            selected: _tab == 0,
-                            onTap: () => _changeTab(0),
-                          ),
-                          _Tab(
-                            label: '我发起的',
-                            selected: _tab == 1,
-                            onTap: () => _changeTab(1),
-                          ),
-                          _Tab(
-                            label: '抄送我的',
-                            badge: unreadCcCount,
-                            selected: _tab == 2,
-                            onTap: () => _changeTab(2),
-                          ),
-                          _Tab(
-                            label: '已完成',
-                            selected: _tab == 3,
-                            onTap: () => _changeTab(3),
-                          ),
-                          _Tab(
-                            label: '草稿箱',
-                            badge: drafts.length,
-                            selected: _tab == 4,
-                            onTap: () => _changeTab(4),
-                          ),
-                          _Tab(
-                            label: '待同步',
-                            badge: outbox
-                                .where((item) => item.state != 'completed')
-                                .length,
-                            selected: _tab == 5,
-                            onTap: () => _changeTab(5),
-                          ),
-                        ],
-                      ),
+                    height: 40,
+                    child: _ScrollableTabStrip(
+                      children: [
+                        _Tab(
+                          label: '待我处理',
+                          badge: pendingCount,
+                          selected: _tab == 0,
+                          onTap: () => _changeTab(0),
+                        ),
+                        _Tab(
+                          label: '我发起的',
+                          selected: _tab == 1,
+                          onTap: () => _changeTab(1),
+                        ),
+                        _Tab(
+                          label: '抄送我的',
+                          badge: unreadCcCount,
+                          selected: _tab == 2,
+                          onTap: () => _changeTab(2),
+                        ),
+                        _Tab(
+                          label: '已完成',
+                          selected: _tab == 3,
+                          onTap: () => _changeTab(3),
+                        ),
+                        _Tab(
+                          label: '草稿箱',
+                          badge: drafts.length,
+                          selected: _tab == 4,
+                          onTap: () => _changeTab(4),
+                        ),
+                        _Tab(
+                          label: '待同步',
+                          badge: outbox
+                              .where((item) => item.state != 'completed')
+                              .length,
+                          selected: _tab == 5,
+                          onTap: () => _changeTab(5),
+                        ),
+                      ],
                     ),
                   ),
-                  const Divider(height: 1),
+                  const Divider(height: 1, color: Color(0xFFE8EBF0)),
                   if (_tab < 4)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+                      padding: const EdgeInsets.fromLTRB(2, 8, 2, 6),
                       child: Row(
                         children: [
                           Expanded(
                             child: SizedBox(
-                              height: 38,
+                              height: 34,
                               child: TextField(
                                 controller: _searchController,
                                 decoration: InputDecoration(
                                   hintText: '搜索事项或申请编号',
+                                  hintStyle: const TextStyle(
+                                    color: AppColors.weakText,
+                                    fontSize: 14,
+                                  ),
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: const Color(0xFFF5F7FA),
+                                  contentPadding: EdgeInsets.zero,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide.none,
+                                  ),
                                   prefixIcon: const Icon(
                                     Icons.search_rounded,
                                     size: 18,
+                                  ),
+                                  prefixIconConstraints: const BoxConstraints(
+                                    minWidth: 40,
+                                    minHeight: 34,
                                   ),
                                   suffixIcon: _search.isEmpty
                                       ? null
@@ -198,19 +238,23 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                                             size: 18,
                                           ),
                                         ),
+                                  suffixIconConstraints: const BoxConstraints(
+                                    minWidth: 36,
+                                    minHeight: 34,
+                                  ),
                                 ),
                                 onChanged: _updateSearch,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           SizedBox.square(
-                            dimension: 38,
+                            dimension: 34,
                             child: IconButton(
                               tooltip: '筛选',
                               style: IconButton.styleFrom(
                                 padding: EdgeInsets.zero,
-                                backgroundColor: const Color(0xFFF1F4F8),
+                                backgroundColor: const Color(0xFFF5F7FA),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                               onPressed: () =>
@@ -219,7 +263,7 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                                 count: _activeFilterCount,
                                 isLabelVisible: _activeFilterCount > 0,
                                 backgroundColor: AppColors.primary,
-                                child: const Icon(Icons.tune_rounded, size: 19),
+                                child: const Icon(Icons.tune_rounded, size: 17),
                               ),
                             ),
                           ),
@@ -232,82 +276,78 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                         : _tab == 5
                         ? _OutboxList(items: outbox)
                         : items.isEmpty && todoItems.isEmpty
-                        ? _EmptyApprovalList(
-                            searching: _search.isNotEmpty,
-                            hasMore: _hasMore ?? data.approvalRequestsHasMore,
-                            loading: _loadingMore,
-                            onLoadMore: () => _loadMore(data),
+                        ? RefreshIndicator(
+                            onRefresh: _refreshApprovals,
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: _handleApprovalGesture,
+                              child: CustomScrollView(
+                                key: const Key('approval-empty-scroll'),
+                                controller: _approvalScrollController,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                slivers: [
+                                  SliverFillRemaining(
+                                    hasScrollBody: false,
+                                    child: _EmptyApprovalList(
+                                      searching: _search.isNotEmpty,
+                                      hasMore: _effectiveHasMore(data),
+                                      loading: _loadingMore,
+                                      error: _pagingError,
+                                      onRetry: () => _retryLoadMore(data),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           )
                         : RefreshIndicator(
-                            onRefresh: () async {
-                              await ref
-                                  .read(oaRepositoryProvider)
-                                  .refreshBootstrap();
-                              if (mounted) {
-                                setState(() {
-                                  _loadedApprovals = null;
-                                  _nextCursor = null;
-                                  _hasMore = null;
-                                });
-                              }
-                              ref.invalidate(oaBootstrapProvider);
-                            },
-                            child: ListView.separated(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.fromLTRB(18, 8, 18, 20),
-                              itemCount:
-                                  todoItems.length +
-                                  items.length +
-                                  ((_hasMore ?? data.approvalRequestsHasMore)
-                                      ? 1
-                                      : 0),
-                              separatorBuilder: (_, _) =>
-                                  const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                if (index < todoItems.length) {
-                                  final item = todoItems[index];
-                                  return _PersonalTodoItem(
-                                    item: item,
-                                    busy: _todoActionId == item.id,
-                                    onToggle: () => _toggleTodo(item),
+                            onRefresh: _refreshApprovals,
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: _handleApprovalGesture,
+                              child: ListView.separated(
+                                key: const Key('approval-page-scroll'),
+                                controller: _approvalScrollController,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.fromLTRB(
+                                  18,
+                                  8,
+                                  18,
+                                  20,
+                                ),
+                                itemCount:
+                                    todoItems.length +
+                                    items.length +
+                                    (_effectiveHasMore(data) || _pagingError
+                                        ? 1
+                                        : 0),
+                                separatorBuilder: (_, _) =>
+                                    const Divider(height: 1),
+                                itemBuilder: (context, index) {
+                                  if (index < todoItems.length) {
+                                    final item = todoItems[index];
+                                    return _PersonalTodoItem(
+                                      item: item,
+                                      busy: _todoActionId == item.id,
+                                      onToggle: () => _toggleTodo(item),
+                                    );
+                                  }
+                                  final approvalIndex =
+                                      index - todoItems.length;
+                                  if (approvalIndex == items.length) {
+                                    return _ApprovalPageFooter(
+                                      loadedCount: approvals.length,
+                                      loading: _loadingMore,
+                                      error: _pagingError,
+                                      onRetry: () => _retryLoadMore(data),
+                                    );
+                                  }
+                                  return _ApprovalItem(
+                                    item: items[approvalIndex],
+                                    currentMemberId: data.currentMemberId,
+                                    color:
+                                        _colors[approvalIndex % _colors.length],
                                   );
-                                }
-                                final approvalIndex = index - todoItems.length;
-                                if (approvalIndex == items.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    child: Center(
-                                      child: TextButton.icon(
-                                        onPressed: _loadingMore
-                                            ? null
-                                            : () => _loadMore(data),
-                                        icon: _loadingMore
-                                            ? const SizedBox.square(
-                                                dimension: 16,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                              )
-                                            : const Icon(
-                                                Icons.expand_more_rounded,
-                                              ),
-                                        label: Text(
-                                          _loadingMore ? '加载中' : '加载更多',
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return _ApprovalItem(
-                                  item: items[approvalIndex],
-                                  currentMemberId: data.currentMemberId,
-                                  color:
-                                      _colors[approvalIndex % _colors.length],
-                                );
-                              },
+                                },
+                              ),
                             ),
                           ),
                   ),
@@ -320,21 +360,93 @@ class _TodosPageState extends ConsumerState<TodosPage> {
     );
   }
 
+  bool _effectiveHasMore(OaBootstrap data) =>
+      !_pagingExhausted && (_hasMore ?? data.approvalRequestsHasMore);
+
+  void _resetPagination() {
+    _paginationGeneration += 1;
+    _loadedApprovals = null;
+    _nextCursor = null;
+    _hasMore = null;
+    _loadingMore = false;
+    _autoLoadScheduled = false;
+    _autoLoadRetryBlocked = false;
+    _pagingExhausted = false;
+    _pagingError = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_approvalScrollController.hasClients) return;
+      _approvalScrollController.jumpTo(0);
+    });
+  }
+
+  void _onApprovalScroll() {
+    if (_tab >= 4 ||
+        _autoLoadRetryBlocked ||
+        !_approvalScrollController.hasClients ||
+        _approvalScrollController.position.extentAfter > 240) {
+      return;
+    }
+    final data = _visibleBootstrap;
+    if (data != null) unawaited(_loadMore(data));
+  }
+
+  bool _handleApprovalGesture(ScrollNotification notification) {
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null &&
+        _autoLoadRetryBlocked) {
+      setState(() {
+        _autoLoadRetryBlocked = false;
+        _pagingError = false;
+      });
+    }
+    return false;
+  }
+
+  void _scheduleAutoLoad(OaBootstrap data) {
+    if (!_effectiveHasMore(data) ||
+        _loadingMore ||
+        _autoLoadScheduled ||
+        _autoLoadRetryBlocked) {
+      return;
+    }
+    _autoLoadScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoLoadScheduled = false;
+      if (!mounted || _tab >= 4 || !_approvalScrollController.hasClients) {
+        return;
+      }
+      if (_approvalScrollController.position.extentAfter <= 240) {
+        unawaited(_loadMore(data));
+      }
+    });
+  }
+
+  Future<void> _refreshApprovals() async {
+    await ref.read(oaRepositoryProvider).refreshBootstrap();
+    if (!mounted) return;
+    setState(_resetPagination);
+    ref.invalidate(oaBootstrapProvider);
+  }
+
+  void _retryLoadMore(OaBootstrap data) {
+    setState(() {
+      _autoLoadRetryBlocked = false;
+      _pagingError = false;
+    });
+    unawaited(_loadMore(data));
+  }
+
   void _changeTab(int value) {
     setState(() {
       _tab = value;
-      _loadedApprovals = null;
-      _nextCursor = null;
-      _hasMore = null;
+      _resetPagination();
     });
   }
 
   void _updateSearch(String value) {
     setState(() {
       _search = value;
-      _loadedApprovals = null;
-      _nextCursor = null;
-      _hasMore = null;
+      _resetPagination();
     });
   }
 
@@ -395,6 +507,7 @@ class _TodosPageState extends ConsumerState<TodosPage> {
     var recentDays = _recentDays;
     final result = await showModalBottomSheet<_ApprovalFilters>(
       context: context,
+      useRootNavigator: true,
       useSafeArea: true,
       isScrollControlled: true,
       builder: (context) => StatefulBuilder(
@@ -526,48 +639,74 @@ class _TodosPageState extends ConsumerState<TodosPage> {
       _applicationKey = result.applicationKey;
       _status = result.status;
       _recentDays = result.recentDays;
-      _loadedApprovals = null;
-      _nextCursor = null;
-      _hasMore = null;
+      _resetPagination();
     });
   }
 
   Future<void> _loadMore(OaBootstrap data) async {
-    if (_loadingMore || !(_hasMore ?? data.approvalRequestsHasMore)) return;
+    if (_loadingMore ||
+        _autoLoadRetryBlocked ||
+        !_effectiveHasMore(data) ||
+        _tab >= 4) {
+      return;
+    }
     final cursor = _nextCursor ?? data.approvalRequestsNextCursor;
-    if (cursor == null || cursor.isEmpty) return;
-    setState(() => _loadingMore = true);
+    if (cursor == null || cursor.isEmpty) {
+      setState(() {
+        _hasMore = false;
+        _pagingExhausted = true;
+      });
+      return;
+    }
+    final generation = _paginationGeneration;
+    final pageKey = (
+      cursor: cursor as String?,
+      view: const ['pending', 'initiated', 'cc', 'completed'][_tab],
+      search: _search,
+      applicationKey: _applicationKey,
+      status: _status,
+      from: _filterFrom,
+    );
+    setState(() {
+      _loadingMore = true;
+      _pagingError = false;
+    });
     try {
-      final page = await ref
-          .read(oaRepositoryProvider)
-          .approvalRequestsPage(
-            cursor: cursor,
-            view: const ['pending', 'initiated', 'cc', 'completed'][_tab],
-            search: _search,
-            applicationKey: _applicationKey,
-            status: _status,
-            from: _filterFrom,
-          );
+      final page = await ref.read(
+        oaApprovalRequestsPageProvider(pageKey).future,
+      );
+      if (!mounted || generation != _paginationGeneration) return;
       final byId = <String, OaApprovalRequest>{
         for (final item in _loadedApprovals ?? data.approvalRequests)
           item.id: item,
         for (final item in page.items) item.id: item,
       };
-      if (mounted) {
-        setState(() {
-          _loadedApprovals = byId.values.toList();
-          _nextCursor = page.nextCursor;
-          _hasMore = page.hasMore;
-        });
-      }
+      final cursorAdvanced =
+          page.nextCursor != null &&
+          page.nextCursor!.isNotEmpty &&
+          page.nextCursor != cursor;
+      final hasMore = page.hasMore && cursorAdvanced;
+      setState(() {
+        _loadedApprovals = byId.values.toList();
+        _nextCursor = page.nextCursor;
+        _hasMore = hasMore;
+        _pagingExhausted = page.hasMore && !cursorAdvanced;
+        _autoLoadRetryBlocked = false;
+        _pagingError = false;
+      });
     } catch (error) {
-      if (mounted) {
+      if (mounted && generation == _paginationGeneration) {
+        _autoLoadRetryBlocked = true;
+        setState(() => _pagingError = true);
+        ref.invalidate(oaApprovalRequestsPageProvider(pageKey));
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('加载更多失败：${error.toString()}')));
       }
     } finally {
-      if (mounted) setState(() => _loadingMore = false);
+      if (mounted && generation == _paginationGeneration) {
+        setState(() => _loadingMore = false);
+      }
     }
   }
 
@@ -713,15 +852,7 @@ const _statusOptions = <String, String>{
   'terminated': '已终止',
 };
 
-bool _isTodoCompleted(String status) => const {
-  'approved',
-  'rejected',
-  'withdrawn',
-  'terminated',
-  'completed',
-  'canceled',
-  'cancelled',
-}.contains(status.toLowerCase());
+bool _isTodoCompleted(String status) => isTerminalTodoStatus(status);
 
 String _todoPriorityLabel(String priority) => switch (priority.toLowerCase()) {
   'urgent' => '紧急',
@@ -743,30 +874,57 @@ Future<_TodoCreateDraft?> _showCreateTodoSheet(BuildContext context) {
   String? errorText;
   return showModalBottomSheet<_TodoCreateDraft>(
     context: context,
+    useRootNavigator: true,
     useSafeArea: true,
     isScrollControlled: true,
-    showDragHandle: true,
+    showDragHandle: false,
     builder: (context) => StatefulBuilder(
       builder: (context, setSheetState) => Padding(
+        key: const Key('todo-create-sheet'),
         padding: EdgeInsets.fromLTRB(
           16,
-          0,
+          8,
           16,
-          14 + MediaQuery.viewInsetsOf(context).bottom,
+          12 + MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              '新建待办',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    '新建待办',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, size: 19),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '待办内容',
+              style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+            ),
+            const SizedBox(height: 6),
             SizedBox(
-              height: 44,
+              height: 36,
               child: TextField(
                 key: const Key('todo-title-input'),
                 autofocus: true,
@@ -775,9 +933,35 @@ Future<_TodoCreateDraft?> _showCreateTodoSheet(BuildContext context) {
                 decoration: InputDecoration(
                   hintText: '待办内容',
                   counterText: '',
-                  errorText: errorText,
+                  isDense: true,
+                  filled: true,
+                  fillColor: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: .6),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  border: const OutlineInputBorder(
+                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
                 ),
-                onChanged: (value) => title = value,
+                onChanged: (value) {
+                  title = value;
+                  if (errorText != null) {
+                    setSheetState(() => errorText = null);
+                  }
+                },
                 onSubmitted: (value) {
                   final normalizedTitle = value.trim();
                   if (normalizedTitle.isEmpty) {
@@ -794,43 +978,79 @@ Future<_TodoCreateDraft?> _showCreateTodoSheet(BuildContext context) {
                 },
               ),
             ),
-            const SizedBox(height: 10),
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'normal', label: Text('普通')),
-                ButtonSegment(value: 'high', label: Text('高')),
-                ButtonSegment(value: 'urgent', label: Text('紧急')),
-              ],
-              selected: {priority},
-              showSelectedIcon: false,
-              style: const ButtonStyle(
-                visualDensity: VisualDensity(vertical: -2),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            if (errorText != null) ...[
+              const SizedBox(height: 5),
+              Text(
+                errorText!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 11.5,
+                ),
               ),
-              onSelectionChanged: (values) =>
-                  setSheetState(() => priority = values.single),
+            ],
+            const SizedBox(height: 10),
+            const Text(
+              '优先级',
+              style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 36,
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'normal', label: Text('普通')),
+                  ButtonSegment(value: 'high', label: Text('高')),
+                  ButtonSegment(value: 'urgent', label: Text('紧急')),
+                ],
+                selected: {priority},
+                showSelectedIcon: false,
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity(vertical: -3),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  minimumSize: WidgetStatePropertyAll(Size(0, 34)),
+                ),
+                onSelectionChanged: (values) =>
+                    setSheetState(() => priority = values.single),
+              ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 40,
-              child: FilledButton(
-                key: const Key('todo-create-button'),
-                onPressed: () {
-                  final normalizedTitle = title.trim();
-                  if (normalizedTitle.isEmpty) {
-                    setSheetState(() => errorText = '请输入待办内容');
-                    return;
-                  }
-                  Navigator.pop(
-                    context,
-                    _TodoCreateDraft(
-                      title: normalizedTitle,
-                      priority: priority,
-                    ),
-                  );
-                },
-                child: const Text('创建'),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(60, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  key: const Key('todo-create-button'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(72, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () {
+                    final normalizedTitle = title.trim();
+                    if (normalizedTitle.isEmpty) {
+                      setSheetState(() => errorText = '请输入待办内容');
+                      return;
+                    }
+                    Navigator.pop(
+                      context,
+                      _TodoCreateDraft(
+                        title: normalizedTitle,
+                        priority: priority,
+                      ),
+                    );
+                  },
+                  child: const Text('创建'),
+                ),
+              ],
             ),
           ],
         ),
@@ -937,34 +1157,93 @@ class _EmptyApprovalList extends StatelessWidget {
     required this.searching,
     required this.hasMore,
     required this.loading,
-    required this.onLoadMore,
+    required this.error,
+    required this.onRetry,
   });
 
   final bool searching;
   final bool hasMore;
   final bool loading;
-  final VoidCallback onLoadMore;
+  final bool error;
+  final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      EmptyState(
-        icon: searching ? Icons.search_off_rounded : Icons.fact_check_outlined,
-        title: searching ? '当前记录中没有匹配项' : '暂无审批事项',
+  Widget build(BuildContext context) => Align(
+    alignment: const Alignment(0, -0.34),
+    child: Semantics(
+      container: true,
+      label: searching ? '当前记录中没有匹配项' : '暂无审批事项',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF3F6FA),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              searching ? Icons.search_off_rounded : Icons.fact_check_outlined,
+              size: 24,
+              color: AppColors.weakText,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            searching ? '当前记录中没有匹配项' : '暂无审批事项',
+            style: const TextStyle(
+              color: AppColors.secondaryText,
+              fontSize: 14,
+            ),
+          ),
+          if (error) ...[
+            const SizedBox(height: 6),
+            TextButton(onPressed: onRetry, child: const Text('重新加载')),
+          ] else if (hasMore && loading) ...[
+            const SizedBox(height: 10),
+            const SizedBox.square(
+              dimension: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ],
+        ],
       ),
-      if (hasMore)
-        TextButton.icon(
-          onPressed: loading ? null : onLoadMore,
-          icon: loading
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.expand_more_rounded),
-          label: Text(loading ? '继续查找' : '加载更多记录'),
-        ),
-    ],
+    ),
+  );
+}
+
+class _ApprovalPageFooter extends StatelessWidget {
+  const _ApprovalPageFooter({
+    required this.loadedCount,
+    required this.loading,
+    required this.error,
+    required this.onRetry,
+  });
+
+  final int loadedCount;
+  final bool loading;
+  final bool error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    key: const Key('approval-page-footer'),
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: Center(
+      child: error
+          ? TextButton(onPressed: onRetry, child: const Text('重新加载'))
+          : loading
+          ? const SizedBox.square(
+              dimension: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(
+              '继续上滑 · 已载入 $loadedCount 条',
+              style: const TextStyle(color: AppColors.weakText, fontSize: 12),
+            ),
+    ),
   );
 }
 
@@ -983,84 +1262,187 @@ class _Tab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = switch (label.characters.length) {
-      >= 4 => 58.0,
-      3 => 50.0,
-      _ => 42.0,
-    };
     final visibleBadge = badge != null && badge! > 0;
     return Semantics(
       button: true,
       selected: selected,
       label: visibleBadge ? '$label，$badge 条' : label,
       child: SizedBox(
-        width: width,
+        width: 56,
         child: InkWell(
+          borderRadius: BorderRadius.circular(8),
           onTap: onTap,
-          child: Container(
+          child: Stack(
             alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: selected
-                  ? const Border(
-                      bottom: BorderSide(color: AppColors.primary, width: 3),
-                    )
-                  : null,
-            ),
-            child: ExcludeSemantics(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: selected
-                              ? AppColors.primary
-                              : AppColors.secondaryText,
-                          fontWeight: selected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
+            children: [
+              ExcludeSemantics(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.secondaryText,
+                            fontWeight: selected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
                         ),
-                      ),
-                      if (visibleBadge) ...[
-                        const SizedBox(width: 2),
-                        Container(
-                          key: ValueKey('todo-tab-badge-$label'),
-                          constraints: const BoxConstraints(
-                            minWidth: 14,
-                            minHeight: 14,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                          child: Text(
-                            badge! > 99 ? '99+' : '$badge',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 8.5,
-                              height: 1,
-                              fontWeight: FontWeight.w700,
+                        if (visibleBadge) ...[
+                          const SizedBox(width: 1.5),
+                          Container(
+                            key: ValueKey('todo-tab-badge-$label'),
+                            constraints: const BoxConstraints(minWidth: 13),
+                            height: 13,
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? AppColors.primary
+                                  : const Color(0xFFE9EEF6),
+                              borderRadius: BorderRadius.circular(6.5),
+                            ),
+                            child: Text(
+                              badge! > 99 ? '99+' : '$badge',
+                              textScaler: TextScaler.noScaling,
+                              style: TextStyle(
+                                color: selected
+                                    ? Colors.white
+                                    : AppColors.secondaryText,
+                                fontSize: 8.5,
+                                height: 1,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
+              if (selected)
+                Positioned(
+                  left: 8,
+                  right: 8,
+                  bottom: 0,
+                  child: Container(
+                    height: 2,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+class _ScrollableTabStrip extends StatefulWidget {
+  const _ScrollableTabStrip({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  State<_ScrollableTabStrip> createState() => _ScrollableTabStripState();
+}
+
+class _ScrollableTabStripState extends State<_ScrollableTabStrip> {
+  final _controller = ScrollController();
+  bool _canScrollLeft = false;
+  bool _canScrollRight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_refreshEdges);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshEdges());
+  }
+
+  @override
+  void didUpdateWidget(covariant _ScrollableTabStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshEdges());
+  }
+
+  void _refreshEdges() {
+    if (!mounted || !_controller.hasClients) return;
+    final position = _controller.position;
+    final canScrollLeft = position.pixels > position.minScrollExtent + .5;
+    final canScrollRight = position.pixels < position.maxScrollExtent - .5;
+    if (_canScrollLeft == canScrollLeft && _canScrollRight == canScrollRight) {
+      return;
+    }
+    setState(() {
+      _canScrollLeft = canScrollLeft;
+      _canScrollRight = canScrollRight;
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeListener(_refreshEdges)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    children: [
+      SingleChildScrollView(
+        key: const Key('todo-tab-strip'),
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(children: widget.children),
+      ),
+      if (_canScrollLeft)
+        const Positioned.fill(
+          right: null,
+          child: _TabEdgeFade(key: Key('todo-tabs-left-fade'), left: true),
+        ),
+      if (_canScrollRight)
+        const Positioned.fill(
+          left: null,
+          child: _TabEdgeFade(key: Key('todo-tabs-right-fade'), left: false),
+        ),
+    ],
+  );
+}
+
+class _TabEdgeFade extends StatelessWidget {
+  const _TabEdgeFade({super.key, required this.left});
+
+  final bool left;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Container(
+      width: 22,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: left ? Alignment.centerLeft : Alignment.centerRight,
+          end: left ? Alignment.centerRight : Alignment.centerLeft,
+          colors: [
+            Theme.of(context).colorScheme.surface,
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _DraftList extends ConsumerWidget {
@@ -1230,6 +1612,11 @@ class _OutboxList extends ConsumerWidget {
                               icon: Icons.refresh_rounded,
                             ),
                           const MobileSheetOption(
+                            value: 'error-details',
+                            label: '查看失败原因',
+                            icon: Icons.error_outline_rounded,
+                          ),
+                          const MobileSheetOption(
                             value: 'discard',
                             label: '放弃记录',
                             icon: Icons.delete_outline_rounded,
@@ -1266,6 +1653,12 @@ class _OutboxList extends ConsumerWidget {
                         await ref
                             .read(oaRepositoryProvider)
                             .retryOutbox(item.id);
+                      } else if (action == 'error-details') {
+                        await showMobileMessageSheet(
+                          context,
+                          title: '失败原因',
+                          message: _outboxErrorText(item.lastError),
+                        );
                       } else if (action == 'discard') {
                         final confirmed = await showMobileConfirmSheet(
                           context,
@@ -1374,7 +1767,10 @@ String _outboxErrorText(String error) {
   final normalized = error.trim();
   if (normalized.isEmpty) return '同步失败，请检查申请内容';
   if (normalized.toLowerCase().contains('approval form validation failed')) {
-    return '申请表单校验失败，请检查必填项';
+    return normalized.replaceFirst(
+      RegExp('approval form validation failed\\.?', caseSensitive: false),
+      '申请表单校验失败',
+    );
   }
   return normalized;
 }
@@ -1407,32 +1803,30 @@ class _PersonalTodoItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
             children: [
-              SizedBox.square(
-                dimension: 32,
-                child: busy
-                    ? const Padding(
-                        padding: EdgeInsets.all(7),
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Checkbox(
-                        value: completed,
-                        onChanged: (_) => onToggle(),
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: priorityColor.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(
-                  completed ? Icons.task_alt_rounded : Icons.checklist_rounded,
-                  size: 18,
-                  color: completed ? AppColors.success : priorityColor,
+              ExcludeSemantics(
+                child: Container(
+                  key: ValueKey('todo-toggle-${item.id}'),
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: (completed ? AppColors.success : priorityColor)
+                        .withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: busy
+                      ? const Padding(
+                          padding: EdgeInsets.all(11),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Checkbox(
+                          value: completed,
+                          onChanged: (_) => onToggle(),
+                          activeColor: AppColors.success,
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
                 ),
               ),
               const SizedBox(width: 10),

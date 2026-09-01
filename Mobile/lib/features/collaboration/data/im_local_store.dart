@@ -64,7 +64,7 @@ final class ImLocalStore {
     final database = await _factory.openDatabase(
       await _pathResolver(),
       options: OpenDatabaseOptions(
-        version: 9,
+        version: 10,
         onConfigure: (database) async {
           await database.execute('PRAGMA foreign_keys = ON');
           // journal_mode returns a result row on Android SQLite and therefore
@@ -221,6 +221,9 @@ final class ImLocalStore {
           if (oldVersion < 9) {
             await _addMessageMetadataColumns(database);
           }
+          if (oldVersion < 10) {
+            await _addGroupProfileCurrentUserRoleColumn(database);
+          }
         },
       ),
     );
@@ -273,6 +276,23 @@ final class ImLocalStore {
     if (!columns.contains('unread_mention_sequences_json')) {
       await database.execute(
         "ALTER TABLE im_conversations ADD COLUMN unread_mention_sequences_json TEXT NOT NULL DEFAULT '[]'",
+      );
+    }
+  }
+
+  static Future<void> _addGroupProfileCurrentUserRoleColumn(
+    DatabaseExecutor database,
+  ) async {
+    final tables = await database.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'im_group_profiles'",
+    );
+    if (tables.isEmpty) return;
+    final columns = (await database.rawQuery(
+      'PRAGMA table_info(im_group_profiles)',
+    )).map((row) => row['name']?.toString() ?? '').toSet();
+    if (!columns.contains('current_user_role')) {
+      await database.execute(
+        "ALTER TABLE im_group_profiles ADD COLUMN current_user_role TEXT NOT NULL DEFAULT ''",
       );
     }
   }
@@ -363,6 +383,7 @@ final class ImLocalStore {
         identity_enabled INTEGER NOT NULL,
         muted INTEGER NOT NULL,
         status TEXT NOT NULL,
+        current_user_role TEXT NOT NULL DEFAULT '',
         server_updated_at TEXT,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (account_id, conversation_id)
@@ -610,6 +631,7 @@ final class ImLocalStore {
       'identity_enabled': profile.identityEnabled ? 1 : 0,
       'muted': profile.muted ? 1 : 0,
       'status': profile.status,
+      'current_user_role': profile.currentUserRole,
       'server_updated_at': profile.updatedAt?.toUtc().toIso8601String(),
       'updated_at': _now(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -1353,6 +1375,7 @@ final class ImLocalStore {
     identityEnabled: (row['identity_enabled'] as int) != 0,
     muted: (row['muted'] as int) != 0,
     status: row['status'] as String,
+    currentUserRole: row['current_user_role']?.toString() ?? '',
     updatedAt: DateTime.tryParse(row['server_updated_at']?.toString() ?? '')
         ?.toLocal(),
   );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -15,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -23,6 +25,100 @@ import '../../collaboration/domain/collaboration_models.dart';
 import '../../collaboration/application/im_sync_coordinator.dart';
 import 'conversation_detail_page.dart';
 import 'message_favorites_page.dart';
+
+final conversationMessageWindowMemoryProvider =
+    Provider<ConversationMessageWindowMemory>(
+      (ref) => ConversationMessageWindowMemory(),
+    );
+final conversationLatestReconcileCoordinatorProvider =
+    Provider<ConversationLatestReconcileCoordinator>(
+      (ref) => ConversationLatestReconcileCoordinator(),
+    );
+
+class ConversationMessageWindowMemory {
+  static const initialTake = 80;
+  static const _maximumConversations = 32;
+
+  final LinkedHashMap<String, ConversationMessageWindowSnapshot> _windows =
+      LinkedHashMap<String, ConversationMessageWindowSnapshot>();
+
+  ConversationMessageWindowSnapshot restore(String conversationId) {
+    final remembered = _windows.remove(conversationId);
+    if (remembered == null) {
+      return const ConversationMessageWindowSnapshot(
+        take: initialTake,
+        hasOlder: true,
+      );
+    }
+    _windows[conversationId] = remembered;
+    return remembered;
+  }
+
+  void remember(
+    String conversationId, {
+    required int take,
+    required bool hasOlder,
+  }) {
+    _windows.remove(conversationId);
+    _windows[conversationId] = ConversationMessageWindowSnapshot(
+      take: take < initialTake ? initialTake : take,
+      hasOlder: hasOlder,
+    );
+    while (_windows.length > _maximumConversations) {
+      _windows.remove(_windows.keys.first);
+    }
+  }
+}
+
+class ConversationMessageWindowSnapshot {
+  const ConversationMessageWindowSnapshot({
+    required this.take,
+    required this.hasOlder,
+  });
+
+  final int take;
+  final bool hasOlder;
+}
+
+class ConversationLatestReconcileCoordinator {
+  ConversationLatestReconcileCoordinator({
+    DateTime Function()? now,
+    this.minimumInterval = const Duration(seconds: 10),
+  }) : _now = now ?? DateTime.now;
+
+  static const _maximumConversations = 32;
+
+  final DateTime Function() _now;
+  final Duration minimumInterval;
+  final LinkedHashMap<String, DateTime> _lastStarted =
+      LinkedHashMap<String, DateTime>();
+  final Map<String, Future<bool>> _inFlight = <String, Future<bool>>{};
+
+  Future<bool> reconcile(
+    String conversationId,
+    ConversationLatestReconciler loader,
+  ) {
+    final active = _inFlight[conversationId];
+    if (active != null) return active;
+    final now = _now();
+    final lastStarted = _lastStarted.remove(conversationId);
+    if (lastStarted != null && now.difference(lastStarted) < minimumInterval) {
+      _lastStarted[conversationId] = lastStarted;
+      return Future<bool>.value(false);
+    }
+    _lastStarted[conversationId] = now;
+    while (_lastStarted.length > _maximumConversations) {
+      _lastStarted.remove(_lastStarted.keys.first);
+    }
+    final request = Future<bool>.sync(() => loader(conversationId));
+    _inFlight[conversationId] = request;
+    return request.whenComplete(() {
+      if (identical(_inFlight[conversationId], request)) {
+        _inFlight.remove(conversationId);
+      }
+    });
+  }
+}
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({
@@ -57,7 +153,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _reconcilingLatestMessages = false;
   bool _loadingOlder = false;
   bool _hasOlder = true;
-  int _messageTake = 80;
+  int _messageTake = ConversationMessageWindowMemory.initialTake;
   bool _didInitialMessageScroll = false;
   bool _scrollToBottomAfterRefresh = false;
   ({double pixels, double maxExtent})? _historyAnchor;
@@ -69,6 +165,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   void initState() {
     super.initState();
+    final rememberedWindow = ref
+        .read(conversationMessageWindowMemoryProvider)
+        .restore(widget.conversationId);
+    _messageTake = rememberedWindow.take;
+    _hasOlder = rememberedWindow.hasOlder;
     _resourceTab = widget.initialResourceTab.clamp(0, 2);
     _messageScrollController.addListener(_handleMessageScroll);
     if (widget.enablePresence) {
@@ -94,9 +195,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     if (_reconcilingLatestMessages) return;
     _reconcilingLatestMessages = true;
     try {
-      final changed = await ref.read(conversationLatestReconcilerProvider)(
-        widget.conversationId,
-      );
+      final changed = await ref
+          .read(conversationLatestReconcileCoordinatorProvider)
+          .reconcile(
+            widget.conversationId,
+            ref.read(conversationLatestReconcilerProvider),
+          );
       if (!mounted || !changed) return;
       ref.invalidate(
         conversationMessageRevisionProvider(widget.conversationId),
@@ -187,10 +291,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       );
       if (!mounted) return;
       if (older.isNotEmpty) _historyAnchor = anchor;
+      final nextTake = _messageTake + older.length;
       setState(() {
-        _hasOlder = older.length >= 80;
-        _messageTake += older.length;
+        _hasOlder = older.length >= ConversationMessageWindowMemory.initialTake;
+        _messageTake = nextTake;
       });
+      ref
+          .read(conversationMessageWindowMemoryProvider)
+          .remember(
+            widget.conversationId,
+            take: nextTake,
+            hasOlder:
+                older.length >= ConversationMessageWindowMemory.initialTake,
+          );
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -513,8 +626,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Future<void> _pickAndSendContact(List<ImMember> contacts) async {
     final member = await showModalBottomSheet<ImMember>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
-      showDragHandle: true,
+      showDragHandle: false,
       builder: (_) => _ContactPickerSheet(contacts: contacts),
     );
     if (member == null || !mounted) return;
@@ -636,38 +751,21 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   Future<void> _showMentionPicker(
     List<ImMember> members,
+    int memberTotal,
     ImGroupProfile? profile,
     bool allowMentionAll,
   ) async {
     final choice = await showModalBottomSheet<Object?>(
       context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            if ((profile?.atEnabled ?? true) && allowMentionAll)
-              ListTile(
-                leading: const CircleAvatar(child: Text('@')),
-                title: const Text('@全体'),
-                subtitle: const Text('提醒群内全部成员'),
-                onTap: () => Navigator.pop(context, const _MentionChoice.all()),
-              ),
-            ...members.map(
-              (member) => ListTile(
-                leading: InitialAvatar(
-                  name: member.displayName,
-                  radius: 18,
-                  avatarDataUrl: member.avatarDataUrl,
-                ),
-                title: Text(member.displayName),
-                subtitle: Text(member.departmentName),
-                onTap: () =>
-                    Navigator.pop(context, _MentionChoice.member(member)),
-              ),
-            ),
-          ],
-        ),
+      useRootNavigator: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: false,
+      builder: (_) => _MentionPickerSheet(
+        conversationId: widget.conversationId,
+        members: members,
+        memberTotal: memberTotal,
+        allowMentionAll: (profile?.atEnabled ?? true) && allowMentionAll,
       ),
     );
     if (!mounted || choice is! _MentionChoice) return;
@@ -700,65 +798,59 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   ) async {
     if (message.id.isEmpty || message.id.startsWith('local-')) return;
     final permissions = bootstrap?.permissions ?? const ImPermissionSnapshot();
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            if (bootstrap?.config.message.reply ?? true)
-              ListTile(
-                leading: const Icon(Icons.reply_rounded),
-                title: const Text('回复'),
-                onTap: () => Navigator.pop(context, 'reply'),
-              ),
-            if (mine && permissions.editMessage && message.kind == 'text')
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('编辑'),
-                onTap: () => Navigator.pop(context, 'edit'),
-              ),
-            if (mine && permissions.revokeMessage)
-              ListTile(
-                leading: const Icon(Icons.undo_rounded),
-                title: const Text('撤回'),
-                onTap: () => Navigator.pop(context, 'revoke'),
-              ),
-            if (bootstrap?.config.message.forward ?? true)
-              ListTile(
-                leading: const Icon(Icons.forward_rounded),
-                title: const Text('转发'),
-                onTap: () => Navigator.pop(context, 'forward'),
-              ),
-            ListTile(
-              leading: const Icon(Icons.bookmark_add_outlined),
-              title: const Text('收藏'),
-              onTap: () => Navigator.pop(context, 'favorite'),
-            ),
-            if (isGroup)
-              ListTile(
-                leading: const Icon(Icons.push_pin_outlined),
-                title: const Text('设为群置顶'),
-                onTap: () => Navigator.pop(context, 'pin'),
-              ),
-            if (mine && permissions.readReceipt)
-              ListTile(
-                leading: const Icon(Icons.done_all_rounded),
-                title: const Text('查看已读'),
-                onTap: () => Navigator.pop(context, 'receipt'),
-              ),
-            if (permissions.deleteMessage)
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded),
-                title: const Text(
-                  '删除',
-                  style: TextStyle(color: AppColors.error),
-                ),
-                onTap: () => Navigator.pop(context, 'delete'),
-              ),
-          ],
+    final action = await showMobileChoiceSheet<String>(
+      context,
+      title: '消息操作',
+      options: [
+        if (bootstrap?.config.message.reply ?? true)
+          const MobileSheetOption(
+            value: 'reply',
+            label: '回复',
+            icon: Icons.reply_rounded,
+          ),
+        if (mine && permissions.editMessage && message.kind == 'text')
+          const MobileSheetOption(
+            value: 'edit',
+            label: '编辑',
+            icon: Icons.edit_outlined,
+          ),
+        if (mine && permissions.revokeMessage)
+          const MobileSheetOption(
+            value: 'revoke',
+            label: '撤回',
+            icon: Icons.undo_rounded,
+          ),
+        if (bootstrap?.config.message.forward ?? true)
+          const MobileSheetOption(
+            value: 'forward',
+            label: '转发',
+            icon: Icons.forward_rounded,
+          ),
+        const MobileSheetOption(
+          value: 'favorite',
+          label: '收藏',
+          icon: Icons.bookmark_add_outlined,
         ),
-      ),
+        if (isGroup)
+          const MobileSheetOption(
+            value: 'pin',
+            label: '设为群置顶',
+            icon: Icons.push_pin_outlined,
+          ),
+        if (mine && permissions.readReceipt)
+          const MobileSheetOption(
+            value: 'receipt',
+            label: '查看已读',
+            icon: Icons.done_all_rounded,
+          ),
+        if (permissions.deleteMessage)
+          const MobileSheetOption(
+            value: 'delete',
+            label: '删除',
+            icon: Icons.delete_outline_rounded,
+            destructive: true,
+          ),
+      ],
     );
     if (action == null || !mounted) return;
     try {
@@ -803,31 +895,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Future<void> _editMessage(ImMessage message) async {
-    final controller = TextEditingController(text: message.content);
-    final content = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('编辑消息'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 2000,
-          minLines: 1,
-          maxLines: 4,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+    final content = await showMobileTextInputSheet(
+      context,
+      title: '编辑消息',
+      initialValue: message.content,
+      maxLength: 2000,
+      maxLines: 4,
+      allowEmpty: false,
     );
-    await disposeRouteTextController(controller);
     if (content == null || content.isEmpty || !mounted) return;
     await ref.read(imRepositoryProvider).editMessage(message.id, content);
     _refreshConversationState();
@@ -840,35 +915,26 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final targets = conversations
         .where((item) => item.id != widget.conversationId)
         .toList();
-    final target = await showModalBottomSheet<ImConversation>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .55,
-          child: Column(
-            children: [
-              const Text('转发到', style: TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: targets.length,
-                  itemBuilder: (context, index) => ListTile(
-                    leading: InitialAvatar(
-                      name: targets[index].title,
-                      radius: 18,
-                    ),
-                    title: Text(targets[index].title),
-                    onTap: () => Navigator.pop(context, targets[index]),
-                  ),
-                ),
-              ),
-            ],
+    final targetId = await showMobileChoiceSheet<String>(
+      context,
+      title: '转发到',
+      searchable: targets.length > 8,
+      searchHint: '搜索会话',
+      emptyText: '暂无其他会话',
+      options: [
+        for (final target in targets)
+          MobileSheetOption(
+            value: target.id,
+            label: target.title,
+            subtitle: target.isGroup ? '群聊' : '单聊',
+            icon: target.isGroup
+                ? Icons.groups_outlined
+                : Icons.person_outline_rounded,
           ),
-        ),
-      ),
+      ],
     );
-    if (target == null || !mounted) return;
+    if (targetId == null || !mounted) return;
+    final target = targets.firstWhere((item) => item.id == targetId);
     await ref.read(imRepositoryProvider).forwardMessage(message.id, target.id);
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -877,56 +943,93 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Future<void> _showReadReceipts(ImMessage message) async {
-    final receipt = await ref
-        .read(imRepositoryProvider)
-        .messageReadReceipts(message.id);
+    final receipt = await ref.read(imMessageReadReceiptLoaderProvider)(
+      message.id,
+    );
     if (!mounted) return;
-    await showDialog<void>(
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
-        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-        contentPadding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
-        actionsPadding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
-        title: Text(
-          '已读 ${receipt.readCount}/${receipt.totalRecipientCount}',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        content: receipt.readers.isEmpty
-            ? const Text('暂无已读成员', style: TextStyle(fontSize: 13))
-            : ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 300),
-                child: SizedBox(
-                  width: 280,
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: receipt.readers.length,
-                    itemBuilder: (context, index) {
-                      final item = receipt.readers[index];
-                      final name = item.displayName.isNotEmpty
-                          ? item.displayName
-                          : item.username;
-                      return ListTile(
-                        dense: true,
-                        leading: InitialAvatar(name: name, radius: 15),
-                        title: Text(name),
-                        subtitle: item.readAt == null
-                            ? null
-                            : Text(
-                                DateFormat('MM-dd HH:mm').format(item.readAt!),
-                              ),
-                      );
-                    },
+      useRootNavigator: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final maxListHeight = MediaQuery.sizeOf(sheetContext).height * .45;
+        final listHeight = (receipt.readers.length * 52.0)
+            .clamp(52.0, maxListHeight)
+            .toDouble();
+        return SafeArea(
+          top: false,
+          child: Padding(
+            key: const Key('message-read-receipts-sheet'),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '已读 ${receipt.readCount}/${receipt.totalRecipientCount}',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+                const SizedBox(height: 6),
+                if (receipt.readers.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Text(
+                      '暂无已读成员',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.secondaryText,
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    key: const Key('message-read-receipts-list'),
+                    height: listHeight,
+                    child: ListView.builder(
+                      itemCount: receipt.readers.length,
+                      itemExtent: 52,
+                      itemBuilder: (context, index) {
+                        final item = receipt.readers[index];
+                        final name = item.displayName.isNotEmpty
+                            ? item.displayName
+                            : item.username;
+                        return ListTile(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
+                          minLeadingWidth: 34,
+                          contentPadding: EdgeInsets.zero,
+                          leading: InitialAvatar(name: name, radius: 15),
+                          title: Text(
+                            name,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          subtitle: item.readAt == null
+                              ? null
+                              : Text(
+                                  DateFormat('MM-dd HH:mm')
+                                      .format(item.readAt!),
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                        );
+                      },
+                    ),
+                  ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(sheetContext),
+                    child: const Text('关闭'),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -935,95 +1038,160 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     var priority = 'normal';
     final draft = await showModalBottomSheet<_SharedTaskDraft>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
-      showDragHandle: true,
+      showDragHandle: false,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) => Padding(
+          key: const Key('shared-task-create-sheet'),
           padding: EdgeInsets.fromLTRB(
             16,
-            0,
+            8,
             16,
-            14 + MediaQuery.viewInsetsOf(context).bottom,
+            12 + MediaQuery.viewInsetsOf(context).bottom,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                '新建共同任务',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                autofocus: true,
-                maxLength: 120,
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  hintText: '输入任务名称',
-                  counterText: '',
-                  isDense: true,
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
                 ),
-                onChanged: (value) => taskTitle = value,
-                onSubmitted: (_) {
-                  final title = taskTitle.trim();
-                  if (title.isNotEmpty) {
-                    Navigator.pop(
-                      sheetContext,
-                      _SharedTaskDraft(title, priority),
-                    );
-                  }
-                },
               ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children:
-                    const [
-                      ('low', '低'),
-                      ('normal', '普通'),
-                      ('high', '高'),
-                      ('urgent', '紧急'),
-                    ].map((item) {
-                      final selected = priority == item.$1;
-                      return ChoiceChip(
-                        label: Text(item.$2),
-                        selected: selected,
-                        visualDensity: VisualDensity.compact,
-                        onSelected: (_) =>
-                            setSheetState(() => priority = item.$1),
-                      );
-                    }).toList(),
-              ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 40,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(sheetContext),
-                        child: const Text('取消'),
+                  const Expanded(
+                    child: Text(
+                      '新建共同任务',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SizedBox(
-                      height: 40,
-                      child: FilledButton(
-                        onPressed: () {
-                          final title = taskTitle.trim();
-                          if (title.isNotEmpty) {
-                            Navigator.pop(
-                              sheetContext,
-                              _SharedTaskDraft(title, priority),
-                            );
-                          }
-                        },
-                        child: const Text('创建'),
-                      ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(sheetContext),
+                    icon: const Icon(Icons.close_rounded, size: 19),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '任务名称',
+                style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 36,
+                child: TextField(
+                  key: const Key('shared-task-title-input'),
+                  autofocus: true,
+                  maxLength: 120,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    hintText: '输入任务名称',
+                    counterText: '',
+                    isDense: true,
+                    filled: true,
+                    fillColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: .6),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
                     ),
+                    border: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    enabledBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                  ),
+                  onChanged: (value) => taskTitle = value,
+                  onSubmitted: (_) {
+                    final title = taskTitle.trim();
+                    if (title.isNotEmpty) {
+                      Navigator.pop(
+                        sheetContext,
+                        _SharedTaskDraft(title, priority),
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                '优先级',
+                style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 36,
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'low', label: Text('低')),
+                    ButtonSegment(value: 'normal', label: Text('普通')),
+                    ButtonSegment(value: 'high', label: Text('高')),
+                    ButtonSegment(value: 'urgent', label: Text('紧急')),
+                  ],
+                  selected: {priority},
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity(vertical: -3),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    minimumSize: WidgetStatePropertyAll(Size(0, 34)),
+                  ),
+                  onSelectionChanged: (values) =>
+                      setSheetState(() => priority = values.single),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(60, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => Navigator.pop(sheetContext),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const Key('shared-task-create-button'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(72, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () {
+                      final title = taskTitle.trim();
+                      if (title.isNotEmpty) {
+                        Navigator.pop(
+                          sheetContext,
+                          _SharedTaskDraft(title, priority),
+                        );
+                      }
+                    },
+                    child: const Text('创建'),
                   ),
                 ],
               ),
@@ -1117,16 +1285,42 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               item.status != 'canceled',
         )
         .toList(growable: false);
-    final members = ref
-        .watch(conversationMembersProvider(widget.conversationId))
-        .value;
-    final groupProfile = conversation?.isGroup == true
-        ? ref.watch(groupProfileProvider(widget.conversationId)).value
+    final groupMemberPage = conversation?.isGroup == true
+        ? ref
+              .watch(
+                conversationMemberPageProvider((
+                  conversationId: widget.conversationId,
+                  page: 1,
+                  pageSize: 50,
+                  keyword: '',
+                )),
+              )
+              .value
         : null;
+    final members = conversation == null
+        ? null
+        : conversation.isGroup
+        ? groupMemberPage?.items
+        : ref.watch(conversationMembersProvider(widget.conversationId)).value;
+    final memberTotal = conversation?.isGroup == true
+        ? groupMemberPage?.total ?? members?.length ?? 0
+        : members?.length ?? 0;
+    final groupProfileState = conversation?.isGroup == true
+        ? ref.watch(groupProfileProvider(widget.conversationId))
+        : null;
+    final groupProfile = groupProfileState?.value;
     final presence = widget.enablePresence
         ? ref.watch(conversationPresenceProvider(widget.conversationId)).value
         : null;
     final currentMember = bootstrap?.currentMember;
+    final composerRestriction = _groupComposerRestriction(
+      conversation: conversation,
+      profile: groupProfile,
+      profileLoadFailed: groupProfileState?.hasError ?? false,
+      members: members,
+      currentMemberId: currentMember?.id ?? '',
+    );
+    final composerEnabled = composerRestriction == null;
     final directMember = conversation?.isDirect == true
         ? members
                   ?.where((member) => member.id != currentMember?.id)
@@ -1155,6 +1349,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 name: directMember?.displayName ?? conversation?.title ?? '会话',
                 radius: 17,
                 online: presence?.peerOnline ?? directMember?.isOnline,
+                avatarKey: directMember?.avatarKey ?? '',
                 avatarDataUrl: directMember?.avatarDataUrl ?? '',
               ),
             const SizedBox(width: 10),
@@ -1171,8 +1366,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     Text(
                       conversation.isGroup
                           ? presence == null
-                                ? '${members?.length ?? 0} 位成员'
-                                : '${members?.length ?? 0} 位成员 · ${presence.onlineMemberCount} 人在线'
+                                ? '$memberTotal 位成员'
+                                : '$memberTotal 位成员 · ${presence.onlineMemberCount} 人在线'
                           : _directPresenceLabel(directMember, presence),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1232,23 +1427,35 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             ),
           if (_searching && _resourceTab == 0)
             Container(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-              color: Colors.white,
-              child: TextField(
-                autofocus: true,
-                onChanged: (value) => setState(() => _query = value.trim()),
-                decoration: InputDecoration(
-                  hintText: '搜索当前会话',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: IconButton(
-                    tooltip: '关闭搜索',
-                    onPressed: () => setState(() {
-                      _searching = false;
-                      _query = '';
-                    }),
-                    icon: const Icon(Icons.close_rounded),
+              padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+              color: Theme.of(context).colorScheme.surface,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: MobileSearchField(
+                      key: const Key('chat-current-search'),
+                      hintText: '搜索当前会话',
+                      autofocus: true,
+                      onChanged: (value) =>
+                          setState(() => _query = value.trim()),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  SizedBox.square(
+                    dimension: 34,
+                    child: IconButton(
+                      key: const Key('chat-current-search-close'),
+                      tooltip: '关闭搜索',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      onPressed: () => setState(() {
+                        _searching = false;
+                        _query = '';
+                      }),
+                      icon: const Icon(Icons.close_rounded, size: 19),
+                    ),
+                  ),
+                ],
               ),
             ),
           if (_resourceTab == 0 &&
@@ -1409,6 +1616,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                         ImLocalMessageStatus.failed
                                     ? () => _retryMessage(item)
                                     : null,
+                                showReadReceiptAction:
+                                    item.localStatus ==
+                                        ImLocalMessageStatus.sent &&
+                                    item.id.trim().isNotEmpty &&
+                                    (bootstrap?.permissions.readReceipt ??
+                                        false),
+                                onOpenReadReceipt: () =>
+                                    _showReadReceipts(item),
                                 onLongPress: () => _showMessageActions(
                                   item,
                                   item.senderId == bootstrap?.currentMember.id,
@@ -1444,10 +1659,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           tooltip: '提及成员',
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
-                          onPressed: members == null
+                          onPressed: !composerEnabled || members == null
                               ? null
                               : () => _showMentionPicker(
                                   members,
+                                  memberTotal,
                                   groupProfile,
                                   bootstrap?.config.message.mentionAll ?? false,
                                 ),
@@ -1463,7 +1679,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         tooltip: '附件',
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        onPressed: _sendingAttachment
+                        onPressed: !composerEnabled || _sendingAttachment
                             ? null
                             : () => _showAttachmentMenu(bootstrap),
                         icon: _sendingAttachment
@@ -1488,10 +1704,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         child: TextField(
                           key: const Key('chat-message-input'),
                           controller: _controller,
+                          enabled: composerEnabled,
                           maxLines: 4,
                           minLines: 1,
                           decoration: InputDecoration(
-                            hintText: _replyTo == null ? '输入消息' : '回复消息',
+                            hintText:
+                                composerRestriction ??
+                                (_replyTo == null ? '输入消息' : '回复消息'),
                             isDense: true,
                             filled: false,
                             contentPadding: const EdgeInsets.fromLTRB(
@@ -1516,7 +1735,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                               tooltip: '表情',
                               visualDensity: VisualDensity.compact,
                               padding: EdgeInsets.zero,
-                              onPressed: _showEmojiPicker,
+                              onPressed: composerEnabled
+                                  ? _showEmojiPicker
+                                  : null,
                               icon: const Icon(
                                 Icons.sentiment_satisfied_alt_outlined,
                                 size: 21,
@@ -1537,7 +1758,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         tooltip: '发送',
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        onPressed: _sending ? null : _send,
+                        onPressed: !composerEnabled || _sending ? null : _send,
                         icon: _sending
                             ? const SizedBox.square(
                                 dimension: 17,
@@ -2264,6 +2485,97 @@ List<InlineSpan> _messageSpans(ImMessage item, Color color) {
   return spans;
 }
 
+bool _isEmojiOnlyMessage(String value) {
+  final runes = value.trim().runes.toList(growable: false);
+  if (runes.isEmpty) return false;
+  var hasEmojiBase = false;
+  for (var index = 0; index < runes.length; index += 1) {
+    final rune = runes[index];
+    if (String.fromCharCodes([rune]).trim().isEmpty) continue;
+    if (_isKeycapBase(rune)) {
+      var suffix = index + 1;
+      if (suffix < runes.length && runes[suffix] == 0xFE0F) suffix += 1;
+      if (suffix >= runes.length || runes[suffix] != 0x20E3) return false;
+      hasEmojiBase = true;
+      index = suffix;
+      continue;
+    }
+    if (_isEmojiComponent(rune)) continue;
+    if (!_isEmojiBase(rune)) return false;
+    hasEmojiBase = true;
+  }
+  return hasEmojiBase;
+}
+
+bool _isKeycapBase(int rune) =>
+    rune == 0x23 || rune == 0x2A || (rune >= 0x30 && rune <= 0x39);
+
+bool _isEmojiComponent(int rune) =>
+    rune == 0x200D ||
+    rune == 0x20E3 ||
+    (rune >= 0xFE00 && rune <= 0xFE0F) ||
+    (rune >= 0x1F3FB && rune <= 0x1F3FF) ||
+    (rune >= 0xE0020 && rune <= 0xE007F);
+
+bool _isEmojiBase(int rune) =>
+    (rune >= 0x1F000 && rune <= 0x1FAFF) ||
+    (rune >= 0x2190 && rune <= 0x21FF) ||
+    (rune >= 0x2300 && rune <= 0x23FF) ||
+    (rune >= 0x2600 && rune <= 0x27BF) ||
+    (rune >= 0x2B00 && rune <= 0x2BFF) ||
+    const {
+      0x00A9,
+      0x00AE,
+      0x203C,
+      0x2049,
+      0x2122,
+      0x2139,
+      0x3030,
+      0x303D,
+      0x3297,
+      0x3299,
+    }.contains(rune);
+
+String? _groupComposerRestriction({
+  required ImConversation? conversation,
+  required ImGroupProfile? profile,
+  required bool profileLoadFailed,
+  required List<ImMember>? members,
+  required String currentMemberId,
+}) {
+  if (conversation?.isGroup != true) return null;
+  if (profile == null) {
+    return profileLoadFailed ? '群聊状态不可用' : '群聊状态加载中';
+  }
+  final status = profile.status.trim().toLowerCase();
+  if (const {
+    'archived',
+    'closed',
+    'deleted',
+    'disabled',
+    'dissolved',
+    'inactive',
+    '已关闭',
+    '已解散',
+    '已停用',
+  }.contains(status)) {
+    return '群聊已停用';
+  }
+  if (!profile.muted) return null;
+  final role = profile.currentUserRole.trim().isNotEmpty
+      ? profile.currentUserRole.trim().toLowerCase()
+      : members
+            ?.where((member) => member.id == currentMemberId)
+            .firstOrNull
+            ?.groupRole
+            .trim()
+            .toLowerCase();
+  if (const {'owner', 'admin', 'administrator', '群主', '管理员'}.contains(role)) {
+    return null;
+  }
+  return '全员禁言中';
+}
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.item,
@@ -2274,6 +2586,8 @@ class _MessageBubble extends StatelessWidget {
     required this.showSenderName,
     required this.onOpenAttachment,
     required this.onRetry,
+    required this.showReadReceiptAction,
+    required this.onOpenReadReceipt,
     required this.onLongPress,
   });
 
@@ -2285,172 +2599,235 @@ class _MessageBubble extends StatelessWidget {
   final bool showSenderName;
   final VoidCallback? onOpenAttachment;
   final VoidCallback? onRetry;
+  final bool showReadReceiptAction;
+  final VoidCallback onOpenReadReceipt;
   final VoidCallback onLongPress;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
-    child: Row(
-      mainAxisAlignment: mine ? MainAxisAlignment.end : MainAxisAlignment.start,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (!mine) ...[
-          InitialAvatar(
-            name: sender?.displayName ?? item.senderId,
-            radius: 20,
-            avatarDataUrl: sender?.avatarDataUrl ?? '',
-          ),
-          const SizedBox(width: 9),
-        ],
-        Flexible(
-          child: Column(
-            crossAxisAlignment: mine
-                ? CrossAxisAlignment.end
-                : CrossAxisAlignment.start,
-            children: [
-              if (!mine && showSenderName) ...[
-                Text(
-                  sender?.displayName ?? '群成员',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.secondaryText,
+  Widget build(BuildContext context) {
+    final emojiOnly = item.kind == 'text' && _isEmojiOnlyMessage(item.content);
+    return Padding(
+      padding: EdgeInsets.only(bottom: mine && showReadReceiptAction ? 2 : 14),
+      child: Row(
+        mainAxisAlignment: mine
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!mine) ...[
+            InitialAvatar(
+              name: sender?.displayName ?? item.senderId,
+              radius: 20,
+              avatarKey: sender?.avatarKey ?? '',
+              avatarDataUrl: sender?.avatarDataUrl ?? '',
+            ),
+            const SizedBox(width: 9),
+          ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: mine
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                if (!mine && showSenderName) ...[
+                  Text(
+                    sender?.displayName ?? '群成员',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.secondaryText,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-              ],
-              InkWell(
-                onTap: onOpenAttachment,
-                onLongPress: onLongPress,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 280),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 13,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: mine ? AppColors.primary : Colors.white,
-                    border: mine ? null : Border.all(color: AppColors.border),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: item.recalledAt != null
-                      ? Text(
-                          '消息已撤回',
-                          style: TextStyle(
-                            color: mine ? Colors.white : AppColors.text,
-                            fontStyle: FontStyle.italic,
+                  const SizedBox(height: 4),
+                ],
+                Row(
+                  mainAxisAlignment: mine
+                      ? MainAxisAlignment.end
+                      : MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (mine && showReadReceiptAction) ...[
+                      Semantics(
+                        button: true,
+                        label: '查看已读详情',
+                        child: InkWell(
+                          key: ValueKey<String>(
+                            'message-read-receipt-${item.id}',
                           ),
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (item.replyTo != null)
-                              Container(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 250,
-                                ),
-                                margin: const EdgeInsets.only(bottom: 6),
-                                padding: const EdgeInsets.only(left: 7),
-                                decoration: const BoxDecoration(
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: AppColors.primary,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                                child: Text(
-                                  item.replyTo!.recalledAt != null
-                                      ? '消息已撤回'
-                                      : item.replyTo!.content,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: mine
-                                        ? Colors.white70
-                                        : AppColors.secondaryText,
-                                  ),
-                                ),
-                              ),
-                            if (item.kind == 'file')
-                              _AttachmentContent(item: item, mine: mine)
-                            else if (const {
-                                  'video',
-                                  'audio',
-                                }.contains(item.kind) &&
-                                item.attachments.isNotEmpty)
-                              _MediaMessageContent(message: item, mine: mine)
-                            else if (item.kind == 'image' &&
-                                item.images.isNotEmpty)
-                              _ImageMessageContent(message: item)
-                            else if (item.kind == 'contact' &&
-                                item.contactCard != null)
-                              _ContactCardContent(
-                                card: item.contactCard!,
-                                mine: mine,
-                              )
-                            else
-                              Text.rich(
-                                TextSpan(
-                                  children: _messageSpans(
-                                    item,
-                                    mine ? Colors.white : AppColors.text,
-                                  ),
-                                ),
-                              ),
-                          ],
+                          onTap: onOpenReadReceipt,
+                          borderRadius: BorderRadius.circular(4),
+                          child: const SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: Icon(
+                              Icons.done_all_rounded,
+                              size: 14,
+                              color: AppColors.primary,
+                            ),
+                          ),
                         ),
-                ),
-              ),
-              if (mine && item.localStatus != ImLocalMessageStatus.sent) ...[
-                const SizedBox(height: 4),
-                InkWell(
-                  onTap: onRetry,
-                  borderRadius: BorderRadius.circular(4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        item.localStatus == ImLocalMessageStatus.failed
-                            ? Icons.error_outline_rounded
-                            : Icons.schedule_rounded,
-                        size: 14,
-                        color: item.localStatus == ImLocalMessageStatus.failed
-                            ? AppColors.error
-                            : AppColors.secondaryText,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        item.localStatus == ImLocalMessageStatus.failed
-                            ? '发送失败，点此重试'
-                            : '发送中',
-                        style: TextStyle(
-                          fontSize: 11,
+                      const SizedBox(width: 2),
+                    ],
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: InkWell(
+                        onTap: onOpenAttachment,
+                        onLongPress: onLongPress,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 280),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 13,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: mine ? AppColors.primary : Colors.white,
+                            border: mine
+                                ? null
+                                : Border.all(color: AppColors.border),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: item.recalledAt != null
+                              ? Text(
+                                  '消息已撤回',
+                                  style: TextStyle(
+                                    color: mine ? Colors.white : AppColors.text,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (item.replyTo != null)
+                                      Container(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 250,
+                                        ),
+                                        margin: const EdgeInsets.only(
+                                          bottom: 6,
+                                        ),
+                                        padding: const EdgeInsets.only(left: 7),
+                                        decoration: const BoxDecoration(
+                                          border: Border(
+                                            left: BorderSide(
+                                              color: AppColors.primary,
+                                              width: 2,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          item.replyTo!.recalledAt != null
+                                              ? '消息已撤回'
+                                              : item.replyTo!.content,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: mine
+                                                ? Colors.white70
+                                                : AppColors.secondaryText,
+                                          ),
+                                        ),
+                                      ),
+                                    if (item.kind == 'file')
+                                      _AttachmentContent(item: item, mine: mine)
+                                    else if (const {
+                                          'video',
+                                          'audio',
+                                        }.contains(item.kind) &&
+                                        item.attachments.isNotEmpty)
+                                      _MediaMessageContent(
+                                        message: item,
+                                        mine: mine,
+                                      )
+                                    else if (item.kind == 'image' &&
+                                        item.images.isNotEmpty)
+                                      _ImageMessageContent(message: item)
+                                    else if (item.kind == 'contact' &&
+                                        item.contactCard != null)
+                                      _ContactCardContent(
+                                        card: item.contactCard!,
+                                        mine: mine,
+                                      )
+                                    else
+                                      Text.rich(
+                                        key: ValueKey(
+                                          'message-text-${item.id}',
+                                        ),
+                                        TextSpan(
+                                          children: _messageSpans(
+                                            item,
+                                            mine
+                                                ? Colors.white
+                                                : AppColors.text,
+                                          ),
+                                        ),
+                                        style: emojiOnly
+                                            ? const TextStyle(
+                                                fontSize: 30,
+                                                height: 1.12,
+                                              )
+                                            : null,
+                                      ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (mine && item.localStatus != ImLocalMessageStatus.sent) ...[
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: onRetry,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          item.localStatus == ImLocalMessageStatus.failed
+                              ? Icons.error_outline_rounded
+                              : Icons.schedule_rounded,
+                          size: 14,
                           color: item.localStatus == ImLocalMessageStatus.failed
                               ? AppColors.error
                               : AppColors.secondaryText,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          item.localStatus == ImLocalMessageStatus.failed
+                              ? '发送失败，点此重试'
+                              : '发送中',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color:
+                                item.localStatus == ImLocalMessageStatus.failed
+                                ? AppColors.error
+                                : AppColors.secondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        if (mine) ...[
-          const SizedBox(width: 9),
-          InitialAvatar(
-            name: currentMemberName.isEmpty ? item.senderId : currentMemberName,
-            radius: 20,
-            avatarDataUrl: currentMemberAvatarDataUrl,
-          ),
+          if (mine) ...[
+            const SizedBox(width: 9),
+            InitialAvatar(
+              name: currentMemberName.isEmpty
+                  ? item.senderId
+                  : currentMemberName,
+              radius: 20,
+              avatarDataUrl: currentMemberAvatarDataUrl,
+            ),
+          ],
         ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _ImageMessageContent extends ConsumerWidget {
@@ -2792,7 +3169,12 @@ class _ContactCardContent extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      InitialAvatar(name: card.displayName, radius: 20),
+      InitialAvatar(
+        name: card.displayName,
+        radius: 20,
+        avatarKey: card.avatarKey,
+        avatarDataUrl: card.avatarDataUrl,
+      ),
       const SizedBox(width: 10),
       Flexible(
         child: Column(
@@ -2826,6 +3208,245 @@ class _ContactCardContent extends StatelessWidget {
   );
 }
 
+class _MentionPickerSheet extends ConsumerStatefulWidget {
+  const _MentionPickerSheet({
+    required this.conversationId,
+    required this.members,
+    required this.memberTotal,
+    required this.allowMentionAll,
+  });
+
+  final String conversationId;
+  final List<ImMember> members;
+  final int memberTotal;
+  final bool allowMentionAll;
+
+  @override
+  ConsumerState<_MentionPickerSheet> createState() =>
+      _MentionPickerSheetState();
+}
+
+class _MentionPickerSheetState extends ConsumerState<_MentionPickerSheet> {
+  String _query = '';
+  String _effectiveQuery = '';
+  Timer? _searchDebounce;
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _updateQuery(String value) {
+    final query = value.trim();
+    setState(() => _query = query);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) setState(() => _effectiveQuery = query);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final usesServerPaging = widget.memberTotal > widget.members.length;
+    final remotePage = usesServerPaging
+        ? ref.watch(
+            conversationMemberPageProvider((
+              conversationId: widget.conversationId,
+              page: 1,
+              pageSize: 50,
+              keyword: _effectiveQuery,
+            )),
+          )
+        : null;
+    final query = _effectiveQuery.toLowerCase();
+    final localMembers = widget.members
+        .where(
+          (item) =>
+              query.isEmpty ||
+              item.displayName.toLowerCase().contains(query) ||
+              item.username.toLowerCase().contains(query) ||
+              item.departmentName.toLowerCase().contains(query),
+        )
+        .toList(growable: false);
+    final members = usesServerPaging
+        ? remotePage?.value?.items ??
+              (_effectiveQuery.isEmpty ? widget.members : const <ImMember>[])
+        : localMembers;
+    final resultTotal = usesServerPaging
+        ? remotePage?.value?.total ?? widget.memberTotal
+        : members.length;
+    final searching = _query != _effectiveQuery;
+    final loading = searching || (remotePage?.isLoading ?? false);
+    final loadFailed = remotePage?.hasError ?? false;
+    final hasMore = resultTotal > members.length;
+    final offset = widget.allowMentionAll ? 1 : 0;
+    return SafeArea(
+      child: SizedBox(
+        key: const Key('mention-picker-sheet'),
+        height: MediaQuery.sizeOf(context).height * .68,
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 8),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '提及成员',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 19),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: MobileSearchField(
+                key: const Key('mention-picker-search'),
+                hintText: '搜索姓名、部门或账号',
+                autofocus: false,
+                onChanged: _updateQuery,
+              ),
+            ),
+            Expanded(
+              child: loading && members.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : loadFailed && members.isEmpty
+                  ? const EmptyState(
+                      icon: Icons.cloud_off_outlined,
+                      title: '群成员加载失败',
+                    )
+                  : members.isEmpty && !widget.allowMentionAll
+                  ? const EmptyState(
+                      icon: Icons.person_search_outlined,
+                      title: '没有匹配的群成员',
+                    )
+                  : ListView.builder(
+                      key: const Key('mention-picker-list'),
+                      itemCount: members.length + offset + (hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (widget.allowMentionAll && index == 0) {
+                          return SizedBox(
+                            key: const Key('mention-picker-all'),
+                            height: 50,
+                            child: ListTile(
+                              dense: true,
+                              visualDensity: VisualDensity.compact,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                              ),
+                              leading: const CircleAvatar(
+                                radius: 17,
+                                child: Text('@'),
+                              ),
+                              title: const Text(
+                                '@全体',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: const Text(
+                                '提醒群内全部成员',
+                                style: TextStyle(fontSize: 11),
+                              ),
+                              onTap: () => Navigator.pop(
+                                context,
+                                const _MentionChoice.all(),
+                              ),
+                            ),
+                          );
+                        }
+                        if (index >= members.length + offset) {
+                          return const SizedBox(
+                            height: 40,
+                            child: Center(
+                              child: Text(
+                                '仅显示前 50 位，请输入姓名或账号继续查找',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.secondaryText,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        final member = members[index - offset];
+                        return SizedBox(
+                          key: ValueKey('mention-picker-member-${member.id}'),
+                          height: 50,
+                          child: ListTile(
+                            dense: true,
+                            visualDensity: VisualDensity.compact,
+                            minLeadingWidth: 34,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                            ),
+                            leading: InitialAvatar(
+                              name: member.displayName,
+                              radius: 17,
+                              online: member.isOnline,
+                              avatarKey: member.avatarKey,
+                              avatarDataUrl: member.avatarDataUrl,
+                            ),
+                            title: Text(
+                              member.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              [
+                                member.departmentName,
+                                member.username,
+                              ].where((item) => item.isNotEmpty).join(' · '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.secondaryText,
+                              ),
+                            ),
+                            onTap: () => Navigator.pop(
+                              context,
+                              _MentionChoice.member(member),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ContactPickerSheet extends StatefulWidget {
   const _ContactPickerSheet({required this.contacts});
 
@@ -2852,22 +3473,50 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
         .toList();
     return SafeArea(
       child: SizedBox(
+        key: const Key('chat-contact-picker-sheet'),
         height: MediaQuery.sizeOf(context).height * .68,
         child: Column(
           children: [
-            const Text(
-              '分享联系人',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            const SizedBox(height: 8),
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 8),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '分享联系人',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 19),
+                  ),
+                ],
+              ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                autofocus: true,
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: MobileSearchField(
+                key: const Key('chat-contact-picker-search'),
+                hintText: '搜索姓名、部门或账号',
+                autofocus: false,
                 onChanged: (value) => setState(() => _query = value.trim()),
-                decoration: const InputDecoration(
-                  hintText: '搜索姓名、部门或账号',
-                  prefixIcon: Icon(Icons.search_rounded),
-                ),
               ),
             ),
             Expanded(
@@ -2875,20 +3524,46 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                 itemCount: contacts.length,
                 itemBuilder: (context, index) {
                   final member = contacts[index];
-                  return ListTile(
-                    leading: InitialAvatar(
-                      name: member.displayName,
-                      radius: 21,
-                      avatarDataUrl: member.avatarDataUrl,
+                  return SizedBox(
+                    key: ValueKey('chat-contact-picker-member-${member.id}'),
+                    height: 50,
+                    child: ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      minLeadingWidth: 34,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                      ),
+                      leading: InitialAvatar(
+                        name: member.displayName,
+                        radius: 17,
+                        online: member.isOnline,
+                        avatarKey: member.avatarKey,
+                        avatarDataUrl: member.avatarDataUrl,
+                      ),
+                      title: Text(
+                        member.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        [
+                          member.departmentName,
+                          member.username,
+                        ].where((value) => value.isNotEmpty).join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
+                      onTap: () => Navigator.pop(context, member),
                     ),
-                    title: Text(member.displayName),
-                    subtitle: Text(
-                      [
-                        member.departmentName,
-                        member.username,
-                      ].where((value) => value.isNotEmpty).join(' · '),
-                    ),
-                    onTap: () => Navigator.pop(context, member),
                   );
                 },
               ),

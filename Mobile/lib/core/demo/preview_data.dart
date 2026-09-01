@@ -760,6 +760,14 @@ abstract final class PreviewData {
           kind: 'text',
           createdAt: DateTime(2026, 8, 13, 9, 45),
         ),
+        ImMessage(
+          id: 'direct-emoji-1',
+          sequence: 7,
+          senderId: peer?.id ?? memberId,
+          content: '😀',
+          kind: 'text',
+          createdAt: DateTime(2026, 8, 13, 9, 46),
+        ),
       ];
     }
     return messages;

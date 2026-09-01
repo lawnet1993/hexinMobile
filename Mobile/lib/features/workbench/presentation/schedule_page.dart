@@ -279,134 +279,311 @@ Future<_TodoDraft?> _showTodoSheet(BuildContext context, {OaTodo? item}) async {
   String? error;
   final result = await showModalBottomSheet<_TodoDraft>(
     context: context,
+    useRootNavigator: true,
+    useSafeArea: true,
     isScrollControlled: true,
-    showDragHandle: true,
+    showDragHandle: false,
     builder: (context) => StatefulBuilder(
       builder: (context, setSheetState) => SafeArea(
         child: Padding(
+          key: const Key('schedule-editor-sheet'),
           padding: EdgeInsets.fromLTRB(
             16,
-            0,
+            8,
             16,
-            14 + MediaQuery.viewInsetsOf(context).bottom,
+            12 + MediaQuery.viewInsetsOf(context).bottom,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                item == null ? '新增待办' : '编辑待办',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: title,
-                autofocus: item == null,
-                maxLength: 160,
-                decoration: InputDecoration(
-                  labelText: '标题',
-                  isDense: true,
-                  counterText: '',
-                  errorText: error,
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: description,
-                minLines: 2,
-                maxLines: 3,
-                maxLength: 1000,
-                decoration: const InputDecoration(
-                  labelText: '备注（可选）',
-                  isDense: true,
-                ),
-              ),
               Row(
                 children: [
                   Expanded(
-                    child: InkWell(
-                      key: const Key('schedule-priority-select'),
-                      onTap: () async {
-                        final selected = await showMobileChoiceSheet<String>(
-                          context,
-                          title: '优先级',
-                          selectedValue: priority,
-                          options: const [
-                            MobileSheetOption(value: 'low', label: '低'),
-                            MobileSheetOption(value: 'normal', label: '普通'),
-                            MobileSheetOption(value: 'high', label: '高'),
-                            MobileSheetOption(value: 'urgent', label: '紧急'),
-                          ],
-                        );
-                        if (selected == null) return;
-                        setSheetState(() => priority = selected);
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '优先级',
-                          suffixIcon: Icon(Icons.expand_more_rounded, size: 20),
+                    child: Text(
+                      item == null ? '新增待办' : '编辑待办',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 19),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '标题',
+                style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 36,
+                child: TextField(
+                  key: const Key('schedule-title-input'),
+                  controller: title,
+                  autofocus: item == null,
+                  maxLength: 160,
+                  onChanged: (_) {
+                    if (error != null) setSheetState(() => error = null);
+                  },
+                  decoration: InputDecoration(
+                    hintText: '输入待办标题',
+                    isDense: true,
+                    counterText: '',
+                    filled: true,
+                    fillColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: .6),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    border: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    enabledBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                  ),
+                ),
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 5),
+                Text(
+                  error!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              const Text(
+                '备注（可选）',
+                style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 64,
+                child: TextField(
+                  key: const Key('schedule-description-input'),
+                  controller: description,
+                  minLines: 2,
+                  maxLines: 2,
+                  maxLength: 1000,
+                  decoration: InputDecoration(
+                    hintText: '补充备注',
+                    counterText: '',
+                    isDense: true,
+                    filled: true,
+                    fillColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: .6),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 9,
+                    ),
+                    border: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    enabledBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: InkWell(
+                        key: const Key('schedule-priority-select'),
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () async {
+                          final selected = await showMobileChoiceSheet<String>(
+                            context,
+                            title: '优先级',
+                            selectedValue: priority,
+                            options: const [
+                              MobileSheetOption(value: 'low', label: '低'),
+                              MobileSheetOption(value: 'normal', label: '普通'),
+                              MobileSheetOption(value: 'high', label: '高'),
+                              MobileSheetOption(value: 'urgent', label: '紧急'),
+                            ],
+                          );
+                          if (selected == null) return;
+                          setSheetState(() => priority = selected);
+                        },
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(alpha: .6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _priorityLabel(priority),
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.expand_more_rounded,
+                                  size: 18,
+                                  color: AppColors.secondaryText,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        child: Text(_priorityLabel(priority)),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final date = await showMobileDatePickerSheet(
-                          context,
-                          initialDate: dueAt,
-                          firstDate: DateTime.now().subtract(
-                            const Duration(days: 1),
+                    child: SizedBox(
+                      height: 36,
+                      child: InkWell(
+                        key: const Key('schedule-due-select'),
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () async {
+                          final date = await showMobileDatePickerSheet(
+                            context,
+                            initialDate: dueAt,
+                            firstDate: DateTime.now().subtract(
+                              const Duration(days: 1),
+                            ),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 3650),
+                            ),
+                          );
+                          if (date == null || !context.mounted) return;
+                          final time = await showMobileTimePickerSheet(
+                            context,
+                            initialTime: TimeOfDay.fromDateTime(dueAt),
+                          );
+                          if (time == null) return;
+                          setSheetState(
+                            () => dueAt = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                              time.hour,
+                              time.minute,
+                            ),
+                          );
+                        },
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(alpha: .6),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 3650),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.schedule_rounded,
+                                  size: 16,
+                                  color: AppColors.secondaryText,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    DateFormat('MM-dd HH:mm').format(dueAt),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 12.5),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        );
-                        if (date == null || !context.mounted) return;
-                        final time = await showMobileTimePickerSheet(
-                          context,
-                          initialTime: TimeOfDay.fromDateTime(dueAt),
-                        );
-                        if (time == null) return;
-                        setSheetState(
-                          () => dueAt = DateTime(
-                            date.year,
-                            date.month,
-                            date.day,
-                            time.hour,
-                            time.minute,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.schedule_rounded, size: 17),
-                      label: Text(DateFormat('MM-dd HH:mm').format(dueAt)),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 40,
-                child: FilledButton(
-                  onPressed: () {
-                    if (title.text.trim().isEmpty) {
-                      setSheetState(() => error = '请输入标题');
-                      return;
-                    }
-                    Navigator.pop(
-                      context,
-                      _TodoDraft(
-                        title.text.trim(),
-                        description.text.trim(),
-                        priority,
-                        dueAt,
-                      ),
-                    );
-                  },
-                  child: const Text('保存'),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(60, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const Key('schedule-save-button'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(72, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () {
+                      if (title.text.trim().isEmpty) {
+                        setSheetState(() => error = '请输入标题');
+                        return;
+                      }
+                      Navigator.pop(
+                        context,
+                        _TodoDraft(
+                          title.text.trim(),
+                          description.text.trim(),
+                          priority,
+                          dueAt,
+                        ),
+                      );
+                    },
+                    child: const Text('保存'),
+                  ),
+                ],
               ),
             ],
           ),

@@ -1,0 +1,7 @@
+
+run total_ms wait_ms skipped_events critical
+--- -------- ------- -------------- --------
+  2 650      660                  0        0
+  3 652      664                  0        0
+
+

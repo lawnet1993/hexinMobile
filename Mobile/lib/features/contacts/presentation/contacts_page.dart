@@ -5,10 +5,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/domain/collaboration_models.dart';
+
+typedef ContactPresenceRefresher = Future<void> Function();
+typedef MemberAccountSearcher = Future<List<ImSearchResult>> Function(
+  String account,
+);
+
+final contactPresenceRefresherProvider = Provider<ContactPresenceRefresher>((
+  ref,
+) {
+  return () => ref.read(imRepositoryProvider).refreshBootstrap();
+});
+
+final memberAccountSearcherProvider = Provider<MemberAccountSearcher>((ref) {
+  return ref.read(imRepositoryProvider).searchMembers;
+});
+
+enum _MemberSearchAction { message, friendRequest }
+
+final class _MemberSearchSelection {
+  const _MemberSearchSelection({required this.result, required this.action});
+
+  final ImSearchResult result;
+  final _MemberSearchAction action;
+}
 
 class ContactsPage extends ConsumerStatefulWidget {
   const ContactsPage({super.key, this.initialMode = 0})
@@ -24,9 +49,13 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   static const _contactPageSize = 30;
 
   Timer? _presenceRefreshTimer;
+  Future<void>? _presenceRefreshFuture;
+  final _contactsScrollController = ScrollController();
   String _query = '';
   String _selectedDepartmentId = '';
   int _visibleContactLimit = _contactPageSize;
+  int _visibleContactTotal = 0;
+  bool _contactAutoExpandScheduled = false;
   bool _openingConversation = false;
   bool _acceptingAll = false;
   late int _mode;
@@ -35,10 +64,14 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   void initState() {
     super.initState();
     _mode = widget.initialMode;
+    _contactsScrollController.addListener(_onContactsScroll);
     _presenceRefreshTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => _refreshContactPresence(),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_refreshContactPresence());
+    });
   }
 
   @override
@@ -46,20 +79,76 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialMode != widget.initialMode) {
       _mode = widget.initialMode;
-      _visibleContactLimit = _contactPageSize;
+      _resetContactWindow();
+      if (_mode != 2) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(_refreshContactPresence());
+        });
+      }
     }
   }
 
   @override
   void dispose() {
     _presenceRefreshTimer?.cancel();
+    _contactsScrollController
+      ..removeListener(_onContactsScroll)
+      ..dispose();
     super.dispose();
   }
 
-  Future<void> _refreshContactPresence() async {
-    if (!mounted || _mode == 2) return;
+  void _resetContactWindow() {
+    _visibleContactLimit = _contactPageSize;
+    _visibleContactTotal = 0;
+    _contactAutoExpandScheduled = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_contactsScrollController.hasClients) return;
+      _contactsScrollController.jumpTo(0);
+    });
+  }
+
+  void _onContactsScroll() {
+    if (!_contactsScrollController.hasClients ||
+        _contactsScrollController.position.extentAfter > 240) {
+      return;
+    }
+    _expandContactWindow();
+  }
+
+  void _expandContactWindow() {
+    if (_visibleContactLimit >= _visibleContactTotal) return;
+    final next = _visibleContactLimit + _contactPageSize;
+    setState(() {
+      _visibleContactLimit = next < _visibleContactTotal
+          ? next
+          : _visibleContactTotal;
+    });
+  }
+
+  void _scheduleContactAutoExpand() {
+    if (_visibleContactLimit >= _visibleContactTotal ||
+        _contactAutoExpandScheduled) {
+      return;
+    }
+    _contactAutoExpandScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _contactAutoExpandScheduled = false;
+      if (!mounted || !_contactsScrollController.hasClients) return;
+      if (_contactsScrollController.position.extentAfter <= 240) {
+        _expandContactWindow();
+      }
+    });
+  }
+
+  Future<void> _refreshContactPresence() {
+    if (!mounted || _mode == 2) return Future<void>.value();
+    return _presenceRefreshFuture ??= _performContactPresenceRefresh()
+        .whenComplete(() => _presenceRefreshFuture = null);
+  }
+
+  Future<void> _performContactPresenceRefresh() async {
     try {
-      await ref.read(imRepositoryProvider).refreshBootstrap();
+      await ref.read(contactPresenceRefresherProvider)();
       if (mounted) ref.invalidate(imBootstrapProvider);
     } catch (_) {
       // Keep the last authoritative presence projection while offline.
@@ -93,22 +182,11 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     List<ImFriendApplication> applications,
   ) async {
     if (_acceptingAll || applications.isEmpty) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('全部接受'),
-        content: Text('确认接受 ${applications.length} 条好友申请？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('接受'),
-          ),
-        ],
-      ),
+    final confirmed = await showMobileConfirmSheet(
+      context,
+      title: '全部接受',
+      message: '确认接受 ${applications.length} 条好友申请？',
+      confirmLabel: '接受',
     );
     if (confirmed != true || !mounted) return;
     setState(() => _acceptingAll = true);
@@ -170,30 +248,15 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       return;
     }
     if (!mounted) return;
-    final controller = TextEditingController(text: profile.remark);
-    final remark = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('备注 ${member.displayName}'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 128,
-          decoration: const InputDecoration(labelText: '好友备注', isDense: true),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+    final remark = await showMobileTextInputSheet(
+      context,
+      title: '修改备注',
+      subtitle: member.displayName,
+      initialValue: profile.remark,
+      label: '好友备注',
+      hintText: '请输入备注',
+      maxLength: 128,
     );
-    await disposeRouteTextController(controller);
     if (remark == null || !mounted) return;
     try {
       await ref
@@ -213,34 +276,48 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   }
 
   Future<void> _searchOutsideDirectory() async {
-    final result = await showModalBottomSheet<ImSearchResult>(
+    final currentMember = ref.read(imBootstrapProvider).value?.currentMember;
+    final selection = await showModalBottomSheet<_MemberSearchSelection>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => const _MemberSearchSheet(),
+      showDragHandle: false,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: _MemberSearchSheet(currentMemberId: currentMember?.id ?? ''),
+      ),
     );
-    if (result == null || !mounted) return;
+    if (selection == null || !mounted) return;
     await Future<void>.delayed(const Duration(milliseconds: 320));
     if (!mounted) return;
-    if (result.isFriend) {
+    final result = selection.result;
+    if (selection.action == _MemberSearchAction.message) {
       await _openConversation(
         ImMember(
           id: result.id,
           username: result.username,
           displayName: result.displayName,
-          isOnline: false,
-          isFriend: true,
-          canStartDirect: true,
+          isOnline: result.isOnline,
+          avatarKey: result.avatarKey,
+          avatarDataUrl: result.avatarDataUrl,
+          departmentName: result.departmentName,
+          isFriend: result.isFriend,
+          canStartDirect: result.canStartDirect,
         ),
       );
       return;
     }
-    final greeting = await _friendGreeting(result.displayName);
-    if (greeting == null || !mounted) return;
-    await Future<void>.delayed(const Duration(milliseconds: 320));
-    if (!mounted) return;
     try {
-      await ref.read(imRepositoryProvider).requestFriend(result.id, greeting);
+      final senderName = currentMember?.displayName.trim() ?? '';
+      await ref
+          .read(imRepositoryProvider)
+          .requestFriend(
+            result.id,
+            senderName.isEmpty ? '你好' : '我是$senderName',
+          );
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('好友申请已发送')));
@@ -253,34 +330,6 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     }
   }
 
-  Future<String?> _friendGreeting(String name) async {
-    final controller = TextEditingController(text: '你好，我是公司同事');
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('添加 $name'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 80,
-          decoration: const InputDecoration(labelText: '验证消息'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('发送'),
-          ),
-        ],
-      ),
-    );
-    await disposeRouteTextController(controller);
-    return result;
-  }
-
   Future<void> _selectDepartment(
     List<ImDepartment> departments,
     List<ImMember> members,
@@ -288,7 +337,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     if (departments.isEmpty) return;
     final selected = await showModalBottomSheet<String>(
       context: context,
-      showDragHandle: true,
+      useRootNavigator: true,
+      useSafeArea: true,
+      showDragHandle: false,
       isScrollControlled: true,
       builder: (_) => _DepartmentPickerSheet(
         departments: departments,
@@ -299,7 +350,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     if (selected == null || !mounted) return;
     setState(() {
       _selectedDepartmentId = selected;
-      _visibleContactLimit = _contactPageSize;
+      _resetContactWindow();
     });
   }
 
@@ -318,7 +369,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
               subtitle: value.value?.currentMember.departmentName,
               actions: [
                 IconButton(
-                  tooltip: '添加联系人',
+                  tooltip: '添加好友',
                   onPressed: _searchOutsideDirectory,
                   icon: const Icon(Icons.person_add_alt_1_outlined, size: 20),
                 ),
@@ -330,7 +381,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                 hintText: _mode == 3 ? '搜索群名称或消息' : '搜索姓名、部门或终端账号',
                 onChanged: (value) => setState(() {
                   _query = value.trim().toLowerCase();
-                  _visibleContactLimit = _contactPageSize;
+                  _resetContactWindow();
                 }),
               ),
             ),
@@ -343,7 +394,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     selected: _mode == 0,
                     onTap: () => setState(() {
                       _mode = 0;
-                      _visibleContactLimit = _contactPageSize;
+                      _resetContactWindow();
                     }),
                   ),
                   const SizedBox(width: 8),
@@ -352,20 +403,26 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     selected: _mode == 1,
                     onTap: () => setState(() {
                       _mode = 1;
-                      _visibleContactLimit = _contactPageSize;
+                      _resetContactWindow();
                     }),
                   ),
                   const SizedBox(width: 8),
                   _DirectoryModeButton(
                     label: '群聊',
                     selected: _mode == 3,
-                    onTap: () => setState(() => _mode = 3),
+                    onTap: () => setState(() {
+                      _mode = 3;
+                      _resetContactWindow();
+                    }),
                   ),
                   const SizedBox(width: 8),
                   _DirectoryModeButton(
                     label: pendingCount > 0 ? '新朋友 $pendingCount' : '新朋友',
                     selected: _mode == 2,
-                    onTap: () => setState(() => _mode = 2),
+                    onTap: () => setState(() {
+                      _mode = 2;
+                      _resetContactWindow();
+                    }),
                   ),
                   if (_mode == 2 && pendingCount > 0) ...[
                     const Spacer(),
@@ -410,9 +467,12 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                             ),
                           ),
                           data: (items) => items.isEmpty
-                              ? const EmptyState(
-                                  icon: Icons.person_add_alt_1_outlined,
-                                  title: '暂无新的好友申请',
+                              ? _CompactDirectoryEmpty(
+                                  key: const Key('new-friends-empty'),
+                                  label: '暂无新的好友申请',
+                                  onRefresh: () => ref.refresh(
+                                    pendingFriendApplicationsProvider.future,
+                                  ),
                                 )
                               : RefreshIndicator(
                                   onRefresh: () => ref.refresh(
@@ -471,8 +531,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                               }
                               return RefreshIndicator(
                                 onRefresh: () async {
-                                  ref.invalidate(imBootstrapProvider);
-                                  await ref.read(imBootstrapProvider.future);
+                                  await _refreshContactPresence();
                                 },
                                 child: ListView.builder(
                                   itemCount: groups.length,
@@ -555,20 +614,23 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                             final shownContacts = contacts
                                 .take(_visibleContactLimit)
                                 .toList(growable: false);
+                            _visibleContactTotal = contacts.length;
+                            _scheduleContactAutoExpand();
                             final departments = _departmentGroups(
                               directoryItems,
                               shownContacts,
                             );
                             return RefreshIndicator(
                               onRefresh: () async {
-                                ref.invalidate(imBootstrapProvider);
                                 ref.invalidate(imDepartmentsProvider);
                                 await Future.wait([
-                                  ref.read(imBootstrapProvider.future),
+                                  _refreshContactPresence(),
                                   ref.read(imDepartmentsProvider.future),
                                 ]);
                               },
                               child: ListView(
+                                key: const Key('contacts-page-scroll'),
+                                controller: _contactsScrollController,
                                 children: [
                                   if (_mode == 0)
                                     _OrganizationDirectoryHeader(
@@ -593,23 +655,18 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                                       onRemark: _editRemark,
                                     ),
                                   if (contacts.length > shownContacts.length)
-                                    Center(
-                                      child: TextButton(
-                                        key: const Key(
-                                          'contacts-load-more-button',
-                                        ),
-                                        style: TextButton.styleFrom(
-                                          minimumSize: const Size(96, 38),
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                        ),
-                                        onPressed: () => setState(
-                                          () => _visibleContactLimit +=
-                                              _contactPageSize,
-                                        ),
+                                    Padding(
+                                      key: const Key('contacts-page-footer'),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 10,
+                                      ),
+                                      child: Center(
                                         child: Text(
-                                          '加载更多（${shownContacts.length}/${contacts.length}）',
-                                          style: const TextStyle(fontSize: 12),
+                                          '继续上滑 · ${shownContacts.length}/${contacts.length}',
+                                          style: const TextStyle(
+                                            color: AppColors.weakText,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -703,14 +760,49 @@ class _DepartmentPickerSheet extends StatelessWidget {
     final rows = _flattenDepartmentRows(departments);
     return SafeArea(
       child: SizedBox(
+        key: const Key('department-picker-sheet'),
         height: MediaQuery.sizeOf(context).height * .64,
         child: Column(
           children: [
-            const Text(
-              '选择部门',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
             const SizedBox(height: 8),
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 40,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 16, right: 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '选择部门',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      key: const Key('department-picker-close'),
+                      tooltip: '关闭',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded, size: 19),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 2),
             Expanded(
               child: ListView(
                 children: [
@@ -919,6 +1011,34 @@ class _DirectoryModeButton extends StatelessWidget {
   );
 }
 
+class _CompactDirectoryEmpty extends StatelessWidget {
+  const _CompactDirectoryEmpty({
+    super.key,
+    required this.label,
+    required this.onRefresh,
+  });
+
+  final String label;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) => RefreshIndicator(
+    onRefresh: onRefresh,
+    child: ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(top: 44),
+      children: [
+        Center(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: AppColors.weakText),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _FriendApplicationTile extends StatelessWidget {
   const _FriendApplicationTile({
     required this.application,
@@ -937,6 +1057,7 @@ class _FriendApplicationTile extends StatelessWidget {
     leading: InitialAvatar(
       name: application.applicant.displayName,
       radius: 18,
+      avatarKey: application.applicant.avatarKey,
       avatarDataUrl: application.applicant.avatarDataUrl,
     ),
     title: Text(
@@ -1166,6 +1287,7 @@ class _DepartmentContacts extends StatelessWidget {
             name: contact.displayName,
             radius: 17,
             online: contact.isOnline,
+            avatarKey: contact.avatarKey,
             avatarDataUrl: contact.avatarDataUrl,
           ),
           title: Row(
@@ -1227,27 +1349,31 @@ class _DepartmentContacts extends StatelessWidget {
           trailing: isCurrentMember
               ? null
               : showFriendActions && contact.isFriend
-              ? PopupMenuButton<String>(
+              ? IconButton(
                   tooltip: '联系人操作',
-                  iconSize: 18,
-                  padding: EdgeInsets.zero,
-                  onSelected: (value) {
+                  onPressed: () async {
+                    final value = await showMobileChoiceSheet<String>(
+                      context,
+                      title: contact.displayName,
+                      options: [
+                        if (contact.canStartDirect)
+                          const MobileSheetOption(
+                            value: 'message',
+                            label: '发消息',
+                            icon: Icons.chat_bubble_outline_rounded,
+                          ),
+                        const MobileSheetOption(
+                          value: 'remark',
+                          label: '修改备注',
+                          icon: Icons.edit_note_rounded,
+                        ),
+                      ],
+                    );
+                    if (!context.mounted || value == null) return;
                     if (value == 'message') onMessage(contact);
                     if (value == 'remark') onRemark(contact);
                   },
-                  itemBuilder: (_) => [
-                    if (contact.canStartDirect)
-                      const PopupMenuItem(
-                        value: 'message',
-                        height: 40,
-                        child: Text('发消息'),
-                      ),
-                    const PopupMenuItem(
-                      value: 'remark',
-                      height: 40,
-                      child: Text('修改备注'),
-                    ),
-                  ],
+                  icon: const Icon(Icons.more_horiz_rounded, size: 18),
                 )
               : IconButton(
                   tooltip: '发送消息',
@@ -1283,17 +1409,26 @@ String _contactPresenceLabel(ImMember member, {DateTime? now}) {
 }
 
 class _MemberSearchSheet extends ConsumerStatefulWidget {
-  const _MemberSearchSheet();
+  const _MemberSearchSheet({required this.currentMemberId});
+
+  final String currentMemberId;
 
   @override
   ConsumerState<_MemberSearchSheet> createState() => _MemberSearchSheetState();
 }
 
 class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
+  final TextEditingController _controller = TextEditingController();
   List<ImSearchResult> _items = const [];
   bool _loading = false;
   String _query = '';
   String _error = '';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   Future<void> _search() async {
     final query = _query.trim();
@@ -1308,9 +1443,14 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
       _items = const [];
     });
     try {
-      final items = await ref.read(imRepositoryProvider).searchMembers(query);
+      final items = await ref.read(memberAccountSearcherProvider)(query);
       if (mounted && _query.trim() == query) {
-        setState(() => _items = items);
+        setState(
+          () => _items = items
+              .where((item) => item.id != widget.currentMemberId)
+              .take(1)
+              .toList(growable: false),
+        );
       }
     } catch (error) {
       if (mounted && _query.trim() == query) {
@@ -1324,21 +1464,60 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
   @override
   Widget build(BuildContext context) => SafeArea(
     child: SizedBox(
-      height: MediaQuery.sizeOf(context).height * .64,
+      key: const Key('friend-search-sheet'),
+      height: (MediaQuery.sizeOf(context).height * .34)
+          .clamp(240.0, 290.0)
+          .toDouble(),
       child: Column(
         children: [
-          const Text(
-            '添加联系人',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          const SizedBox(height: 8),
+          Center(
+            child: Container(
+              width: 32,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 8, 2),
+            child: SizedBox(
+              height: 40,
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '添加好友',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('friend-search-close'),
+                    tooltip: '关闭',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 19),
+                  ),
+                ],
+              ),
+            ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
             child: Row(
               children: [
                 Expanded(
                   child: SizedBox(
-                    height: 38,
+                    height: 34,
                     child: TextField(
+                      key: const Key('friend-search-field'),
+                      controller: _controller,
                       autofocus: true,
                       textInputAction: TextInputAction.search,
                       style: const TextStyle(fontSize: 14),
@@ -1351,7 +1530,10 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
                       decoration: const InputDecoration(
                         hintText: '输入完整终端账号',
                         prefixIcon: Icon(Icons.search_rounded, size: 18),
-                        prefixIconConstraints: BoxConstraints(minWidth: 38),
+                        prefixIconConstraints: BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 34,
+                        ),
                         isDense: true,
                       ),
                     ),
@@ -1361,9 +1543,10 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
                 SizedBox(
                   height: 36,
                   child: FilledButton(
+                    key: const Key('friend-search-submit'),
                     onPressed: _loading ? null : _search,
                     child: Text(
-                      _loading ? '搜索中' : '搜索',
+                      _loading ? '查找中' : '查找',
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
@@ -1388,44 +1571,108 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
           if (_loading) const LinearProgressIndicator(minHeight: 2),
           Expanded(
             child: _query.trim().isEmpty
-                ? const EmptyState(
-                    icon: Icons.person_search_outlined,
-                    title: '输入账号后搜索',
+                ? const Center(
+                    child: Text(
+                      '输入完整终端账号后查找',
+                      style: TextStyle(fontSize: 12, color: AppColors.weakText),
+                    ),
                   )
-                : _items.isEmpty && !_loading && _error.isEmpty
-                ? const EmptyState(
-                    icon: Icons.person_off_outlined,
-                    title: '没有找到联系人',
-                  )
-                : ListView.builder(
-                    itemCount: _items.length,
-                    itemBuilder: (context, index) {
-                      final item = _items[index];
-                      return ListTile(
-                        dense: true,
-                        minTileHeight: 50,
-                        leading: InitialAvatar(
-                          name: item.displayName,
-                          radius: 18,
-                        ),
-                        title: Text(
-                          item.displayName,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                : _items.isEmpty
+                ? _loading || _error.isNotEmpty
+                      ? const SizedBox.shrink()
+                      : const Center(
+                          child: Text(
+                            '未找到该终端账号',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.weakText,
+                            ),
                           ),
-                        ),
-                        subtitle: Text(
-                          item.username,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        trailing: Text(
-                          item.isFriend ? '发消息' : '添加',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        onTap: () => Navigator.pop(context, item),
-                      );
-                    },
+                        )
+                : Align(
+                    alignment: Alignment.topCenter,
+                    child: Container(
+                      key: const Key('friend-search-result'),
+                      margin: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          InitialAvatar(
+                            name: _items.first.displayName,
+                            radius: 18,
+                            online: _items.first.isOnline,
+                            avatarKey: _items.first.avatarKey,
+                            avatarDataUrl: _items.first.avatarDataUrl,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _items.first.displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  [
+                                        _items.first.username,
+                                        _items.first.departmentName,
+                                        _items.first.isOnline ? '在线' : '离线',
+                                      ]
+                                      .where((item) => item.isNotEmpty)
+                                      .join(' · '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.secondaryText,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 32,
+                            child: FilledButton(
+                              key: const Key('friend-search-action'),
+                              onPressed: () => Navigator.pop(
+                                context,
+                                _MemberSearchSelection(
+                                  result: _items.first,
+                                  action: _items.first.canStartDirect
+                                      ? _MemberSearchAction.message
+                                      : _MemberSearchAction.friendRequest,
+                                ),
+                              ),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: Text(
+                                _items.first.canStartDirect ? '发消息' : '申请好友',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
           ),
         ],

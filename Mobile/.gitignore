@@ -38,6 +38,7 @@ android/.gradle.codex-backup-*/
 android/replay_pid*.log
 android/build/
 docs/device-acceptance/
+docs/evidence/**/*.apk
 test/failures/
 
 # Symbolication related

@@ -7,6 +7,7 @@ import 'package:secure_tunnel/secure_tunnel.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../features/network/application/tunnel_controller.dart';
+import 'terminal_avatar_assets.dart';
 
 /// A dialog or bottom-sheet future completes as soon as `Navigator.pop` runs,
 /// while its exit animation can still rebuild text fields for a few frames.
@@ -46,6 +47,7 @@ class InitialAvatar extends StatelessWidget {
     required this.name,
     this.radius = 24,
     this.online,
+    this.avatarKey = '',
     this.avatarDataUrl = '',
     this.backgroundColor = const Color(0xFFE7F0FF),
   });
@@ -53,6 +55,7 @@ class InitialAvatar extends StatelessWidget {
   final String name;
   final double radius;
   final bool? online;
+  final String avatarKey;
   final String avatarDataUrl;
   final Color backgroundColor;
 
@@ -64,7 +67,11 @@ class InitialAvatar extends StatelessWidget {
         radius: radius,
         backgroundColor: backgroundColor,
         foregroundColor: AppColors.primary,
-        foregroundImage: _avatarImage(avatarDataUrl),
+        foregroundImage: _avatarImage(
+          avatarDataUrl.isNotEmpty
+              ? avatarDataUrl
+              : terminalAvatarDataUrls[avatarKey] ?? '',
+        ),
         child: Text(
           name.trim().isEmpty ? '?' : name.trim().substring(0, 1),
           style: TextStyle(fontSize: radius * .72, fontWeight: FontWeight.w600),
@@ -167,7 +174,7 @@ class MobileSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 38,
+    height: 34,
     child: TextField(
       autofocus: autofocus,
       controller: controller,
@@ -179,10 +186,13 @@ class MobileSearchField extends StatelessWidget {
         hintText: hintText,
         hintStyle: const TextStyle(fontSize: 13.5),
         prefixIcon: const Icon(Icons.search_rounded, size: 18),
-        prefixIconConstraints: const BoxConstraints(minWidth: 38),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 36,
+          minHeight: 34,
+        ),
         filled: true,
         fillColor: const Color(0xFFF1F3F6),
-        contentPadding: const EdgeInsets.symmetric(vertical: 9),
+        contentPadding: const EdgeInsets.symmetric(vertical: 7),
         border: const OutlineInputBorder(
           borderSide: BorderSide.none,
           borderRadius: BorderRadius.all(Radius.circular(8)),

@@ -1,0 +1,21 @@
+设备：Android Emulator Medium Phone API 36，1080x2400，x86_64
+构建：Flutter Profile，DEMO_MODE=true，DEMO_AUTO_LOGIN=true
+
+冷启动（am start -S -W）
+run 1: LaunchState=COLD, TotalTime=6829 ms, WaitTime=6839 ms, skipped=116 frames
+run 2: LaunchState=COLD, TotalTime=6221 ms, WaitTime=6230 ms, skipped=245 frames
+run 3: LaunchState=COLD, TotalTime=3783 ms, WaitTime=3817 ms, skipped=67 frames
+
+热返回
+run 1: WaitTime=1074 ms, skipped events=0
+run 2: LaunchState=HOT, TotalTime=668 ms, WaitTime=730 ms, skipped events=0
+run 3: LaunchState=HOT, TotalTime=371 ms, WaitTime=372 ms, skipped events=0
+
+连续会话重开
+20 次“返回消息列表 -> 打开唐泽单聊”后：
+before TOTAL PSS=171180 KB, TOTAL RSS=231916 KB, TOTAL SWAP PSS=11427 KB
+after  TOTAL PSS=111861 KB, TOTAL RSS=126540 KB, TOTAL SWAP PSS=57736 KB
+skipped frame events=0
+critical errors=0
+
+边界：模拟器冷启动不能替代真机结果；gfxinfo 对 Flutter Surface 未提供有效帧总数，因此只记录 Choreographer 跳帧事件、启动时长、内存和关键异常。

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../application/auth_controller.dart';
 
@@ -18,6 +19,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _password = TextEditingController();
   bool _remember = true;
   bool _obscure = true;
+  String? _savedUsername;
+  String? _savedPassword;
 
   @override
   void initState() {
@@ -29,7 +32,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (!mounted || saved == null) return;
       setState(() {
         _username.text = saved.username;
-        _password.text = saved.password;
+        _savedUsername = saved.username.trim();
+        _savedPassword = saved.password;
       });
     });
   }
@@ -43,13 +47,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref
-        .read(authControllerProvider.notifier)
-        .login(
-          username: _username.text,
-          password: _password.text,
-          remember: _remember,
-        );
+    final savedPassword = _username.text.trim() == _savedUsername
+        ? _savedPassword
+        : null;
+    final usedSavedPassword = _password.text.isEmpty && savedPassword != null;
+    final controller = ref.read(authControllerProvider.notifier);
+    await controller.login(
+      username: _username.text,
+      password: _password.text.isNotEmpty
+          ? _password.text
+          : savedPassword ?? '',
+      remember: _remember,
+    );
+    if (!mounted) return;
+    final result = ref.read(authControllerProvider);
+    if (usedSavedPassword && result.error.toString() == '账号或密码错误') {
+      await controller.clearSavedCredential();
+      if (mounted) {
+        setState(() {
+          _savedUsername = null;
+          _savedPassword = null;
+        });
+      }
+    }
   }
 
   @override
@@ -93,6 +113,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         controller: _username,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.username],
+                        onChanged: (value) {
+                          if (_savedPassword == null ||
+                              value.trim() == _savedUsername) {
+                            return;
+                          }
+                          setState(() {
+                            _savedUsername = null;
+                            _savedPassword = null;
+                          });
+                        },
                         decoration: _loginFieldDecoration(
                           hintText: '请输入终端账号',
                           prefixIcon: Icons.person_outline_rounded,
@@ -116,24 +146,48 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         obscureText: _obscure,
                         textInputAction: TextInputAction.done,
                         autofillHints: const [AutofillHints.password],
+                        onChanged: (_) {
+                          if (_savedPassword == null) return;
+                          setState(() {
+                            _savedUsername = null;
+                            _savedPassword = null;
+                          });
+                        },
                         onFieldSubmitted: (_) => _submit(),
                         decoration: _loginFieldDecoration(
-                          hintText: '请输入密码',
+                          hintText: _savedPassword == null ? '请输入密码' : '已保存密码',
                           prefixIcon: Icons.lock_outline_rounded,
-                          suffixIcon: IconButton(
-                            tooltip: _obscure ? '显示密码' : '隐藏密码',
-                            onPressed: () =>
-                                setState(() => _obscure = !_obscure),
-                            icon: Icon(
-                              _obscure
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              size: 19,
-                            ),
-                          ),
+                          suffixIcon:
+                              _savedPassword != null && _password.text.isEmpty
+                              ? const Tooltip(
+                                  message: '已安全保存',
+                                  child: Icon(
+                                    Icons.check_circle_outline_rounded,
+                                    size: 19,
+                                    color: AppColors.success,
+                                  ),
+                                )
+                              : IconButton(
+                                  tooltip: _obscure ? '显示密码' : '隐藏密码',
+                                  onPressed: () =>
+                                      setState(() => _obscure = !_obscure),
+                                  icon: Icon(
+                                    _obscure
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    size: 19,
+                                  ),
+                                ),
                         ),
-                        validator: (value) =>
-                            value == null || value.isEmpty ? '请输入密码' : null,
+                        validator: (value) {
+                          final hasSavedPassword =
+                              _savedPassword?.isNotEmpty == true &&
+                              _username.text.trim() == _savedUsername;
+                          return (value == null || value.isEmpty) &&
+                                  !hasSavedPassword
+                              ? '请输入密码'
+                              : null;
+                        },
                       ),
                       if (error != null) ...[
                         const SizedBox(height: 8),
@@ -159,20 +213,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             const Text('记住登录', style: TextStyle(fontSize: 13)),
                             const Spacer(),
                             TextButton(
-                              onPressed: () => showDialog<void>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('忘记密码'),
-                                  content: const Text(
-                                    '终端账号由企业管理平台统一管理，请联系管理员重置密码。',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('知道了'),
-                                    ),
-                                  ],
-                                ),
+                              onPressed: () => showMobileMessageSheet(
+                                context,
+                                title: '忘记密码',
+                                message: '终端账号由企业管理平台统一管理，请联系管理员重置密码。',
                               ),
                               child: const Text(
                                 '忘记密码',

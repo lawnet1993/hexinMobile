@@ -55,6 +55,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   final _values = <String, Object?>{};
   final _attachments = <OaLocalAttachment>[];
   final _serverFieldErrors = <String, String>{};
+  final _clientFieldErrors = <String, String>{};
   final _calculationFieldErrors = <String, String>{};
   String _title = '';
   String _defaultTitle = '';
@@ -67,6 +68,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   bool _uploadingAttachment = false;
   bool _draftLoaded = false;
   bool _draftWasRestored = false;
+  bool _restoredExistingValues = false;
   bool _hasUnsavedChanges = false;
   bool _allowPop = false;
   DateTime? _draftSavedAt;
@@ -158,6 +160,8 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     List<ImDepartment> departments,
   ) {
     final fields = _parseFields(template.formSchemaJson);
+    _sanitizeSchemaValues(fields);
+    _applySchemaDefaults(fields, requester);
     _recalculateDerivedFields(fields);
     final defaultTitle = '${data.displayName}的${template.name}';
     _defaultTitle = defaultTitle;
@@ -238,8 +242,11 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
                                 )
                                 .toList(),
                             uploading: _uploadingAttachment,
+                            errorText:
+                                _serverFieldErrors[field.id] ??
+                                _clientFieldErrors[field.id],
                             onAdd: () => _pickAttachment(
-                              field.id,
+                              field,
                               template,
                               allowOfflineDraft,
                             ),
@@ -248,13 +255,18 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
                               template,
                               allowOfflineDraft,
                             ),
-                            onOpen: _openLocalAttachment,
+                            onOpen: (attachment) => _openLocalAttachment(
+                              attachment,
+                              allowImagePreview: field.imagePreview,
+                            ),
                           )
                         else
                           _SchemaField(
                             field: field,
                             value: _values[field.id],
-                            serverError: _serverFieldErrors[field.id],
+                            serverError:
+                                _serverFieldErrors[field.id] ??
+                                _clientFieldErrors[field.id],
                             calculationError: _calculationFieldErrors[field.id],
                             members: members,
                             departments: departments,
@@ -262,6 +274,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
                               setState(() {
                                 _values[field.id] = value;
                                 _serverFieldErrors.remove(field.id);
+                                _clientFieldErrors.remove(field.id);
                                 _recalculateDerivedFields(fields);
                                 _hasUnsavedChanges = true;
                               });
@@ -332,6 +345,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
                         ? null
                         : () => _submit(
                             template,
+                            fields,
                             _title.trim().isEmpty
                                 ? defaultTitle
                                 : _title.trim(),
@@ -363,10 +377,30 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
 
   Future<void> _submit(
     OaApprovalTemplate template,
+    List<_FieldDefinition> fields,
     String title,
     bool allowOfflineDraft,
   ) async {
-    if (!_formKey.currentState!.validate()) return;
+    final clientErrors = _validateSubmission(fields);
+    setState(() {
+      _clientFieldErrors
+        ..clear()
+        ..addAll(clientErrors);
+    });
+    final mountedFieldsValid = _formKey.currentState?.validate() ?? true;
+    if (clientErrors.isNotEmpty || !mountedFieldsValid) {
+      final firstError = clientErrors.values.firstOrNull;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              firstError == null ? '请检查必填项' : '请检查：$firstError',
+            ),
+          ),
+        );
+      return;
+    }
     _draftTimer?.cancel();
     setState(() => _submitting = true);
     try {
@@ -535,6 +569,85 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       ..addAll(calculated.errors);
   }
 
+  Map<String, String> _validateSubmission(List<_FieldDefinition> fields) {
+    final errors = <String, String>{..._serverFieldErrors};
+    for (final field in fields) {
+      if (errors.containsKey(field.id)) continue;
+      if (_calculationFieldErrors[field.id] case final calculationError?) {
+        errors[field.id] = calculationError;
+        continue;
+      }
+      if (field.type == 'attachment' || field.type == 'file') {
+        final itemCount = _attachments
+            .where(
+              (item) =>
+                  item.formFieldId.isEmpty || item.formFieldId == field.id,
+            )
+            .length;
+        if (field.required && itemCount == 0) {
+          errors[field.id] = '请上传${field.label}';
+        } else if (itemCount > field.maxCount) {
+          errors[field.id] = '${field.label}最多保留 ${field.maxCount} 个附件';
+        }
+        continue;
+      }
+      final fieldError = field.validateValue(_values[field.id]);
+      if (fieldError != null) errors[field.id] = fieldError;
+    }
+    return errors;
+  }
+
+  void _applySchemaDefaults(
+    List<_FieldDefinition> fields,
+    ImMember? requester,
+  ) {
+    if (_restoredExistingValues) return;
+    final now = DateTime.now();
+    for (final field in fields) {
+      if (_values.containsKey(field.id)) continue;
+      final defaultValue = field.resolveDefault(requester: requester, now: now);
+      if (defaultValue != null) _values[field.id] = defaultValue;
+    }
+  }
+
+  void _sanitizeSchemaValues(List<_FieldDefinition> fields) {
+    for (final field in fields) {
+      final value = _values[field.id];
+      if (value is Map) {
+        _values.remove(field.id);
+        continue;
+      }
+      if (field.isReadOnly &&
+          value is String &&
+          _isSchemaConfigurationText(value)) {
+        _values.remove(field.id);
+        continue;
+      }
+      final acceptsList =
+          field.type == 'multiSelect' || field.type == 'dateRange';
+      if (value is Iterable && !acceptsList) {
+        _values.remove(field.id);
+      }
+    }
+  }
+
+  bool _isSchemaConfigurationText(String value) {
+    final parts = value
+        .split(RegExp(r'[,，;；|、]'))
+        .map((item) => item.replaceAll(RegExp(r'\s+'), '').trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (parts.length < 2) return false;
+    return parts.every(
+          (item) =>
+              item == '自动计算' ||
+              item == '只读' ||
+              item.startsWith('单位') ||
+              item.startsWith('公式'),
+        ) &&
+        parts.any((item) => item == '自动计算' || item == '只读');
+  }
+
   Future<void> _loadDraft() async {
     if (widget.initialTitle.isNotEmpty || widget.initialFormData.isNotEmpty) {
       if (!mounted) return;
@@ -546,6 +659,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
         _attachments
           ..clear()
           ..addAll(widget.initialAttachments);
+        _restoredExistingValues = true;
         _draftLoaded = true;
       });
       return;
@@ -564,6 +678,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
             ..clear()
             ..addAll(draft.attachments);
           _draftWasRestored = true;
+          _restoredExistingValues = true;
           _draftSavedAt = draft.updatedAt;
         }
         _draftLoaded = true;
@@ -574,13 +689,29 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   }
 
   Future<void> _pickAttachment(
-    String formFieldId,
+    _FieldDefinition field,
     OaApprovalTemplate template,
     bool allowOfflineDraft,
   ) async {
-    if (_attachments.length >= 20) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('单个申请最多添加 20 个附件')));
+    final currentFieldItems = _attachments
+        .where(
+          (item) => item.formFieldId.isEmpty || item.formFieldId == field.id,
+        )
+        .toList(growable: false);
+    final retainedCount = field.multiple
+        ? _attachments.length
+        : _attachments.length - currentFieldItems.length;
+    if (retainedCount >= 20 ||
+        (field.multiple && currentFieldItems.length >= field.maxCount)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            field.multiple && currentFieldItems.length >= field.maxCount
+                ? '${field.label}最多添加 ${field.maxCount} 个附件'
+                : '单个申请最多添加 20 个附件',
+          ),
+        ),
+      );
       return;
     }
     final selected = await FilePicker.pickFile();
@@ -609,11 +740,19 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
           path.extension(selected.name).replaceFirst('.', ''),
         ),
         bytes: bytes,
-        formFieldId: formFieldId,
+        formFieldId: field.id,
       );
       if (mounted) {
         setState(() {
+          if (!field.multiple) {
+            _attachments.removeWhere(
+              (item) =>
+                  item.formFieldId.isEmpty || item.formFieldId == field.id,
+            );
+          }
           _attachments.add(attachment);
+          _serverFieldErrors.remove(field.id);
+          _clientFieldErrors.remove(field.id);
           _hasUnsavedChanges = true;
         });
         _scheduleDraftSave(template, allowOfflineDraft);
@@ -635,13 +774,19 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   ) {
     setState(() {
       _attachments.remove(attachment);
+      _serverFieldErrors.remove(attachment.formFieldId);
+      _clientFieldErrors.remove(attachment.formFieldId);
       _hasUnsavedChanges = true;
     });
     _scheduleDraftSave(template, allowOfflineDraft);
   }
 
-  Future<void> _openLocalAttachment(OaLocalAttachment attachment) async {
-    if (attachment.contentType.toLowerCase().startsWith('image/')) {
+  Future<void> _openLocalAttachment(
+    OaLocalAttachment attachment, {
+    required bool allowImagePreview,
+  }) async {
+    if (allowImagePreview &&
+        attachment.contentType.toLowerCase().startsWith('image/')) {
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
           fullscreenDialog: true,
@@ -843,6 +988,7 @@ class _AttachmentEditor extends StatelessWidget {
     required this.field,
     required this.items,
     required this.uploading,
+    required this.errorText,
     required this.onAdd,
     required this.onDelete,
     required this.onOpen,
@@ -851,6 +997,7 @@ class _AttachmentEditor extends StatelessWidget {
   final _FieldDefinition field;
   final List<OaLocalAttachment> items;
   final bool uploading;
+  final String? errorText;
   final VoidCallback onAdd;
   final ValueChanged<OaLocalAttachment> onDelete;
   final ValueChanged<OaLocalAttachment> onOpen;
@@ -858,8 +1005,14 @@ class _AttachmentEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) => FormField<List<OaLocalAttachment>>(
     initialValue: items,
-    validator: (_) =>
-        field.required && items.isEmpty ? '请上传${field.label}' : null,
+    validator: (_) {
+      if (errorText != null) return errorText;
+      if (field.required && items.isEmpty) return '请上传${field.label}';
+      if (items.length > field.maxCount) {
+        return '${field.label}最多保留 ${field.maxCount} 个附件';
+      }
+      return null;
+    },
     builder: (state) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -872,7 +1025,7 @@ class _AttachmentEditor extends StatelessWidget {
               ),
             ),
             Text(
-              '${items.length} / 20',
+              '${items.length} / ${field.maxCount}',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.secondaryText,
@@ -897,7 +1050,9 @@ class _AttachmentEditor extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.attach_file_rounded, size: 18),
-              label: const Text('添加文件'),
+              label: Text(
+                !field.multiple && items.isNotEmpty ? '替换文件' : '添加文件',
+              ),
             ),
           ],
         ),
@@ -924,7 +1079,10 @@ class _AttachmentEditor extends StatelessWidget {
                   child: Row(
                     children: [
                       const SizedBox(width: 7),
-                      _LocalAttachmentThumbnail(attachment: item),
+                      _LocalAttachmentThumbnail(
+                        attachment: item,
+                        imagePreview: field.imagePreview,
+                      ),
                       const SizedBox(width: 9),
                       Expanded(
                         child: Column(
@@ -981,14 +1139,18 @@ class _AttachmentEditor extends StatelessWidget {
 }
 
 class _LocalAttachmentThumbnail extends StatelessWidget {
-  const _LocalAttachmentThumbnail({required this.attachment});
+  const _LocalAttachmentThumbnail({
+    required this.attachment,
+    required this.imagePreview,
+  });
 
   final OaLocalAttachment attachment;
+  final bool imagePreview;
 
   @override
   Widget build(BuildContext context) {
     final isImage = attachment.contentType.toLowerCase().startsWith('image/');
-    if (isImage) {
+    if (isImage && imagePreview) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: Image.memory(
@@ -1311,11 +1473,20 @@ class _SchemaField extends StatelessWidget {
           : const <String>[];
       return FormField<List<String>>(
         initialValue: initial,
-        validator: (selected) =>
-            serverError ??
-            (field.required && (selected?.length != 2)
-                ? '请选择${field.label}'
-                : null),
+        validator: (selected) {
+          if (serverError != null) return serverError;
+          if (field.required && (selected?.length != 2)) {
+            return '请选择${field.label}';
+          }
+          if (selected?.length == 2) {
+            final start = DateTime.tryParse(selected!.first);
+            final end = DateTime.tryParse(selected.last);
+            if (start != null && end != null && start.isAfter(end)) {
+              return '结束日期不能早于开始日期';
+            }
+          }
+          return null;
+        },
         builder: (state) => InkWell(
           key: ValueKey('schema-${field.id}-date-range'),
           onTap: () async {
@@ -1408,7 +1579,9 @@ class _SchemaField extends StatelessWidget {
     final readOnly = field.isReadOnly;
     final displayValue = field.formatValue(value);
     final textField = TextFormField(
-      key: ValueKey('schema-${field.id}-$displayValue'),
+      key: readOnly
+          ? ValueKey('schema-${field.id}-$displayValue')
+          : ValueKey('schema-${field.id}'),
       initialValue: displayValue,
       readOnly: readOnly,
       canRequestFocus: !readOnly,
@@ -1422,6 +1595,8 @@ class _SchemaField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: _schemaFieldLabel(field),
         hintText: field.placeholder,
+        helperText: field.helperText,
+        helperMaxLines: 1,
         errorText: serverError,
         suffixText: field.displayUnit,
       ),
@@ -1436,6 +1611,10 @@ class _SchemaField extends StatelessWidget {
           final number = num.tryParse(text!.trim());
           if (number == null) return '请输入有效数字';
           if (field.type == 'amount' && number <= 0) return '金额必须大于 0';
+        }
+        if (!missing && (field.type == 'text' || field.type == 'textarea')) {
+          final validationError = field.validateText(text!.trim());
+          if (validationError != null) return validationError;
         }
         return null;
       },
@@ -1474,6 +1653,14 @@ final class _FieldDefinition {
     required this.readOnly,
     required this.unit,
     required this.calculation,
+    required this.defaultValueSource,
+    required this.defaultValue,
+    required this.validationFormat,
+    required this.minLength,
+    required this.maxLength,
+    required this.multiple,
+    required this.maxCount,
+    required this.imagePreview,
     required this.durationStartFieldId,
     required this.durationEndFieldId,
     required this.durationUnit,
@@ -1498,6 +1685,16 @@ final class _FieldDefinition {
                 (json['calculation'] as Map).cast<String, Object?>(),
               )
             : null,
+        defaultValueSource: json['defaultValueSource']?.toString().trim() ?? '',
+        defaultValue: json['defaultValue'],
+        validationFormat: json['validationFormat']?.toString().trim() ?? '',
+        minLength: _schemaInteger(json['minLength'], minimum: 0, maximum: 1000),
+        maxLength: _schemaInteger(json['maxLength'], minimum: 0, maximum: 1000),
+        multiple: json['multiple'] == true,
+        maxCount: json['multiple'] == true
+            ? (_schemaInteger(json['maxCount'], minimum: 1, maximum: 20) ?? 20)
+            : 1,
+        imagePreview: json['imagePreview'] == true,
         durationStartFieldId:
             json['durationStartFieldId']?.toString().trim().isNotEmpty == true
             ? json['durationStartFieldId'].toString()
@@ -1520,6 +1717,14 @@ final class _FieldDefinition {
   final bool readOnly;
   final String unit;
   final ApprovalFormCalculation? calculation;
+  final String defaultValueSource;
+  final Object? defaultValue;
+  final String validationFormat;
+  final int? minLength;
+  final int? maxLength;
+  final bool multiple;
+  final int maxCount;
+  final bool imagePreview;
   final String? durationStartFieldId;
   final String? durationEndFieldId;
   final String? durationUnit;
@@ -1536,13 +1741,114 @@ final class _FieldDefinition {
     };
   }
 
+  String? get helperText => switch (durationUnit) {
+    'hours' => '根据起止时间自动计算小时',
+    'days' => '根据起止时间自动计算自然日',
+    _ => null,
+  };
+
   String formatValue(Object? value) {
     if (value == null) return '';
+    if (value is Map || value is Iterable) return '';
     if (calculation != null && value is num) {
       return value.toStringAsFixed(calculation!.scale);
     }
     return value.toString();
   }
+
+  Object? resolveDefault({
+    required ImMember? requester,
+    required DateTime now,
+  }) {
+    switch (defaultValueSource) {
+      case 'requester' when type == 'person':
+        return requester?.id.isNotEmpty == true ? requester!.id : null;
+      case 'requester_department' when type == 'department':
+        return requester?.departmentId.isNotEmpty == true
+            ? requester!.departmentId
+            : null;
+      case 'today' when type == 'date':
+        return DateFormat('yyyy-MM-dd').format(now);
+      case 'today' when type == 'dateRange':
+        final today = DateFormat('yyyy-MM-dd').format(now);
+        return <String>[today, today];
+      case 'now' when type == 'datetime':
+        return DateFormat("yyyy-MM-dd'T'HH:mm:ss").format(now);
+      case 'fixed':
+        if (defaultValue is List) {
+          return (defaultValue as List)
+              .map((item) => item.toString())
+              .toList(growable: false);
+        }
+        return defaultValue;
+      default:
+        return null;
+    }
+  }
+
+  String? validateText(String value) {
+    final length = value.runes.length;
+    if (minLength != null && length < minLength!) {
+      return '$label至少输入 $minLength 个字符';
+    }
+    if (maxLength != null && length > maxLength!) {
+      return '$label最多输入 $maxLength 个字符';
+    }
+    if (validationFormat == 'tron_address' &&
+        !RegExp(r'^T[1-9A-HJ-NP-Za-km-z]{33}$').hasMatch(value)) {
+      return '请输入有效的 TRON 地址';
+    }
+    return null;
+  }
+
+  String? validateValue(Object? value) {
+    final missing =
+        value == null ||
+        value.toString().trim().isEmpty ||
+        (value is List && value.isEmpty);
+    if (required && (type == 'checkbox' ? value != true : missing)) {
+      return switch (type) {
+        'checkbox' => '请确认$label',
+        'select' ||
+        'multiSelect' ||
+        'person' ||
+        'department' ||
+        'date' ||
+        'datetime' ||
+        'dateRange' => '请选择$label',
+        _ => '请填写$label',
+      };
+    }
+    if (missing) return null;
+    if (type == 'number' || type == 'amount') {
+      final number = num.tryParse(value.toString().trim());
+      if (number == null) return '请输入有效数字';
+      if (type == 'amount' && number <= 0) return '金额必须大于 0';
+    }
+    if (type == 'text' || type == 'textarea') {
+      return validateText(value.toString().trim());
+    }
+    if (type == 'dateRange' && value is List && value.length == 2) {
+      final start = DateTime.tryParse(value.first.toString());
+      final end = DateTime.tryParse(value.last.toString());
+      if (start != null && end != null && start.isAfter(end)) {
+        return '结束日期不能早于开始日期';
+      }
+    }
+    return null;
+  }
+}
+
+int? _schemaInteger(
+  Object? value, {
+  required int minimum,
+  required int maximum,
+}) {
+  final parsed = value is num
+      ? value.toInt()
+      : int.tryParse(value?.toString() ?? '');
+  if (parsed == null) return null;
+  return parsed.clamp(minimum, maximum);
 }
 
 final class _ReferenceOption {

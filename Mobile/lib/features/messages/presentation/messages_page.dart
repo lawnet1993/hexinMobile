@@ -25,6 +25,8 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     if (_creating) return;
     final draft = await showModalBottomSheet<_ConversationDraft>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => _NewConversationSheet(bootstrap: data),
@@ -242,6 +244,7 @@ class _NewConversationSheetState extends State<_NewConversationSheet> {
 
     return SafeArea(
       child: SizedBox(
+        key: const Key('new-conversation-sheet'),
         height: MediaQuery.sizeOf(context).height * .68,
         child: Column(
           children: [
@@ -307,7 +310,7 @@ class _NewConversationSheetState extends State<_NewConversationSheet> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
                 child: SizedBox(
-                  height: 40,
+                  height: 36,
                   child: TextField(
                     controller: _titleController,
                     maxLength: 80,
@@ -316,7 +319,10 @@ class _NewConversationSheetState extends State<_NewConversationSheet> {
                     decoration: const InputDecoration(
                       hintText: '群名称',
                       prefixIcon: Icon(Icons.edit_outlined, size: 18),
-                      prefixIconConstraints: BoxConstraints(minWidth: 38),
+                      prefixIconConstraints: BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                       counterText: '',
                     ),
                   ),
@@ -347,6 +353,7 @@ class _NewConversationSheetState extends State<_NewConversationSheet> {
                           leading: InitialAvatar(
                             name: member.displayName,
                             radius: 18,
+                            avatarKey: member.avatarKey,
                             avatarDataUrl: member.avatarDataUrl,
                           ),
                           title: Text(
@@ -450,15 +457,31 @@ class _ConversationTile extends ConsumerWidget {
                   : peer?.isOnline == true
                   ? '单聊，对方在线'
                   : '单聊，对方离线',
-              child: InitialAvatar(
-                name: title,
-                radius: 18,
-                online: peer?.isOnline,
-                avatarDataUrl: peer?.avatarDataUrl ?? '',
-                backgroundColor: item.isGroup
-                    ? const Color(0xFFEAF2FF)
-                    : const Color(0xFFE8F6F2),
-              ),
+              child: item.isGroup
+                  ? Container(
+                      key: ValueKey('message-group-avatar-${item.id}'),
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F1FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.groups_rounded,
+                        size: 20,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : InitialAvatar(
+                      key: ValueKey('message-direct-avatar-${item.id}'),
+                      name: title,
+                      radius: 18,
+                      online: peer?.isOnline,
+                      avatarKey: peer?.avatarKey ?? '',
+                      avatarDataUrl: peer?.avatarDataUrl ?? '',
+                      backgroundColor: const Color(0xFFE8F6F2),
+                    ),
             ),
             const SizedBox(width: 9),
             Expanded(

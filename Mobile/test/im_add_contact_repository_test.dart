@@ -30,6 +30,10 @@ void main() {
             'userName': 'term.qa02',
             'displayName': '测试成员',
             'isFriend': false,
+            'canStartDirect': true,
+            'departmentName': '测试部',
+            'avatarKey': 'custom',
+            'avatarDataUrl': 'data:image/png;base64,YQ==',
           }),
         );
         await request.response.close();
@@ -40,6 +44,10 @@ void main() {
         expect(body, {'userName': 'term.qa02'});
         expect(result.single.username, 'term.qa02');
         expect(result.single.isFriend, isFalse);
+        expect(result.single.canStartDirect, isTrue);
+        expect(result.single.departmentName, '测试部');
+        expect(result.single.avatarKey, 'custom');
+        expect(result.single.avatarDataUrl, 'data:image/png;base64,YQ==');
       } finally {
         await server.close(force: true);
       }
@@ -138,6 +146,32 @@ void main() {
       expect(receipt.isReadByAll, isFalse);
       expect(receipt.readers.single.displayName, '测试成员');
       expect(receipt.readers.single.username, 'term.qa02');
+    } finally {
+      await server.close(force: true);
+    }
+  });
+
+  test('opening a conversation reports the latest visible sequence', () async {
+    HttpOverrides.global = _RealHttpOverrides();
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    Map<String, Object?>? readBody;
+    server.listen((request) async {
+      if (request.uri.path == '/api/im/conversations/conversation-1/read') {
+        readBody = (jsonDecode(await utf8.decoder.bind(request).join()) as Map)
+            .cast<String, Object?>();
+        request.response.statusCode = HttpStatus.noContent;
+      } else if (request.uri.path == '/api/im/mentions/unread') {
+        request.response.headers.contentType = ContentType.json;
+        request.response.write('[]');
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+      }
+      await request.response.close();
+    });
+    final fixture = await _fixture(server);
+    try {
+      await fixture.repository.markRead('conversation-1', 27);
+      expect(readBody, {'sequence': 27});
     } finally {
       await server.close(force: true);
     }

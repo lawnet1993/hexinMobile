@@ -93,7 +93,11 @@ abstract final class AppTheme {
         filled: true,
         fillColor: scheme.surface,
         isDense: true,
-        contentPadding: EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        prefixIconConstraints: BoxConstraints(minWidth: 36, minHeight: 36),
+        suffixIconConstraints: BoxConstraints(minWidth: 36, minHeight: 36),
+        labelStyle: TextStyle(fontSize: 12.5),
+        hintStyle: TextStyle(fontSize: 13.5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(6)),
         ),

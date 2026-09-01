@@ -21,6 +21,16 @@ final class MobileSheetOption<T> {
   final bool destructive;
 }
 
+final class MobileDestructiveVerificationResult {
+  const MobileDestructiveVerificationResult({
+    required this.reason,
+    required this.confirmation,
+  });
+
+  final String reason;
+  final String confirmation;
+}
+
 Future<T?> showMobileChoiceSheet<T>(
   BuildContext context, {
   required String title,
@@ -34,6 +44,7 @@ Future<T?> showMobileChoiceSheet<T>(
   var query = '';
   final result = await showModalBottomSheet<T>(
     context: context,
+    useRootNavigator: true,
     useSafeArea: true,
     isScrollControlled: true,
     showDragHandle: true,
@@ -142,6 +153,7 @@ Future<List<T>?> showMobileMultiChoiceSheet<T>(
   var query = '';
   final result = await showModalBottomSheet<List<T>>(
     context: context,
+    useRootNavigator: true,
     useSafeArea: true,
     isScrollControlled: true,
     showDragHandle: true,
@@ -235,6 +247,7 @@ Future<void> showMobileMessageSheet(
   String actionLabel = '知道了',
 }) => showModalBottomSheet<void>(
   context: context,
+  useRootNavigator: true,
   useSafeArea: true,
   showDragHandle: true,
   builder: (sheetContext) => SafeArea(
@@ -279,6 +292,417 @@ Future<void> showMobileMessageSheet(
   ),
 );
 
+Future<String?> showMobileTextInputSheet(
+  BuildContext context, {
+  required String title,
+  String subtitle = '',
+  String initialValue = '',
+  String label = '',
+  String hintText = '',
+  int? maxLength,
+  int minLines = 1,
+  int maxLines = 1,
+  String actionLabel = '保存',
+  bool autofocus = true,
+  bool allowEmpty = true,
+  String? Function(String value)? validator,
+}) async {
+  final controller = TextEditingController(text: initialValue);
+  String? errorText;
+  final result = await showModalBottomSheet<String>(
+    context: context,
+    useRootNavigator: true,
+    useSafeArea: true,
+    isScrollControlled: true,
+    showDragHandle: false,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, setSheetState) => SafeArea(
+        top: false,
+        child: Padding(
+          key: const Key('mobile-text-input-sheet'),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            12 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          key: const Key('mobile-sheet-title'),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.secondaryText,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(sheetContext),
+                    icon: const Icon(Icons.close_rounded, size: 19),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (label.isNotEmpty) ...[
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+              SizedBox(
+                height: maxLines == 1 ? 36 : null,
+                child: TextField(
+                  key: const Key('mobile-text-input-field'),
+                  controller: controller,
+                  autofocus: autofocus,
+                  maxLength: maxLength,
+                  minLines: minLines,
+                  maxLines: maxLines,
+                  textInputAction: maxLines == 1
+                      ? TextInputAction.done
+                      : TextInputAction.newline,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: true,
+                    fillColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: .6),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    hintText: hintText.isEmpty ? null : hintText,
+                    counterText: maxLength == null ? null : '',
+                    border: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    enabledBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                  ),
+                  onSubmitted: maxLines == 1
+                      ? (_) => _submitMobileTextInput(
+                          sheetContext,
+                          controller.text,
+                          allowEmpty: allowEmpty,
+                          validator: validator,
+                          setError: (value) =>
+                              setSheetState(() => errorText = value),
+                        )
+                      : null,
+                ),
+              ),
+              if (errorText != null) ...[
+                const SizedBox(height: 5),
+                Text(
+                  errorText!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(60, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () => Navigator.pop(sheetContext),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const Key('mobile-text-input-submit'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(68, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () => _submitMobileTextInput(
+                      sheetContext,
+                      controller.text,
+                      allowEmpty: allowEmpty,
+                      validator: validator,
+                      setError: (value) =>
+                          setSheetState(() => errorText = value),
+                    ),
+                    child: Text(actionLabel),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  await disposeRouteTextController(controller);
+  return result;
+}
+
+Future<MobileDestructiveVerificationResult?>
+showMobileDestructiveVerificationSheet(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String requiredPhrase,
+  String reasonLabel = '操作原因',
+  String confirmationLabel = '输入名称确认',
+  String actionLabel = '确认操作',
+}) async {
+  final reasonController = TextEditingController();
+  final confirmationController = TextEditingController();
+  var reason = '';
+  var confirmation = '';
+  final result =
+      await showModalBottomSheet<MobileDestructiveVerificationResult>(
+        context: context,
+        useRootNavigator: true,
+        useSafeArea: true,
+        isScrollControlled: true,
+        showDragHandle: false,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (context, setSheetState) {
+            final canSubmit =
+                reason.trim().isNotEmpty &&
+                confirmation.trim() == requiredPhrase;
+            return SafeArea(
+              top: false,
+              child: Padding(
+                key: const Key('mobile-destructive-verification-sheet'),
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  8,
+                  16,
+                  12 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 32,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: '关闭',
+                            onPressed: () => Navigator.pop(sheetContext),
+                            icon: const Icon(Icons.close_rounded, size: 19),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        message,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          height: 1.45,
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(reasonLabel, style: const TextStyle(fontSize: 12)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        key: const Key('mobile-destructive-reason'),
+                        controller: reasonController,
+                        autofocus: true,
+                        maxLength: 500,
+                        minLines: 2,
+                        maxLines: 3,
+                        decoration: _compactSheetInputDecoration(
+                          context,
+                          hintText: '请填写$reasonLabel',
+                        ),
+                        onChanged: (value) =>
+                            setSheetState(() => reason = value),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$confirmationLabel：$requiredPhrase',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        height: 36,
+                        child: TextField(
+                          key: const Key('mobile-destructive-confirmation'),
+                          controller: confirmationController,
+                          textInputAction: TextInputAction.done,
+                          decoration: _compactSheetInputDecoration(
+                            context,
+                            hintText: requiredPhrase,
+                          ),
+                          onChanged: (value) =>
+                              setSheetState(() => confirmation = value),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(60, 36),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            onPressed: () => Navigator.pop(sheetContext),
+                            child: const Text('取消'),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton(
+                            key: const Key('mobile-destructive-submit'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(88, 36),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                              backgroundColor: AppColors.error,
+                            ),
+                            onPressed: canSubmit
+                                ? () => Navigator.pop(
+                                    sheetContext,
+                                    MobileDestructiveVerificationResult(
+                                      reason: reason.trim(),
+                                      confirmation: confirmation.trim(),
+                                    ),
+                                  )
+                                : null,
+                            child: Text(actionLabel),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+  await disposeRouteTextController(reasonController);
+  await disposeRouteTextController(confirmationController);
+  return result;
+}
+
+InputDecoration _compactSheetInputDecoration(
+  BuildContext context, {
+  required String hintText,
+}) => InputDecoration(
+  isDense: true,
+  filled: true,
+  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest
+      .withValues(alpha: .6),
+  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+  hintText: hintText,
+  counterText: '',
+  border: const OutlineInputBorder(
+    borderSide: BorderSide.none,
+    borderRadius: BorderRadius.all(Radius.circular(8)),
+  ),
+  enabledBorder: const OutlineInputBorder(
+    borderSide: BorderSide.none,
+    borderRadius: BorderRadius.all(Radius.circular(8)),
+  ),
+  focusedBorder: const OutlineInputBorder(
+    borderSide: BorderSide.none,
+    borderRadius: BorderRadius.all(Radius.circular(8)),
+  ),
+);
+
+void _submitMobileTextInput(
+  BuildContext context,
+  String rawValue, {
+  required bool allowEmpty,
+  required String? Function(String value)? validator,
+  required ValueChanged<String?> setError,
+}) {
+  final value = rawValue.trim();
+  final error = !allowEmpty && value.isEmpty ? '请填写内容' : validator?.call(value);
+  if (error != null) {
+    setError(error);
+    return;
+  }
+  Navigator.pop(context, value);
+}
+
 Future<bool?> showMobileConfirmSheet(
   BuildContext context, {
   required String title,
@@ -287,6 +711,7 @@ Future<bool?> showMobileConfirmSheet(
   bool destructive = false,
 }) => showModalBottomSheet<bool>(
   context: context,
+  useRootNavigator: true,
   useSafeArea: true,
   showDragHandle: true,
   isDismissible: true,
@@ -358,6 +783,7 @@ Future<DateTime?> showMobileDatePickerSheet(
   var selected = initialDate;
   return showModalBottomSheet<DateTime>(
     context: context,
+    useRootNavigator: true,
     useSafeArea: true,
     isScrollControlled: true,
     showDragHandle: true,
@@ -397,6 +823,7 @@ Future<DateTimeRange?> showMobileDateRangePickerSheet(
   final initialDate = start ?? DateTime.now();
   return showModalBottomSheet<DateTimeRange>(
     context: context,
+    useRootNavigator: true,
     useSafeArea: true,
     isScrollControlled: true,
     showDragHandle: true,
@@ -479,6 +906,7 @@ Future<TimeOfDay?> showMobileTimePickerSheet(
   final minuteController = FixedExtentScrollController(initialItem: minute);
   final result = await showModalBottomSheet<TimeOfDay>(
     context: context,
+    useRootNavigator: true,
     useSafeArea: true,
     showDragHandle: true,
     builder: (sheetContext) => SafeArea(

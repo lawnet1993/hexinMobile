@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -254,4 +255,63 @@ void main() {
       expect(await store.lastEventSequence('account-a'), 12);
     },
   );
+
+  test('sync encryption does not hold the SQLite transaction lock', () async {
+    final cipher = _BlockingProtectCipher();
+    final blockingStore = OaLocalStore.withOptions(
+      databaseFactoryFfi,
+      () async => '${directory.path}/oa-blocking.db',
+      cipher,
+    );
+    addTearDown(blockingStore.close);
+
+    final sync = blockingStore.applySyncBatch(
+      accountId: 'account-a',
+      events: [
+        OaSyncEvent(
+          sequence: 1,
+          id: 'event-1',
+          type: 'oa.notification.created',
+          payloadJson: 'block-before-transaction',
+          createdAt: DateTime.utc(2026, 9, 1),
+        ),
+      ],
+      refreshedCaches: const {},
+    );
+    await cipher.entered.future;
+
+    await blockingStore
+        .writeObject('account-a', 'parallel-write', const {'ok': true})
+        .timeout(const Duration(seconds: 1));
+
+    cipher.release.complete();
+    await sync;
+    expect(
+      await blockingStore.readObject('account-a', 'parallel-write'),
+      const {'ok': true},
+    );
+  });
+}
+
+final class _BlockingProtectCipher implements ImCacheCipher {
+  final entered = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  bool get isEnabled => true;
+
+  @override
+  bool isProtected(String value) => false;
+
+  @override
+  Future<String> protect(String accountId, String value) async {
+    if (value == 'block-before-transaction') {
+      if (!entered.isCompleted) entered.complete();
+      await release.future;
+    }
+    return value;
+  }
+
+  @override
+  Future<String> reveal(String accountId, String value) async => value;
 }

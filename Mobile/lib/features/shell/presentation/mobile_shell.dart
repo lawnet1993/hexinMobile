@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../network/application/tunnel_controller.dart';
+import '../../attendance/presentation/inspection_response_sheet.dart';
 import '../../../core/theme/tdesign_icons.dart';
 import '../../../core/artifacts/mobile_artifact_repository.dart';
 import '../../../core/notifications/mobile_push_registration.dart';
 import '../../../core/updates/client_update_repository.dart';
+import '../../../core/updates/client_update_sheet.dart';
 import '../../../core/security/managed_security_repository.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../collaboration/application/im_sync_coordinator.dart';
@@ -15,7 +17,14 @@ import '../../collaboration/application/mobile_device_authorization_coordinator.
 import '../../collaboration/application/mobile_presence_coordinator.dart';
 import '../../collaboration/application/oa_catalog_sync_coordinator.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../collaboration/domain/collaboration_models.dart';
+
+@visibleForTesting
+int mobilePendingWorkCount(OaBootstrap? data) {
+  if (data == null) return 0;
+  return data.todos.where((item) => !isTerminalTodoStatus(item.status)).length +
+      data.approvalRequests.where((item) => item.operableTask != null).length;
+}
 
 class MobileShell extends ConsumerStatefulWidget {
   const MobileShell({super.key, required this.navigationShell});
@@ -122,45 +131,10 @@ class _MobileShellState extends ConsumerState<MobileShell>
         return;
       }
       _lastPromptedReleaseId = update.releaseId;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: !update.isMandatory,
-        builder: (context) => PopScope(
-          canPop: !update.isMandatory,
-          child: AlertDialog(
-            title: Text(update.isMandatory ? '必须更新客户端' : '发现新版本'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '最新版本 v${update.latestVersion}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                if (update.releaseNotes.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(update.releaseNotes),
-                ],
-                const SizedBox(height: 12),
-                Text(
-                  '安装包大小 ${(update.packageSize / 1024 / 1024).toStringAsFixed(2)} MB',
-                  style: const TextStyle(color: AppColors.secondaryText),
-                ),
-              ],
-            ),
-            actions: [
-              if (!update.isMandatory)
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('稍后'),
-                ),
-              FilledButton(
-                onPressed: () => _openUpdatePackage(update.packageUrl),
-                child: const Text('下载更新'),
-              ),
-            ],
-          ),
-        ),
+      await showClientUpdateSheet(
+        context,
+        info: update,
+        onDownload: () => _openUpdatePackage(update.packageUrl),
       );
     } catch (_) {
       // 更新检查不能影响 IM/OA、隧道和本地缓存启动。
@@ -168,54 +142,22 @@ class _MobileShellState extends ConsumerState<MobileShell>
   }
 
   Future<void> _checkActiveInspection() async {
-    try {
-      final items = await ref.read(oaRepositoryProvider).activeInspections();
-      if (!mounted) return;
-      final pending = items
-          .where(
-            (item) =>
-                item.responseStatus.toLowerCase() == 'pending' &&
-                !_promptedInspectionIds.contains(item.inspectionId),
-          )
-          .firstOrNull;
-      if (pending == null) return;
-      _promptedInspectionIds.add(pending.inspectionId);
-      await ref
-          .read(oaRepositoryProvider)
-          .markInspectionOpened(pending.inspectionId);
-      if (!mounted) return;
-      final status = await showDialog<String>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          title: Text(pending.title.isEmpty ? '在岗确认' : pending.title),
-          content: pending.message.isEmpty ? null : Text(pending.message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'unavailable'),
-              child: const Text('暂时无法响应'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, 'present'),
-              child: const Text('确认在岗'),
-            ),
-          ],
-        ),
-      );
-      if (status == null) return;
-      await ref
-          .read(oaRepositoryProvider)
-          .respondInspection(pending.inspectionId, status);
-      ref.invalidate(oaActiveInspectionsProvider);
-      if (mounted) _checkActiveInspection();
-    } catch (_) {
-      // 巡检暂时不可用时不阻断移动端主流程，下次回到前台会重试。
-    }
+    await showActiveInspectionPrompt(
+      context: context,
+      ref: ref,
+      promptedIds: _promptedInspectionIds,
+    );
   }
 
   Future<void> _openUpdatePackage(String packageUrl) async {
     final uri = Uri.tryParse(packageUrl);
-    if (uri == null) return;
+    if (uri == null || !{'http', 'https'}.contains(uri.scheme.toLowerCase())) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('更新地址无效，请联系管理员')));
+      }
+      return;
+    }
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -246,20 +188,15 @@ class _MobileShellState extends ConsumerState<MobileShell>
             .fold<int>(0, (total, item) => total + item.unreadCount) ??
         0;
     final badges = ref.watch(imBadgeSummaryProvider).value;
-    final pendingApprovalCount =
-        ref
-            .watch(oaBootstrapProvider)
-            .value
-            ?.approvalRequests
-            .where((item) => item.operableTask != null)
-            .length ??
-        0;
+    final pendingWorkCount = mobilePendingWorkCount(
+      ref.watch(oaBootstrapProvider).value,
+    );
     return Scaffold(
       body: widget.navigationShell,
       bottomNavigationBar: MobileBottomNavigationBar(
         selectedIndex: widget.navigationShell.currentIndex,
         unreadCount: badges?.unreadMessages ?? bootstrapUnreadCount,
-        pendingApprovalCount: pendingApprovalCount,
+        pendingWorkCount: pendingWorkCount,
         pendingFriendRequestCount: badges?.pendingFriendRequests ?? 0,
         onDestinationSelected: (index) => widget.navigationShell.goBranch(
           index,
@@ -276,14 +213,14 @@ class MobileBottomNavigationBar extends StatelessWidget {
     required this.selectedIndex,
     required this.onDestinationSelected,
     this.unreadCount = 0,
-    this.pendingApprovalCount = 0,
+    this.pendingWorkCount = 0,
     this.pendingFriendRequestCount = 0,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
   final int unreadCount;
-  final int pendingApprovalCount;
+  final int pendingWorkCount;
   final int pendingFriendRequestCount;
 
   @override
@@ -318,13 +255,13 @@ class MobileBottomNavigationBar extends StatelessWidget {
         ),
         NavigationDestination(
           icon: Badge.count(
-            count: pendingApprovalCount,
-            isLabelVisible: pendingApprovalCount > 0,
+            count: pendingWorkCount,
+            isLabelVisible: pendingWorkCount > 0,
             child: const Icon(Icons.fact_check_outlined),
           ),
           selectedIcon: Badge.count(
-            count: pendingApprovalCount,
-            isLabelVisible: pendingApprovalCount > 0,
+            count: pendingWorkCount,
+            isLabelVisible: pendingWorkCount > 0,
             child: const Icon(TDIcons.taskChecked),
           ),
           label: '待办',

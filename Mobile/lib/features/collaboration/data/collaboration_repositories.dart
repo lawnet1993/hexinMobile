@@ -14,6 +14,7 @@ import '../../../core/demo/preview_data.dart';
 import '../../../core/network/collaboration_client.dart';
 import '../../../core/storage/im_cache_cipher.dart';
 import '../../../core/storage/secure_session_store.dart';
+import '../../auth/application/auth_controller.dart';
 import '../domain/collaboration_models.dart';
 import 'im_local_store.dart';
 import 'im_message_image_cache.dart';
@@ -38,6 +39,13 @@ Future<T> _demoValue<T>(T value) async {
   }
   return value;
 }
+
+final collaborationAccountScopeProvider = Provider<String>((ref) {
+  if (AppEnvironment.demoMode) return _demoSession.userId;
+  return ref.watch(
+    authControllerProvider.select((state) => state.value?.userId ?? ''),
+  );
+});
 
 final imLocalStoreProvider = Provider<ImLocalStore>((ref) {
   final sessionStore = ref.read(secureSessionStoreProvider);
@@ -130,7 +138,80 @@ final imRepositoryProvider = Provider<ImRepository>((ref) {
   );
 });
 
+typedef ImGroupManagementCapabilitiesLoader =
+    Future<ImGroupManagementCapabilities> Function(String conversationId);
+typedef ImGroupMutedMembersPageLoader =
+    Future<ImGroupManagementPage<ImMutedGroupMember>> Function(
+      String conversationId, {
+      int page,
+      int pageSize,
+    });
+typedef ImGroupManagersPageLoader =
+    Future<ImGroupManagementPage<ImMember>> Function(
+      String conversationId, {
+      int page,
+      int pageSize,
+    });
+typedef ImGroupJoinRequestsPageLoader =
+    Future<ImGroupManagementPage<ImGroupJoinRequest>> Function(
+      String conversationId, {
+      int page,
+      int pageSize,
+    });
+typedef ImGroupNoticesPageLoader =
+    Future<ImGroupManagementPage<ImGroupNotice>> Function(
+      String conversationId, {
+      int page,
+      int pageSize,
+    });
+typedef ImGroupProfileRefresher = Future<ImGroupProfile?> Function(
+  String conversationId,
+);
+typedef ImMessageReadReceiptLoader = Future<ImMessageReadReceipt> Function(
+  String messageId,
+);
+
+final imGroupManagementCapabilitiesLoaderProvider =
+    Provider<ImGroupManagementCapabilitiesLoader>((ref) {
+      return ref.read(imRepositoryProvider).groupManagementCapabilities;
+    });
+
+final imGroupMutedMembersPageLoaderProvider =
+    Provider<ImGroupMutedMembersPageLoader>((ref) {
+      return ref.read(imRepositoryProvider).groupMutedMembers;
+    });
+
+final imGroupManagersPageLoaderProvider = Provider<ImGroupManagersPageLoader>((
+  ref,
+) {
+  return ref.read(imRepositoryProvider).groupManagersPage;
+});
+
+final imGroupJoinRequestsPageLoaderProvider =
+    Provider<ImGroupJoinRequestsPageLoader>((ref) {
+      return ref.read(imRepositoryProvider).groupJoinRequests;
+    });
+
+final imGroupNoticesPageLoaderProvider = Provider<ImGroupNoticesPageLoader>((
+  ref,
+) {
+  return ref.read(imRepositoryProvider).groupNotices;
+});
+
+final imGroupProfileRefresherProvider = Provider<ImGroupProfileRefresher>((
+  ref,
+) {
+  return ref.read(imRepositoryProvider).refreshGroupProfile;
+});
+
+final imMessageReadReceiptLoaderProvider = Provider<ImMessageReadReceiptLoader>(
+  (ref) {
+    return ref.read(imRepositoryProvider).messageReadReceipts;
+  },
+);
+
 final oaBootstrapProvider = FutureProvider<OaBootstrap>((ref) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return _demoValue(PreviewData.oaBootstrap);
   return ref.read(oaRepositoryProvider).bootstrapCacheFirst();
 });
@@ -138,6 +219,7 @@ final oaBootstrapProvider = FutureProvider<OaBootstrap>((ref) async {
 final oaApplicationCatalogProvider = FutureProvider<OaApplicationCatalog>((
   ref,
 ) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return PreviewData.oaCatalog;
   return ref.read(oaRepositoryProvider).appCatalogCacheFirst();
 });
@@ -145,6 +227,7 @@ final oaApplicationCatalogProvider = FutureProvider<OaApplicationCatalog>((
 final oaApprovalRequestProvider = FutureProvider.autoDispose
     .family<OaApprovalRequest, String>((ref, id) async {
       _retainForHotReopen(ref);
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) {
         return PreviewData.oaBootstrap.approvalRequests.firstWhere(
           (item) => item.id == id,
@@ -157,6 +240,7 @@ final oaApprovalRequestProvider = FutureProvider.autoDispose
 final oaNotificationsProvider = FutureProvider<List<OaNotification>>((
   ref,
 ) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return PreviewData.oaBootstrap.notifications;
   return ref.read(oaRepositoryProvider).notificationsCacheFirst();
 });
@@ -166,6 +250,7 @@ final oaNotificationPageProvider =
       OaNotificationPage,
       ({String? cursor, bool unreadOnly})
     >((ref, key) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) {
         final items = PreviewData.oaBootstrap.notifications
             .where((item) => !key.unreadOnly || !item.isRead)
@@ -182,26 +267,57 @@ final oaNotificationPageProvider =
           );
     });
 
+typedef OaApprovalRequestsPageKey = ({
+  String? cursor,
+  String view,
+  String search,
+  String applicationKey,
+  String status,
+  DateTime? from,
+});
+
+final oaApprovalRequestsPageProvider =
+    FutureProvider.family<OaApprovalRequestPage, OaApprovalRequestsPageKey>((
+      ref,
+      key,
+    ) async {
+      ref.watch(collaborationAccountScopeProvider);
+      return ref
+          .read(oaRepositoryProvider)
+          .approvalRequestsPage(
+            cursor: key.cursor,
+            view: key.view,
+            search: key.search,
+            applicationKey: key.applicationKey,
+            status: key.status,
+            from: key.from,
+          );
+    });
+
 final oaAttendanceOverviewProvider = FutureProvider<OaAttendanceOverview>((
   ref,
 ) async {
+  ref.watch(collaborationAccountScopeProvider);
   return ref.read(oaRepositoryProvider).attendanceOverviewCacheFirst();
 });
 
 final oaBehaviorDefinitionsProvider =
     FutureProvider<List<OaBehaviorDefinition>>((ref) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) return const [];
       return ref.read(oaRepositoryProvider).behaviorDefinitions();
     });
 
 final oaActiveBehaviorSessionsProvider =
     FutureProvider<List<OaBehaviorSession>>((ref) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) return const [];
       return ref.read(oaRepositoryProvider).activeBehaviorSessions();
     });
 
 final oaBehaviorSessionHistoryProvider =
     FutureProvider<List<OaBehaviorSession>>((ref) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) return const [];
       final now = DateTime.now();
       return ref
@@ -219,38 +335,45 @@ final oaBehaviorSessionHistoryProvider =
 final oaActiveInspectionsProvider = FutureProvider<List<OaActiveInspection>>((
   ref,
 ) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return const [];
   return ref.read(oaRepositoryProvider).activeInspections();
 });
 
 final oaDraftsProvider = FutureProvider<List<OaApprovalDraft>>((ref) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return const [];
   return ref.read(oaRepositoryProvider).drafts();
 });
 
 final oaOutboxProvider = FutureProvider<List<OaOutboxItem>>((ref) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return const [];
   return ref.read(oaRepositoryProvider).outbox();
 });
 
 final imBootstrapProvider = FutureProvider<ImBootstrap>((ref) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return _demoValue(PreviewData.imBootstrap);
   return ref.read(imRepositoryProvider).bootstrapCacheFirst();
 });
 
 final imDepartmentsProvider = FutureProvider<List<ImDepartment>>((ref) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return PreviewData.imDepartments;
   return ref.read(imRepositoryProvider).departmentsCacheFirst();
 });
 
 final pendingFriendApplicationsProvider =
     FutureProvider<List<ImFriendApplication>>((ref) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) return const [];
       return ref.read(imRepositoryProvider).pendingFriendApplications();
     });
 
 final conversationMessagesProvider =
     FutureProvider.family<List<ImMessage>, String>((ref, id) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) return PreviewData.conversationMessages(id);
       return ref.read(imRepositoryProvider).messagesCacheFirst(id);
     });
@@ -294,6 +417,7 @@ final conversationMessageRevisionProvider = Provider.autoDispose
 final conversationMessageWindowProvider = FutureProvider.autoDispose
     .family<List<ImMessage>, ConversationMessageWindowKey>((ref, key) async {
       _retainForHotReopen(ref);
+      ref.watch(collaborationAccountScopeProvider);
       ref.watch(conversationMessageRevisionProvider(key.conversationId));
       if (AppEnvironment.demoMode) {
         final messages = PreviewData.conversationMessages(key.conversationId);
@@ -381,6 +505,7 @@ final imMessageImageProvider = FutureProvider.autoDispose
       ref,
       key,
     ) async {
+      ref.watch(collaborationAccountScopeProvider);
       final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
       final cache = ref.read(imBinaryMemoryCacheProvider);
       final cacheKey = 'image:${key.messageId}:${key.imageId}';
@@ -411,6 +536,7 @@ final imMessageImageProvider = FutureProvider.autoDispose
 
 final imMediaAttachmentProvider = FutureProvider.autoDispose
     .family<Uint8List, ({String attachmentId, bool cover})>((ref, key) async {
+      ref.watch(collaborationAccountScopeProvider);
       final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
       final cache = ref.read(imBinaryMemoryCacheProvider);
       final cacheKey = 'media:${key.attachmentId}:${key.cover ? 1 : 0}';
@@ -494,6 +620,7 @@ final class ImVideoPreviewSource {
 final imVideoPreviewProvider = FutureProvider.autoDispose
     .family<ImVideoPreviewSource?, ImVideoPreviewKey>((ref, key) async {
       _retainForHotReopen(ref);
+      ref.watch(collaborationAccountScopeProvider);
       final repository = ref.read(imRepositoryProvider);
       final cacheKey = imVideoPreviewCacheKey(
         attachmentId: key.attachmentId,
@@ -545,6 +672,7 @@ void _retainForHotReopen(Ref ref) {
 
 final oaAttachmentThumbnailProvider = FutureProvider.autoDispose
     .family<Uint8List, String>((ref, attachmentId) async {
+      ref.watch(collaborationAccountScopeProvider);
       final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
       final cache = ref.read(imBinaryMemoryCacheProvider);
       final cacheKey = 'oa-thumbnail:$attachmentId';
@@ -559,6 +687,7 @@ final oaAttachmentThumbnailProvider = FutureProvider.autoDispose
 
 final conversationMembersProvider =
     FutureProvider.family<List<ImMember>, String>((ref, id) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) {
         return PreviewData.conversationMembers(id);
       }
@@ -570,6 +699,7 @@ final conversationMemberPageProvider =
       ImMemberPage,
       ({String conversationId, int page, int pageSize, String keyword})
     >((ref, key) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) {
         final keyword = key.keyword.trim().toLowerCase();
         final members = PreviewData.conversationMembers(key.conversationId)
@@ -605,6 +735,7 @@ final conversationMemberPageProvider =
 final imFavoritesProvider = FutureProvider<List<ImFavoriteMessage>>((
   ref,
 ) async {
+  ref.watch(collaborationAccountScopeProvider);
   return (await ref.watch(imFavoritesPageProvider(1).future)).items;
 });
 
@@ -613,6 +744,7 @@ final imFavoritesPageProvider =
       ref,
       page,
     ) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) {
         return _previewPage(PreviewData.imFavorites, page: page);
       }
@@ -620,6 +752,7 @@ final imFavoritesPageProvider =
     });
 
 final imBadgeSummaryProvider = FutureProvider<ImBadgeSummary>((ref) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) {
     final bootstrap = PreviewData.imBootstrap;
     return ImBadgeSummary(
@@ -636,11 +769,13 @@ final imBadgeSummaryProvider = FutureProvider<ImBadgeSummary>((ref) async {
 final imAssistantTasksProvider = FutureProvider<List<ImAssistantTask>>((
   ref,
 ) async {
+  ref.watch(collaborationAccountScopeProvider);
   return (await ref.watch(imAssistantTasksPageProvider(1).future)).items;
 });
 
 final imAssistantTasksPageProvider =
     FutureProvider.family<ImListPage<ImAssistantTask>, int>((ref, page) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) {
         return _previewPage(PreviewData.imAssistantTasks, page: page);
       }
@@ -666,6 +801,7 @@ ImListPage<T> _previewPage<T>(
 
 final imDeviceAuthorizationsProvider =
     FutureProvider<List<ImDeviceAuthorization>>((ref) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) {
         return List.unmodifiable(PreviewData.demoDeviceAuthorizations);
       }
@@ -673,6 +809,7 @@ final imDeviceAuthorizationsProvider =
     });
 
 final imPushDeviceProvider = FutureProvider<ImPushDevice?>((ref) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return PreviewData.demoPushDevice;
   return ref.read(imRepositoryProvider).pushDevice();
 });
@@ -680,12 +817,14 @@ final imPushDeviceProvider = FutureProvider<ImPushDevice?>((ref) async {
 final imLanguagePreferenceProvider = FutureProvider<ImLanguagePreference?>((
   ref,
 ) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return null;
   return ref.read(imRepositoryProvider).languagePreference();
 });
 
 final conversationPresenceProvider =
     FutureProvider.family<ImConversationPresence, String>((ref, id) async {
+      ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) {
         final conversation = PreviewData.imBootstrap.conversations
             .where((item) => item.id == id)
@@ -711,6 +850,7 @@ final groupProfileProvider = FutureProvider.family<ImGroupProfile?, String>((
   ref,
   id,
 ) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return PreviewData.groupProfile(id);
   return ref.read(imRepositoryProvider).groupProfileCacheFirst(id);
 });
@@ -719,6 +859,7 @@ final groupManagersProvider = FutureProvider.family<List<ImMember>, String>((
   ref,
   id,
 ) async {
+  ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return PreviewData.groupManagers(id);
   return ref.read(imRepositoryProvider).groupManagers(id);
 });
@@ -2191,17 +2332,23 @@ bool _isTransient(DioException error) {
 String _dioMessage(DioException error) {
   final data = error.response?.data;
   if (data is Map) {
+    final directValidationMessages = _validationMessages(
+      data['errors'] ?? data['validationErrors'],
+    );
+    if (directValidationMessages.isNotEmpty) {
+      final summary = data['message']?.toString().trim() ?? '';
+      return {
+        if (summary.isNotEmpty) summary,
+        ...directValidationMessages,
+      }.join('\n');
+    }
     final nestedError = data['error'];
     if (nestedError is Map) {
-      final validationErrors = nestedError['validationErrors'];
-      if (validationErrors is List) {
-        final messages = validationErrors
-            .whereType<Map>()
-            .map((item) => item['message']?.toString().trim() ?? '')
-            .where((message) => message.isNotEmpty)
-            .toSet()
-            .toList();
-        if (messages.isNotEmpty) return messages.join('\n');
+      final nestedValidationMessages = _validationMessages(
+        nestedError['errors'] ?? nestedError['validationErrors'],
+      );
+      if (nestedValidationMessages.isNotEmpty) {
+        return nestedValidationMessages.join('\n');
       }
       for (final key in const ['details', 'message']) {
         final message = nestedError[key]?.toString().trim();
@@ -2214,6 +2361,16 @@ String _dioMessage(DioException error) {
     }
   }
   return error.message ?? error.toString();
+}
+
+List<String> _validationMessages(Object? payload) {
+  if (payload is! List) return const [];
+  return payload
+      .whereType<Map>()
+      .map((item) => item['message']?.toString().trim() ?? '')
+      .where((message) => message.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
 }
 
 final class CollaborationOperationException implements Exception {

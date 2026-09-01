@@ -113,6 +113,9 @@ class AuthController extends AsyncNotifier<MobileSession?> {
   Future<SavedCredential?> savedCredential() =>
       ref.read(secureSessionStoreProvider).readCredential();
 
+  Future<void> clearSavedCredential() =>
+      ref.read(secureSessionStoreProvider).clearCredential();
+
   Future<MobileSession?> refreshSession({bool forceCredential = false}) async {
     final active = _refreshing;
     if (active != null) {

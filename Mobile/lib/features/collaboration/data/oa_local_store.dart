@@ -522,23 +522,37 @@ final class OaLocalStore {
     if (events.isEmpty && refreshedCaches.isEmpty) return;
     final database = await _database;
     final now = DateTime.now().toUtc();
+    final protectedCaches = <String, String>{};
+    for (final entry in refreshedCaches.entries) {
+      protectedCaches[entry.key] = await _cipher.protect(
+        accountId,
+        entry.value,
+      );
+    }
+    final protectedEvents = <({OaSyncEvent event, String payload})>[];
+    for (final event in events) {
+      protectedEvents.add((
+        event: event,
+        payload: await _cipher.protect(accountId, event.payloadJson),
+      ));
+    }
     await database.transaction((transaction) async {
-      for (final entry in refreshedCaches.entries) {
-        await _writeCacheWith(
-          transaction,
-          accountId,
-          entry.key,
-          entry.value,
-          now,
-        );
+      for (final entry in protectedCaches.entries) {
+        await transaction.insert('oa_cache', {
+          'account_id': accountId,
+          'cache_key': entry.key,
+          'payload_json': entry.value,
+          'updated_at': now.toUtc().toIso8601String(),
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
-      for (final event in events) {
+      for (final protectedEvent in protectedEvents) {
+        final event = protectedEvent.event;
         await transaction.insert('oa_event_inbox', {
           'account_id': accountId,
           'sequence': event.sequence,
           'event_id': event.id,
           'type': event.type,
-          'payload_json': await _cipher.protect(accountId, event.payloadJson),
+          'payload_json': protectedEvent.payload,
           'created_at': event.createdAt.toUtc().toIso8601String(),
           'applied_at': now.toIso8601String(),
         }, conflictAlgorithm: ConflictAlgorithm.ignore);

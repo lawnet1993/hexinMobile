@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -19,6 +22,7 @@ class GroupManagementPage extends ConsumerStatefulWidget {
 }
 
 class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
+  final _pageScrollController = ScrollController();
   int _tab = 0;
   bool _loading = true;
   String? _error;
@@ -38,29 +42,45 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
   int _noticesPage = 1;
   int _noticesTotal = 0;
   bool _loadingMore = false;
+  bool _autoLoadScheduled = false;
+  bool _autoLoadRetryBlocked = false;
+  bool _pagingExhausted = false;
+  bool _pagingError = false;
+  int _paginationGeneration = 0;
   bool _deletingHistory = false;
   String _historyDeletionStatus = '';
 
   @override
   void initState() {
     super.initState();
+    _pageScrollController.addListener(_onPageScroll);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _pageScrollController
+      ..removeListener(_onPageScroll)
+      ..dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
+      _resetPagination(jumpToTop: false);
     });
     try {
-      final repository = ref.read(imRepositoryProvider);
       final values = await Future.wait<Object?>([
-        repository.groupManagementCapabilities(widget.conversationId),
-        repository.groupManagersPage(widget.conversationId),
-        repository.groupMutedMembers(widget.conversationId),
-        repository.groupJoinRequests(widget.conversationId),
-        repository.groupNotices(widget.conversationId),
-        repository.refreshGroupProfile(widget.conversationId),
+        ref.read(imGroupManagementCapabilitiesLoaderProvider)(
+          widget.conversationId,
+        ),
+        ref.read(imGroupManagersPageLoaderProvider)(widget.conversationId),
+        ref.read(imGroupMutedMembersPageLoaderProvider)(widget.conversationId),
+        ref.read(imGroupJoinRequestsPageLoaderProvider)(widget.conversationId),
+        ref.read(imGroupNoticesPageLoaderProvider)(widget.conversationId),
+        ref.read(imGroupProfileRefresherProvider)(widget.conversationId),
       ]);
       if (!mounted) return;
       final managers = values[1] as ImGroupManagementPage<ImMember>;
@@ -91,129 +111,212 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
   }
 
   Future<void> _loadMore() async {
-    if (_loadingMore || _tab == 4) return;
-    final repository = ref.read(imRepositoryProvider);
-    setState(() => _loadingMore = true);
+    if (_loadingMore ||
+        _autoLoadRetryBlocked ||
+        _pagingExhausted ||
+        !_hasMoreForTab(_tab)) {
+      return;
+    }
+    final requestedTab = _tab;
+    final generation = _paginationGeneration;
+    setState(() {
+      _loadingMore = true;
+      _pagingError = false;
+    });
     try {
-      if (_tab == 0 && _muted.length < _mutedTotal) {
-        final result = await repository.groupMutedMembers(
+      if (requestedTab == 0) {
+        final previousPage = _mutedPage;
+        final previousLength = _muted.length;
+        final result = await ref.read(imGroupMutedMembersPageLoaderProvider)(
           widget.conversationId,
-          page: _mutedPage + 1,
+          page: previousPage + 1,
         );
-        if (!mounted) return;
+        if (!_acceptPageResult(requestedTab, generation)) return;
+        final merged = _mergeByKey(
+          _muted,
+          result.items,
+          (item) => item.member.id,
+        );
         setState(() {
-          _muted = _mergeByKey(_muted, result.items, (item) => item.member.id);
+          _muted = merged;
           _mutedPage = result.page;
           _mutedTotal = result.total;
+          _pagingExhausted =
+              result.page <= previousPage || merged.length == previousLength;
         });
-      } else if (_tab == 1 && _requests.length < _requestsTotal) {
-        final result = await repository.groupJoinRequests(
+      } else if (requestedTab == 1) {
+        final previousPage = _requestsPage;
+        final previousLength = _requests.length;
+        final result = await ref.read(imGroupJoinRequestsPageLoaderProvider)(
           widget.conversationId,
-          page: _requestsPage + 1,
+          page: previousPage + 1,
         );
-        if (!mounted) return;
+        if (!_acceptPageResult(requestedTab, generation)) return;
+        final merged = _mergeByKey(_requests, result.items, (item) => item.id);
         setState(() {
-          _requests = _mergeByKey(_requests, result.items, (item) => item.id);
+          _requests = merged;
           _requestsPage = result.page;
           _requestsTotal = result.total;
+          _pagingExhausted =
+              result.page <= previousPage || merged.length == previousLength;
         });
-      } else if (_tab == 2 && _managers.length < _managersTotal) {
-        final result = await repository.groupManagersPage(
+      } else if (requestedTab == 2) {
+        final previousPage = _managersPage;
+        final previousLength = _managers.length;
+        final result = await ref.read(imGroupManagersPageLoaderProvider)(
           widget.conversationId,
-          page: _managersPage + 1,
+          page: previousPage + 1,
         );
-        if (!mounted) return;
+        if (!_acceptPageResult(requestedTab, generation)) return;
+        final merged = _mergeByKey(_managers, result.items, (item) => item.id);
         setState(() {
-          _managers = _mergeByKey(_managers, result.items, (item) => item.id);
+          _managers = merged;
           _managersPage = result.page;
           _managersTotal = result.total;
+          _pagingExhausted =
+              result.page <= previousPage || merged.length == previousLength;
         });
-      } else if (_tab == 3 && _notices.length < _noticesTotal) {
-        final result = await repository.groupNotices(
+      } else if (requestedTab == 3) {
+        final previousPage = _noticesPage;
+        final previousLength = _notices.length;
+        final result = await ref.read(imGroupNoticesPageLoaderProvider)(
           widget.conversationId,
-          page: _noticesPage + 1,
+          page: previousPage + 1,
         );
-        if (!mounted) return;
+        if (!_acceptPageResult(requestedTab, generation)) return;
+        final merged = _mergeByKey(_notices, result.items, (item) => item.id);
         setState(() {
-          _notices = _mergeByKey(_notices, result.items, (item) => item.id);
+          _notices = merged;
           _noticesPage = result.page;
           _noticesTotal = result.total;
+          _pagingExhausted =
+              result.page <= previousPage || merged.length == previousLength;
         });
       }
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('加载更多失败：$error')));
+      if (!mounted ||
+          _tab != requestedTab ||
+          _paginationGeneration != generation) {
+        return;
       }
+      _autoLoadRetryBlocked = true;
+      setState(() => _pagingError = true);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('继续加载失败：$error')));
     } finally {
-      if (mounted) setState(() => _loadingMore = false);
+      if (_acceptPageResult(requestedTab, generation)) {
+        setState(() => _loadingMore = false);
+      }
     }
+  }
+
+  bool _acceptPageResult(int requestedTab, int generation) =>
+      mounted && _tab == requestedTab && _paginationGeneration == generation;
+
+  bool _hasMoreForTab(int tab) => switch (tab) {
+    0 => _muted.length < _mutedTotal,
+    1 => _requests.length < _requestsTotal,
+    2 => _managers.length < _managersTotal,
+    3 => _notices.length < _noticesTotal,
+    _ => false,
+  };
+
+  int _loadedCountForTab(int tab) => switch (tab) {
+    0 => _muted.length,
+    1 => _requests.length,
+    2 => _managers.length,
+    3 => _notices.length,
+    _ => 0,
+  };
+
+  int _totalForTab(int tab) => switch (tab) {
+    0 => _mutedTotal,
+    1 => _requestsTotal,
+    2 => _managersTotal,
+    3 => _noticesTotal,
+    _ => 0,
+  };
+
+  void _resetPagination({bool jumpToTop = true}) {
+    _paginationGeneration += 1;
+    _loadingMore = false;
+    _autoLoadScheduled = false;
+    _autoLoadRetryBlocked = false;
+    _pagingExhausted = false;
+    _pagingError = false;
+    if (!jumpToTop) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageScrollController.hasClients) return;
+      _pageScrollController.jumpTo(0);
+    });
+  }
+
+  void _changeTab(int tab) {
+    if (_tab == tab) return;
+    setState(() {
+      _tab = tab;
+      _resetPagination();
+    });
+  }
+
+  void _onPageScroll() {
+    if (_autoLoadRetryBlocked ||
+        !_pageScrollController.hasClients ||
+        _pageScrollController.position.extentAfter > 240) {
+      return;
+    }
+    unawaited(_loadMore());
+  }
+
+  bool _handlePageGesture(ScrollNotification notification) {
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null &&
+        _autoLoadRetryBlocked) {
+      setState(() {
+        _autoLoadRetryBlocked = false;
+        _pagingError = false;
+      });
+    }
+    return false;
+  }
+
+  void _scheduleAutoLoad() {
+    if (!_hasMoreForTab(_tab) ||
+        _pagingExhausted ||
+        _loadingMore ||
+        _autoLoadRetryBlocked ||
+        _autoLoadScheduled) {
+      return;
+    }
+    _autoLoadScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoLoadScheduled = false;
+      if (!mounted || !_pageScrollController.hasClients) return;
+      if (_pageScrollController.position.extentAfter <= 240) {
+        unawaited(_loadMore());
+      }
+    });
+  }
+
+  void _retryLoadMore() {
+    setState(() {
+      _autoLoadRetryBlocked = false;
+      _pagingError = false;
+    });
+    unawaited(_loadMore());
   }
 
   Future<void> _deleteAllHistory() async {
     final profile = _profile;
     if (profile == null || _deletingHistory) return;
-    var confirmation = '';
-    var reason = '';
-    final draft = await showDialog<_HistoryDeletionDraft>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('删除所有人的聊天记录'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '服务器消息、附件、收藏、已读和提及记录将异步删除，所有成员都无法恢复。',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: AppColors.secondaryText,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  maxLength: 500,
-                  minLines: 2,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: '删除原因',
-                    isDense: true,
-                  ),
-                  onChanged: (value) => setDialogState(() => reason = value),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: '输入群名确认：${profile.title}',
-                    isDense: true,
-                  ),
-                  onChanged: (value) =>
-                      setDialogState(() => confirmation = value),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              onPressed:
-                  reason.trim().isEmpty || confirmation.trim() != profile.title
-                  ? null
-                  : () => Navigator.pop(
-                      dialogContext,
-                      _HistoryDeletionDraft(confirmation.trim(), reason.trim()),
-                    ),
-              child: const Text('确认删除'),
-            ),
-          ],
-        ),
-      ),
+    final draft = await showMobileDestructiveVerificationSheet(
+      context,
+      title: '删除所有人的聊天记录',
+      message: '服务器消息、附件、收藏、已读和提及记录将异步删除，所有成员都无法恢复。',
+      requiredPhrase: profile.title,
+      reasonLabel: '删除原因',
+      confirmationLabel: '输入群名确认',
+      actionLabel: '确认删除',
     );
     if (draft == null || !mounted) return;
     setState(() {
@@ -304,27 +407,27 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
               _Tab(
                 label: '禁言 $_mutedTotal',
                 selected: _tab == 0,
-                onTap: () => setState(() => _tab = 0),
+                onTap: () => _changeTab(0),
               ),
               _Tab(
                 label: '入群 $_requestsTotal',
                 selected: _tab == 1,
-                onTap: () => setState(() => _tab = 1),
+                onTap: () => _changeTab(1),
               ),
               _Tab(
                 label: '管理员 $_managersTotal',
                 selected: _tab == 2,
-                onTap: () => setState(() => _tab = 2),
+                onTap: () => _changeTab(2),
               ),
               _Tab(
                 label: '记录 $_noticesTotal',
                 selected: _tab == 3,
-                onTap: () => setState(() => _tab = 3),
+                onTap: () => _changeTab(3),
               ),
               _Tab(
                 label: '高级',
                 selected: _tab == 4,
-                onTap: () => setState(() => _tab = 4),
+                onTap: () => _changeTab(4),
               ),
             ],
           ),
@@ -347,138 +450,177 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
 
   Widget _content() {
     if (_tab == 0) {
-      if (_muted.isEmpty) return const _EmptyList(label: '暂无禁言成员');
-      final hasMore = _muted.length < _mutedTotal;
-      return ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _muted.length + (hasMore ? 1 : 0),
-        separatorBuilder: (_, _) =>
-            const Divider(height: 1, indent: 58, color: AppColors.border),
-        itemBuilder: (_, index) {
-          if (index == _muted.length) {
-            return _LoadMoreRow(loading: _loadingMore, onTap: _loadMore);
-          }
-          final item = _muted[index];
-          return ListTile(
-            dense: true,
-            leading: InitialAvatar(
-              name: item.member.displayName,
-              radius: 17,
-              online: item.member.isOnline,
-              avatarDataUrl: item.member.avatarDataUrl,
-            ),
-            title: Text(
-              item.member.displayName,
-              style: const TextStyle(fontSize: 13),
-            ),
-            subtitle: Text(
-              item.mutedUntil == null
-                  ? '持续禁言'
-                  : '至 ${DateFormat('MM-dd HH:mm').format(item.mutedUntil!.toLocal())}',
-              style: const TextStyle(fontSize: 10.5),
-            ),
-            trailing: _capabilities.canMuteMembers
-                ? TextButton(
-                    onPressed: () => _unmute(item),
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Text('解除'),
-                  )
-                : null,
-          );
-        },
+      if (_muted.isEmpty) return _pagedEmpty('暂无禁言成员');
+      final hasMore = _hasMoreForTab(0) && !_pagingExhausted;
+      _scheduleAutoLoad();
+      return _withPaging(
+        ListView.separated(
+          key: const Key('group-management-page-scroll-0'),
+          controller: _pageScrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: _muted.length + (hasMore || _pagingError ? 1 : 0),
+          separatorBuilder: (_, _) =>
+              const Divider(height: 1, indent: 58, color: AppColors.border),
+          itemBuilder: (_, index) {
+            if (index == _muted.length) {
+              return _AutoPageFooter(
+                loaded: _muted.length,
+                total: _mutedTotal,
+                loading: _loadingMore,
+                error: _pagingError,
+                onRetry: _retryLoadMore,
+              );
+            }
+            final item = _muted[index];
+            return ListTile(
+              dense: true,
+              leading: InitialAvatar(
+                name: item.member.displayName,
+                radius: 17,
+                online: item.member.isOnline,
+                avatarKey: item.member.avatarKey,
+                avatarDataUrl: item.member.avatarDataUrl,
+              ),
+              title: Text(
+                item.member.displayName,
+                style: const TextStyle(fontSize: 13),
+              ),
+              subtitle: Text(
+                item.mutedUntil == null
+                    ? '持续禁言'
+                    : '至 ${DateFormat('MM-dd HH:mm').format(item.mutedUntil!.toLocal())}',
+                style: const TextStyle(fontSize: 10.5),
+              ),
+              trailing: _capabilities.canMuteMembers
+                  ? TextButton(
+                      onPressed: () => _unmute(item),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: const Text('解除'),
+                    )
+                  : null,
+            );
+          },
+        ),
       );
     }
     if (_tab == 1) {
-      if (_requests.isEmpty) return const _EmptyList(label: '暂无待审核申请');
-      final hasMore = _requests.length < _requestsTotal;
-      return ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _requests.length + (hasMore ? 1 : 0),
-        separatorBuilder: (_, _) =>
-            const Divider(height: 1, indent: 58, color: AppColors.border),
-        itemBuilder: (_, index) {
-          if (index == _requests.length) {
-            return _LoadMoreRow(loading: _loadingMore, onTap: _loadMore);
-          }
-          final item = _requests[index];
-          return ListTile(
-            dense: true,
-            leading: InitialAvatar(name: item.applicantName, radius: 17),
-            title: Text(
-              item.applicantName,
-              style: const TextStyle(fontSize: 13),
-            ),
-            subtitle: Text(
-              item.createdAt == null
-                  ? item.status
-                  : DateFormat('MM-dd HH:mm').format(item.createdAt!.toLocal()),
-              style: const TextStyle(fontSize: 10.5),
-            ),
-            trailing: _capabilities.canReviewJoinRequests
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton(
-                        onPressed: () => _handle(item, false),
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
+      if (_requests.isEmpty) return _pagedEmpty('暂无待审核申请');
+      final hasMore = _hasMoreForTab(1) && !_pagingExhausted;
+      _scheduleAutoLoad();
+      return _withPaging(
+        ListView.separated(
+          key: const Key('group-management-page-scroll-1'),
+          controller: _pageScrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: _requests.length + (hasMore || _pagingError ? 1 : 0),
+          separatorBuilder: (_, _) =>
+              const Divider(height: 1, indent: 58, color: AppColors.border),
+          itemBuilder: (_, index) {
+            if (index == _requests.length) {
+              return _AutoPageFooter(
+                loaded: _requests.length,
+                total: _requestsTotal,
+                loading: _loadingMore,
+                error: _pagingError,
+                onRetry: _retryLoadMore,
+              );
+            }
+            final item = _requests[index];
+            return ListTile(
+              dense: true,
+              leading: InitialAvatar(name: item.applicantName, radius: 17),
+              title: Text(
+                item.applicantName,
+                style: const TextStyle(fontSize: 13),
+              ),
+              subtitle: Text(
+                item.createdAt == null
+                    ? item.status
+                    : DateFormat('MM-dd HH:mm')
+                          .format(item.createdAt!.toLocal()),
+                style: const TextStyle(fontSize: 10.5),
+              ),
+              trailing: _capabilities.canReviewJoinRequests
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          onPressed: () => _handle(item, false),
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          child: const Text('拒绝'),
                         ),
-                        child: const Text('拒绝'),
-                      ),
-                      FilledButton(
-                        onPressed: () => _handle(item, true),
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(52, 32),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          visualDensity: VisualDensity.compact,
+                        FilledButton(
+                          onPressed: () => _handle(item, true),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(52, 32),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          child: const Text('通过'),
                         ),
-                        child: const Text('通过'),
-                      ),
-                    ],
-                  )
-                : null,
-          );
-        },
+                      ],
+                    )
+                  : null,
+            );
+          },
+        ),
       );
     }
     if (_tab == 2) {
-      if (_managers.isEmpty) return const _EmptyList(label: '暂无群管理员');
-      final hasMore = _managers.length < _managersTotal;
-      return ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _managers.length + (hasMore ? 1 : 0),
-        separatorBuilder: (_, _) =>
-            const Divider(height: 1, indent: 58, color: AppColors.border),
-        itemBuilder: (_, index) {
-          if (index == _managers.length) {
-            return _LoadMoreRow(loading: _loadingMore, onTap: _loadMore);
-          }
-          final item = _managers[index];
-          final isOwner = item.groupRole.toLowerCase() == 'owner';
-          return ListTile(
-            dense: true,
-            leading: InitialAvatar(
-              name: item.displayName,
-              radius: 17,
-              online: item.isOnline,
-              avatarDataUrl: item.avatarDataUrl,
-            ),
-            title: Text(item.displayName, style: const TextStyle(fontSize: 13)),
-            subtitle: Text(
-              item.username,
-              style: const TextStyle(fontSize: 10.5),
-            ),
-            trailing: Text(
-              isOwner ? '群主' : '管理员',
-              style: TextStyle(
-                fontSize: 11,
-                color: isOwner ? AppColors.primary : AppColors.secondaryText,
+      if (_managers.isEmpty) return _pagedEmpty('暂无群管理员');
+      final hasMore = _hasMoreForTab(2) && !_pagingExhausted;
+      _scheduleAutoLoad();
+      return _withPaging(
+        ListView.separated(
+          key: const Key('group-management-page-scroll-2'),
+          controller: _pageScrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: _managers.length + (hasMore || _pagingError ? 1 : 0),
+          separatorBuilder: (_, _) =>
+              const Divider(height: 1, indent: 58, color: AppColors.border),
+          itemBuilder: (_, index) {
+            if (index == _managers.length) {
+              return _AutoPageFooter(
+                loaded: _managers.length,
+                total: _managersTotal,
+                loading: _loadingMore,
+                error: _pagingError,
+                onRetry: _retryLoadMore,
+              );
+            }
+            final item = _managers[index];
+            final isOwner = item.groupRole.toLowerCase() == 'owner';
+            return ListTile(
+              dense: true,
+              leading: InitialAvatar(
+                name: item.displayName,
+                radius: 17,
+                online: item.isOnline,
+                avatarKey: item.avatarKey,
+                avatarDataUrl: item.avatarDataUrl,
               ),
-            ),
-          );
-        },
+              title: Text(
+                item.displayName,
+                style: const TextStyle(fontSize: 13),
+              ),
+              subtitle: Text(
+                item.username,
+                style: const TextStyle(fontSize: 10.5),
+              ),
+              trailing: Text(
+                isOwner ? '群主' : '管理员',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isOwner ? AppColors.primary : AppColors.secondaryText,
+                ),
+              ),
+            );
+          },
+        ),
       );
     }
     if (_tab == 4) {
@@ -532,42 +674,92 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
         ],
       );
     }
-    if (_notices.isEmpty) return const _EmptyList(label: '暂无群操作记录');
-    final hasMore = _notices.length < _noticesTotal;
-    return ListView.separated(
-      physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: _notices.length + (hasMore ? 1 : 0),
-      separatorBuilder: (_, _) =>
-          const Divider(height: 1, indent: 18, color: AppColors.border),
-      itemBuilder: (_, index) {
-        if (index == _notices.length) {
-          return _LoadMoreRow(loading: _loadingMore, onTap: _loadMore);
-        }
-        final item = _notices[index];
-        return ListTile(
-          dense: true,
-          leading: const Icon(
-            Icons.history_rounded,
-            size: 19,
-            color: AppColors.primary,
-          ),
-          title: Text(
-            item.actorName.isEmpty
-                ? _noticeLabel(item.type)
-                : '${item.actorName} · ${_noticeLabel(item.type)}',
-            style: const TextStyle(fontSize: 13),
-          ),
-          trailing: item.createdAt == null
-              ? null
-              : Text(
-                  DateFormat('MM-dd HH:mm').format(item.createdAt!.toLocal()),
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    color: AppColors.secondaryText,
+    if (_notices.isEmpty) return _pagedEmpty('暂无群操作记录');
+    final hasMore = _hasMoreForTab(3) && !_pagingExhausted;
+    _scheduleAutoLoad();
+    return _withPaging(
+      ListView.separated(
+        key: const Key('group-management-page-scroll-3'),
+        controller: _pageScrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _notices.length + (hasMore || _pagingError ? 1 : 0),
+        separatorBuilder: (_, _) =>
+            const Divider(height: 1, indent: 18, color: AppColors.border),
+        itemBuilder: (_, index) {
+          if (index == _notices.length) {
+            return _AutoPageFooter(
+              loaded: _notices.length,
+              total: _noticesTotal,
+              loading: _loadingMore,
+              error: _pagingError,
+              onRetry: _retryLoadMore,
+            );
+          }
+          final item = _notices[index];
+          return ListTile(
+            dense: true,
+            leading: const Icon(
+              Icons.history_rounded,
+              size: 19,
+              color: AppColors.primary,
+            ),
+            title: Text(
+              item.actorName.isEmpty
+                  ? _noticeLabel(item.type)
+                  : '${item.actorName} · ${_noticeLabel(item.type)}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            trailing: item.createdAt == null
+                ? null
+                : Text(
+                    DateFormat('MM-dd HH:mm').format(item.createdAt!.toLocal()),
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      color: AppColors.secondaryText,
+                    ),
                   ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _withPaging(Widget child) => NotificationListener<ScrollNotification>(
+    onNotification: _handlePageGesture,
+    child: child,
+  );
+
+  Widget _pagedEmpty(String label) {
+    final hasMore = _hasMoreForTab(_tab) && !_pagingExhausted;
+    if (!hasMore && !_pagingError) return _EmptyList(label: label);
+    _scheduleAutoLoad();
+    return _withPaging(
+      ListView(
+        key: ValueKey('group-management-page-scroll-$_tab'),
+        controller: _pageScrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: 280,
+            child: Center(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.secondaryText,
                 ),
-        );
-      },
+              ),
+            ),
+          ),
+          _AutoPageFooter(
+            loaded: _loadedCountForTab(_tab),
+            total: _totalForTab(_tab),
+            loading: _loadingMore,
+            error: _pagingError,
+            onRetry: _retryLoadMore,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -584,31 +776,39 @@ List<T> _mergeByKey<T>(
   return merged.values.toList(growable: false);
 }
 
-class _LoadMoreRow extends StatelessWidget {
-  const _LoadMoreRow({required this.loading, required this.onTap});
+class _AutoPageFooter extends StatelessWidget {
+  const _AutoPageFooter({
+    required this.loaded,
+    required this.total,
+    required this.loading,
+    required this.error,
+    required this.onRetry,
+  });
 
+  final int loaded;
+  final int total;
   final bool loading;
-  final VoidCallback onTap;
+  final bool error;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) => SizedBox(
+    key: const Key('group-management-page-footer'),
     height: 44,
     child: Center(
-      child: loading
+      child: error
+          ? TextButton(onPressed: onRetry, child: const Text('重新加载'))
+          : loading
           ? const SizedBox.square(
-              dimension: 17,
+              dimension: 15,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : TextButton(onPressed: onTap, child: const Text('加载更多')),
+          : Text(
+              '继续上滑 · $loaded/$total',
+              style: const TextStyle(color: AppColors.weakText, fontSize: 12),
+            ),
     ),
   );
-}
-
-final class _HistoryDeletionDraft {
-  const _HistoryDeletionDraft(this.confirmation, this.reason);
-
-  final String confirmation;
-  final String reason;
 }
 
 String _noticeLabel(String type) => switch (type.toLowerCase()) {

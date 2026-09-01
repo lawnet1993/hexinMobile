@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -11,6 +12,43 @@ import 'package:hexing_terminal_mobile/features/messages/presentation/chat_page.
 import 'package:hexing_terminal_mobile/shared/widgets/mobile_primitives.dart';
 
 void main() {
+  test('message window memory is bounded and evicts the oldest chat', () {
+    final memory = ConversationMessageWindowMemory()
+      ..remember('oldest', take: 160, hasOlder: false);
+    for (var index = 0; index < 32; index++) {
+      memory.remember('conversation-$index', take: 80, hasOlder: true);
+    }
+
+    final restored = memory.restore('oldest');
+    expect(restored.take, ConversationMessageWindowMemory.initialTake);
+    expect(restored.hasOlder, isTrue);
+  });
+
+  test('latest reconciliation coalesces and throttles rapid reopens', () async {
+    var now = DateTime.utc(2026, 8, 31, 8);
+    var loadCount = 0;
+    final pending = Completer<bool>();
+    final coordinator = ConversationLatestReconcileCoordinator(now: () => now);
+    Future<bool> loader(String conversationId) {
+      loadCount += 1;
+      return pending.future;
+    }
+
+    final first = coordinator.reconcile('ops', loader);
+    final second = coordinator.reconcile('ops', loader);
+    expect(loadCount, 1);
+    pending.complete(true);
+    expect(await first, isTrue);
+    expect(await second, isTrue);
+
+    expect(await coordinator.reconcile('ops', loader), isFalse);
+    expect(loadCount, 1);
+
+    now = now.add(const Duration(seconds: 11));
+    expect(await coordinator.reconcile('ops', loader), isTrue);
+    expect(loadCount, 2);
+  });
+
   test('message window reuses the hot cache on immediate reopen', () async {
     var loadCount = 0;
     final message = ImMessage(
@@ -83,6 +121,22 @@ void main() {
     expect(find.text('8 位成员'), findsNothing);
     expect(find.byTooltip('群聊详情'), findsOneWidget);
 
+    await tester.tap(find.byTooltip('提及成员'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mention-picker-sheet')), findsOneWidget);
+    expect(find.byKey(const Key('mention-picker-list')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('mention-picker-search'))).height,
+      34,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('mention-picker-member-me'))).height,
+      50,
+    );
+    expect(tester.testTextInput.isVisible, isFalse);
+    await tester.tap(find.byTooltip('关闭').last);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byTooltip('群聊详情'));
     await tester.pumpAndSettle();
     expect(find.text('群聊详情'), findsOneWidget);
@@ -96,10 +150,330 @@ void main() {
       const Size(36, 24),
     );
 
+    expect(find.byTooltip('添加成员'), findsOneWidget);
+    await tester.tap(find.byTooltip('添加成员'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('group-member-picker-sheet')), findsOneWidget);
+    expect(
+      tester
+          .getSize(find.byKey(const Key('group-member-picker-search')))
+          .height,
+      34,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('group-member-picker-submit')))
+          .height,
+      36,
+    );
+    expect(tester.testTextInput.isVisible, isFalse);
+    await tester.tap(find.byTooltip('关闭').last);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('查看全部'));
     await tester.pumpAndSettle();
     expect(find.text('全部群成员'), findsOneWidget);
+    expect(
+      find.byKey(const Key('group-member-directory-sheet')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('group-member-directory-search')))
+          .height,
+      34,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('group-member-directory-member-me')))
+          .height,
+      54,
+    );
+    expect(find.byType(Divider), findsNothing);
     expect(find.text('在线'), findsNWidgets(3));
+
+    await tester.tap(find.byKey(const Key('group-member-directory-member-3')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
+    expect(find.text('管理 唐泽'), findsOneWidget);
+    expect(find.text('设为管理员'), findsOneWidget);
+    expect(find.text('禁言 24 小时'), findsOneWidget);
+    expect(find.text('转让群主'), findsOneWidget);
+    expect(find.text('移出群聊'), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭').last);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('outgoing message exposes an icon-only lazy read receipt', (
+    tester,
+  ) async {
+    final currentMember = PreviewData.imBootstrap.currentMember;
+    var loadCount = 0;
+    final outgoing = ImMessage(
+      id: 'sent-with-receipt',
+      conversationId: 'direct',
+      sequence: 12,
+      senderId: currentMember.id,
+      content: '请查收',
+      kind: 'text',
+      createdAt: DateTime.utc(2026, 9, 1, 3, 50),
+    );
+    await _pumpChat(
+      tester,
+      'direct',
+      messages: [outgoing],
+      readReceiptLoader: (messageId) async {
+        loadCount += 1;
+        expect(messageId, outgoing.id);
+        return ImMessageReadReceipt(
+          conversationId: 'direct',
+          messageId: messageId,
+          sequence: outgoing.sequence,
+          readCount: 1,
+          totalRecipientCount: 1,
+          isReadByAll: true,
+          peerRead: true,
+          readers: [
+            ImMessageReadMember(
+              memberId: 'member-1',
+              username: 'tang.ze',
+              displayName: '唐泽',
+              role: 'member',
+              readAt: DateTime.utc(2026, 9, 1, 3, 51),
+            ),
+          ],
+        );
+      },
+    );
+
+    final receiptAction = find.byKey(
+      const ValueKey<String>('message-read-receipt-sent-with-receipt'),
+    );
+    expect(receiptAction, findsOneWidget);
+    expect(find.text('回执'), findsNothing);
+    expect(loadCount, 0);
+    final receiptRect = tester.getRect(receiptAction);
+    final bubbleTextRect = tester.getRect(find.text('请查收'));
+    expect(
+      (receiptRect.center.dy - bubbleTextRect.center.dy).abs(),
+      lessThan(12),
+      reason: '已读状态应与消息气泡保持同一视觉行，不能折到气泡下方',
+    );
+
+    await tester.tap(receiptAction);
+    await tester.pumpAndSettle();
+
+    expect(loadCount, 1);
+    expect(
+      find.byKey(const Key('message-read-receipts-sheet')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('message-read-receipts-list')))
+          .height,
+      52,
+    );
+    expect(find.text('已读 1/1'), findsOneWidget);
+    expect(find.text('唐泽'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('read receipt entry follows the server permission', (
+    tester,
+  ) async {
+    final source = PreviewData.imBootstrap;
+    final bootstrap = ImBootstrap(
+      currentMember: source.currentMember,
+      conversations: source.conversations,
+      contacts: source.contacts,
+      permissions: const ImPermissionSnapshot(readReceipt: false),
+      config: source.config,
+    );
+    final outgoing = ImMessage(
+      id: 'receipt-disabled',
+      conversationId: 'direct',
+      sequence: 13,
+      senderId: source.currentMember.id,
+      content: '权限关闭时不显示入口',
+      kind: 'text',
+      createdAt: DateTime.utc(2026, 9, 1, 3, 52),
+    );
+
+    await _pumpChat(
+      tester,
+      'direct',
+      messages: [outgoing],
+      bootstrap: bootstrap,
+    );
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('message-read-receipt-receipt-disabled'),
+      ),
+      findsNothing,
+    );
+    expect(find.text('回执'), findsNothing);
+    await tester.longPress(find.text('权限关闭时不显示入口'));
+    await tester.pumpAndSettle();
+    expect(find.text('查看已读'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('group composer follows server mute state and member role', (
+    tester,
+  ) async {
+    final source = PreviewData.imBootstrap;
+    final mutedProfile = ImGroupProfile(
+      conversationId: 'ops',
+      title: '华南运营协作',
+      notice: '',
+      muted: true,
+      status: 'active',
+    );
+    ImMember currentWithRole(String role) => ImMember(
+      id: source.currentMember.id,
+      username: source.currentMember.username,
+      displayName: source.currentMember.displayName,
+      isOnline: source.currentMember.isOnline,
+      groupRole: role,
+    );
+    final peers = PreviewData.conversationMembers('ops')
+        .where((member) => member.id != source.currentMember.id)
+        .toList();
+
+    await _pumpChat(
+      tester,
+      'ops',
+      groupProfile: mutedProfile,
+      members: [currentWithRole('member'), ...peers],
+    );
+    var input = tester.widget<TextField>(
+      find.byKey(const Key('chat-message-input')),
+    );
+    expect(input.enabled, isFalse);
+    expect(input.decoration?.hintText, '全员禁言中');
+    IconButton iconButton(String tooltip) => tester.widget<IconButton>(
+      find.ancestor(
+        of: find.byTooltip(tooltip),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(iconButton('附件').onPressed, isNull);
+    expect(iconButton('表情').onPressed, isNull);
+    expect(iconButton('发送').onPressed, isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await _pumpChat(
+      tester,
+      'ops',
+      groupProfile: mutedProfile,
+      members: [currentWithRole('owner'), ...peers],
+    );
+    input = tester.widget<TextField>(
+      find.byKey(const Key('chat-message-input')),
+    );
+    expect(input.enabled, isTrue);
+    expect(input.decoration?.hintText, '输入消息');
+    expect(iconButton('附件').onPressed, isNotNull);
+  });
+
+  testWidgets('group composer fails closed until the current role is loaded', (
+    tester,
+  ) async {
+    final profileCompleter = Completer<ImGroupProfile?>();
+    final peers = PreviewData.conversationMembers('ops')
+        .where(
+          (member) => member.id != PreviewData.imBootstrap.currentMember.id,
+        )
+        .toList();
+
+    await _pumpChat(
+      tester,
+      'ops',
+      members: peers,
+      groupProfileLoader: (_) => profileCompleter.future,
+      settle: false,
+    );
+    await tester.pump();
+
+    var input = tester.widget<TextField>(
+      find.byKey(const Key('chat-message-input')),
+    );
+    expect(input.enabled, isFalse);
+    expect(input.decoration?.hintText, '群聊状态加载中');
+
+    profileCompleter.complete(
+      const ImGroupProfile(
+        conversationId: 'ops',
+        title: '华南运营协作',
+        notice: '',
+        muted: true,
+        status: 'active',
+        currentUserRole: 'owner',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    input = tester.widget<TextField>(
+      find.byKey(const Key('chat-message-input')),
+    );
+    expect(input.enabled, isTrue);
+    expect(input.decoration?.hintText, '输入消息');
+  });
+
+  testWidgets('mention picker virtualizes and searches a large group', (
+    tester,
+  ) async {
+    var fullMemberLoads = 0;
+    final memberPageKeywords = <String>[];
+    final members = <ImMember>[
+      PreviewData.imBootstrap.currentMember,
+      ...List<ImMember>.generate(
+        2000,
+        (index) => ImMember(
+          id: 'large-member-$index',
+          username: 'large$index',
+          displayName: '成员 $index',
+          departmentName: '大群测试部',
+          isOnline: index.isEven,
+        ),
+      ),
+    ];
+    await _pumpChat(
+      tester,
+      'ops',
+      members: members,
+      onFullMembersRequested: (_) => fullMemberLoads += 1,
+      onMemberPageRequested: memberPageKeywords.add,
+    );
+
+    expect(find.text('2001 位成员'), findsOneWidget);
+    expect(fullMemberLoads, 0);
+    expect(memberPageKeywords, contains(''));
+
+    await tester.tap(find.byTooltip('提及成员'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mention-picker-list')), findsOneWidget);
+    expect(
+      find.byKey(const Key('mention-picker-member-large-member-1999')),
+      findsNothing,
+    );
+    expect(find.byType(ListTile).evaluate().length, lessThan(40));
+
+    await tester.enterText(
+      find.byKey(const Key('mention-picker-search')),
+      'large1999',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('mention-picker-member-large-member-1999')),
+      findsOneWidget,
+    );
+    expect(find.text('成员 1999'), findsOneWidget);
+    expect(memberPageKeywords, contains('large1999'));
+    expect(fullMemberLoads, 0);
   });
 
   testWidgets('direct chat uses the other member profile', (tester) async {
@@ -120,6 +494,24 @@ void main() {
     expect(find.text('共享文件'), findsOneWidget);
     expect(find.text('关联审批'), findsOneWidget);
     expect(find.text('共同任务'), findsOneWidget);
+    expect(find.text('发起群聊'), findsOneWidget);
+    await tester.tap(find.text('发起群聊'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('create-group-sheet')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('create-group-title-input'))).height,
+      36,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('create-group-submit'))).height,
+      36,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('create-group-member-1'))).height,
+      50,
+    );
+    await tester.tap(find.byTooltip('关闭').last);
+    await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView).last, const Offset(0, -420));
     await tester.pumpAndSettle();
     expect(find.text('删除单聊'), findsOneWidget);
@@ -164,6 +556,61 @@ void main() {
     },
   );
 
+  testWidgets('pure emoji messages use the desktop enlarged treatment', (
+    tester,
+  ) async {
+    final messages = <ImMessage>[
+      ImMessage(
+        id: 'emoji-single',
+        conversationId: 'tang',
+        sequence: 1,
+        senderId: '3',
+        content: '😀',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 9, 1, 1),
+      ),
+      ImMessage(
+        id: 'emoji-family',
+        conversationId: 'tang',
+        sequence: 2,
+        senderId: '3',
+        content: '👨‍👩‍👧‍👦 ❤️',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 9, 1, 1, 1),
+      ),
+      ImMessage(
+        id: 'emoji-keycap',
+        conversationId: 'tang',
+        sequence: 3,
+        senderId: '3',
+        content: '1️⃣',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 9, 1, 1, 2),
+      ),
+      ImMessage(
+        id: 'emoji-mixed',
+        conversationId: 'tang',
+        sequence: 4,
+        senderId: '3',
+        content: '😀 收到',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 9, 1, 1, 3),
+      ),
+    ];
+    await _pumpChat(tester, 'tang', messages: messages);
+
+    for (final id in const ['emoji-single', 'emoji-family', 'emoji-keycap']) {
+      final text = tester.widget<Text>(
+        find.byKey(ValueKey<String>('message-text-$id')),
+      );
+      expect(text.style?.fontSize, 30);
+    }
+    final mixed = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('message-text-emoji-mixed')),
+    );
+    expect(mixed.style?.fontSize, isNull);
+  });
+
   testWidgets(
     'direct chat aligns desktop resource tabs without mixing groups',
     (tester) async {
@@ -190,6 +637,20 @@ void main() {
         findsOneWidget,
       );
       expect(tester.getSize(find.byTooltip('发送')), const Size(40, 40));
+      await tester.tap(find.byTooltip('搜索聊天记录'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('chat-current-search')), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const Key('chat-current-search'))).height,
+        34,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('chat-current-search-close'))),
+        const Size(34, 34),
+      );
+      await tester.tap(find.byKey(const Key('chat-current-search-close')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('chat-current-search')), findsNothing);
       final chatTab = tester.getRect(
         find.byKey(const ValueKey<String>('chat-resource-tab-聊天')),
       );
@@ -227,9 +688,22 @@ void main() {
       await tester.tap(find.text('新建'));
       await tester.pumpAndSettle();
       expect(find.text('新建共同任务'), findsOneWidget);
+      expect(find.byKey(const Key('shared-task-create-sheet')), findsOneWidget);
       expect(
-        tester.getSize(find.widgetWithText(FilledButton, '创建')).height,
-        40,
+        tester.getSize(find.byKey(const Key('shared-task-title-input'))).height,
+        36,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const Key('shared-task-create-button')))
+            .height,
+        36,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const Key('shared-task-create-button')))
+            .width,
+        lessThan(120),
       );
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
@@ -264,6 +738,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('新建共同任务'), findsOneWidget);
     await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('附件'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('联系人'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('chat-contact-picker-sheet')), findsOneWidget);
+    expect(
+      tester
+          .getSize(find.byKey(const Key('chat-contact-picker-search')))
+          .height,
+      34,
+    );
+    expect(tester.testTextInput.isVisible, isFalse);
+    final firstContact = PreviewData.imBootstrap.contacts.first;
+    expect(
+      tester
+          .getSize(
+            find.byKey(
+              ValueKey('chat-contact-picker-member-${firstContact.id}'),
+            ),
+          )
+          .height,
+      50,
+    );
+    await tester.tap(find.byTooltip('关闭').last);
     await tester.pumpAndSettle();
 
     await _pumpChat(tester, 'ops');
@@ -310,9 +810,20 @@ void main() {
     await tester.longPress(find.text('6 月运营数据看板已更新，请大家查收。'));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
+    expect(find.text('消息操作'), findsOneWidget);
     expect(find.text('回复'), findsOneWidget);
     expect(find.text('收藏'), findsOneWidget);
     expect(find.text('设为群置顶'), findsNothing);
+
+    await tester.tap(find.text('转发'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
+    expect(find.text('转发到'), findsOneWidget);
+    expect(find.text('华南运营协作'), findsOneWidget);
+    expect(find.text('群聊'), findsWidgets);
+    await tester.tap(find.byTooltip('关闭').last);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('group message actions expose group pin control', (tester) async {
@@ -321,6 +832,7 @@ void main() {
     await tester.longPress(find.text('6 月运营数据看板已更新，请大家查收。'));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
     expect(find.text('设为群置顶'), findsOneWidget);
   });
 
@@ -467,10 +979,12 @@ void main() {
     );
     var loadCount = 0;
     int? requestedBeforeSequence;
+    final windowMemory = ConversationMessageWindowMemory();
     await _pumpChat(
       tester,
       'ops',
       messages: messages,
+      messageWindowMemory: windowMemory,
       olderMessageLoader: (conversationId, {beforeSequence}) async {
         loadCount += 1;
         requestedBeforeSequence = beforeSequence;
@@ -496,6 +1010,48 @@ void main() {
 
     expect(loadCount, 1);
     expect(requestedBeforeSequence, 100);
+    final rememberedWindow = windowMemory.restore('ops');
+    expect(rememberedWindow.take, 81);
+    expect(rememberedWindow.hasOlder, isFalse);
+  });
+
+  testWidgets('reopening a chat restores its expanded exhausted window', (
+    tester,
+  ) async {
+    final messages = List<ImMessage>.generate(
+      30,
+      (index) => ImMessage(
+        id: 'reopen-history-$index',
+        conversationId: 'ops',
+        sequence: index + 1,
+        senderId: 'member-1',
+        content: '已加载消息 $index',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 8, 31, 8, index),
+      ),
+    );
+    final windowMemory = ConversationMessageWindowMemory()
+      ..remember('ops', take: 160, hasOlder: false);
+    int? requestedTake;
+    var olderLoadCount = 0;
+
+    await _pumpChat(
+      tester,
+      'ops',
+      messages: messages,
+      messageWindowMemory: windowMemory,
+      onWindowRequested: (take) => requestedTake = take,
+      olderMessageLoader: (conversationId, {beforeSequence}) async {
+        olderLoadCount += 1;
+        return const <ImMessage>[];
+      },
+    );
+
+    expect(requestedTake, 160);
+    final list = find.byKey(const PageStorageKey<String>('chat-messages:ops'));
+    await tester.drag(list, const Offset(0, 1800));
+    await tester.pumpAndSettle();
+    expect(olderLoadCount, 0);
   });
 
   testWidgets('failed older message load retries on the next upward scroll', (
@@ -562,8 +1118,16 @@ Future<void> _pumpChat(
   List<ImMessage> messages = const [],
   ImBootstrap? bootstrap,
   List<ImMember>? members,
+  ImGroupProfile? groupProfile,
+  Future<ImGroupProfile?> Function(String conversationId)? groupProfileLoader,
   Uint8List? videoPreview,
   ConversationOlderMessageLoader? olderMessageLoader,
+  ConversationMessageWindowMemory? messageWindowMemory,
+  ValueChanged<int>? onWindowRequested,
+  ValueChanged<String>? onFullMembersRequested,
+  ValueChanged<String>? onMemberPageRequested,
+  ImMessageReadReceiptLoader? readReceiptLoader,
+  bool settle = true,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -575,9 +1139,14 @@ Future<void> _pumpChat(
           (ref) async => PreviewData.oaBootstrap,
         ),
         conversationMessagesProvider.overrideWith((ref, id) async => messages),
-        conversationMessageWindowProvider.overrideWith(
-          (ref, key) async => messages,
-        ),
+        conversationMessageWindowProvider.overrideWith((ref, key) async {
+          onWindowRequested?.call(key.take);
+          return messages;
+        }),
+        if (messageWindowMemory != null)
+          conversationMessageWindowMemoryProvider.overrideWithValue(
+            messageWindowMemory,
+          ),
         conversationOlderMessageLoaderProvider.overrideWithValue(
           olderMessageLoader ??
               (conversationId, {beforeSequence}) async => const <ImMessage>[],
@@ -608,20 +1177,47 @@ Future<void> _pumpChat(
               ? null
               : ImVideoPreviewSource.memory(videoPreview),
         ),
-        conversationMembersProvider.overrideWith(
-          (ref, id) async => members ?? PreviewData.conversationMembers(id),
-        ),
+        if (readReceiptLoader != null)
+          imMessageReadReceiptLoaderProvider.overrideWithValue(
+            readReceiptLoader,
+          ),
+        conversationMembersProvider.overrideWith((ref, id) async {
+          onFullMembersRequested?.call(id);
+          return members ?? PreviewData.conversationMembers(id);
+        }),
         conversationMemberPageProvider.overrideWith((ref, key) async {
-          final members = PreviewData.conversationMembers(key.conversationId);
+          onMemberPageRequested?.call(key.keyword);
+          final source =
+              members ?? PreviewData.conversationMembers(key.conversationId);
+          final keyword = key.keyword.trim().toLowerCase();
+          final filtered = source
+              .where(
+                (member) =>
+                    keyword.isEmpty ||
+                    member.displayName.toLowerCase().contains(keyword) ||
+                    member.username.toLowerCase().contains(keyword) ||
+                    member.departmentName.toLowerCase().contains(keyword),
+              )
+              .toList(growable: false);
+          final start = (key.page - 1) * key.pageSize;
           return ImMemberPage(
-            items: members,
-            page: 1,
+            items: start >= filtered.length
+                ? const <ImMember>[]
+                : filtered
+                      .skip(start)
+                      .take(key.pageSize)
+                      .toList(growable: false),
+            page: key.page,
             pageSize: key.pageSize,
-            total: members.length,
+            total: filtered.length,
           );
         }),
         groupProfileProvider.overrideWith(
-          (ref, id) async => PreviewData.groupProfile(id),
+          (ref, id) =>
+              groupProfileLoader?.call(id) ??
+              Future<ImGroupProfile?>.value(
+                groupProfile ?? PreviewData.groupProfile(id),
+              ),
         ),
         groupManagersProvider.overrideWith(
           (ref, id) async => PreviewData.groupManagers(id),
@@ -632,7 +1228,11 @@ Future<void> _pumpChat(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
 }
 
 final Uint8List _testImageBytes = base64Decode(

@@ -7,9 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hexing_terminal_mobile/core/demo/preview_data.dart';
 import 'package:hexing_terminal_mobile/core/storage/secure_session_store.dart';
 import 'package:hexing_terminal_mobile/core/theme/app_theme.dart';
+import 'package:hexing_terminal_mobile/core/updates/client_update_repository.dart';
+import 'package:hexing_terminal_mobile/core/updates/client_update_sheet.dart';
 import 'package:hexing_terminal_mobile/features/auth/application/auth_controller.dart';
 import 'package:hexing_terminal_mobile/features/auth/presentation/login_page.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration_repositories.dart';
+import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:hexing_terminal_mobile/features/contacts/presentation/contacts_page.dart';
 import 'package:hexing_terminal_mobile/features/messages/presentation/chat_page.dart';
 import 'package:hexing_terminal_mobile/features/messages/presentation/conversation_detail_page.dart';
@@ -99,6 +102,11 @@ void main() {
       ),
       navigationIndex: null,
     ),
+    (
+      name: '13-mandatory-update',
+      page: const _MandatoryUpdatePreview(),
+      navigationIndex: 0,
+    ),
   ];
 
   for (final item in cases) {
@@ -115,9 +123,9 @@ void main() {
                   0,
                   (total, conversation) => total + conversation.unreadCount,
                 ),
-                pendingApprovalCount: PreviewData.oaBootstrap.approvalRequests
-                    .where((item) => item.operableTask != null)
-                    .length,
+                pendingWorkCount: mobilePendingWorkCount(
+                  PreviewData.oaBootstrap,
+                ),
                 onDestinationSelected: (_) {},
               ),
             );
@@ -148,6 +156,17 @@ void main() {
             conversationMembersProvider.overrideWith(
               (ref, id) async => PreviewData.conversationMembers(id),
             ),
+            conversationMemberPageProvider.overrideWith((ref, key) async {
+              final members = PreviewData.conversationMembers(
+                key.conversationId,
+              );
+              return ImMemberPage(
+                items: members.take(key.pageSize).toList(growable: false),
+                page: key.page,
+                pageSize: key.pageSize,
+                total: members.length,
+              );
+            }),
             groupProfileProvider.overrideWith(
               (ref, id) async => PreviewData.groupProfile(id),
             ),
@@ -183,6 +202,45 @@ void main() {
       );
     });
   }
+}
+
+class _MandatoryUpdatePreview extends StatefulWidget {
+  const _MandatoryUpdatePreview();
+
+  @override
+  State<_MandatoryUpdatePreview> createState() =>
+      _MandatoryUpdatePreviewState();
+}
+
+class _MandatoryUpdatePreviewState extends State<_MandatoryUpdatePreview> {
+  bool _shown = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_shown) return;
+    _shown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showClientUpdateSheet(
+        context,
+        info: const ClientUpdateInfo(
+          hasPublishedVersion: true,
+          updateAvailable: true,
+          isMandatory: true,
+          releaseId: 'release-golden',
+          latestVersion: '1.0.81',
+          packageUrl: 'https://example.test/mobile.apk',
+          packageSize: 105706291,
+          releaseNotes: '修复通知中心分页加载，优化消息页切回时的会话恢复。',
+        ),
+        onDownload: () async {},
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const WorkbenchPage();
 }
 
 Future<void> _loadFont(String family, String path) async {

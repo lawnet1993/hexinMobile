@@ -23,9 +23,10 @@ import 'package:hexing_terminal_mobile/shared/widgets/mobile_primitives.dart';
 import 'package:intl/intl.dart';
 
 void main() {
-  testWidgets('OA confirmation and time selection use bottom sheets', (
+  testWidgets('mobile confirmation, text input and time selection use sheets', (
     tester,
   ) async {
+    String? textResult;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -39,6 +40,17 @@ void main() {
                     message: '测试确认内容',
                   ),
                   child: const Text('打开确认'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    textResult = await showMobileTextInputSheet(
+                      context,
+                      title: '编辑内容',
+                      initialValue: '原内容',
+                      allowEmpty: false,
+                    );
+                  },
+                  child: const Text('打开输入'),
                 ),
                 TextButton(
                   onPressed: () => showMobileTimePickerSheet(
@@ -61,12 +73,173 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, '取消'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('打开输入'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-text-input-sheet')), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const Key('mobile-text-input-field'))).height,
+      lessThanOrEqualTo(40),
+    );
+    await tester.enterText(
+      find.byKey(const Key('mobile-text-input-field')),
+      '新内容',
+    );
+    await tester.tap(find.byKey(const Key('mobile-text-input-submit')));
+    await tester.pumpAndSettle();
+    expect(textResult, '新内容');
+
     await tester.tap(find.text('打开时间'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('mobile-time-picker-sheet')), findsOneWidget);
     expect(find.byType(TimePickerDialog), findsNothing);
     await tester.tap(find.widgetWithText(TextButton, '取消'));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'destructive verification stays compact and requires exact text',
+    (tester) async {
+      Future<MobileDestructiveVerificationResult?>? pendingResult;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () {
+                  pendingResult = showMobileDestructiveVerificationSheet(
+                    context,
+                    title: '删除所有人的聊天记录',
+                    message: '所有成员都无法恢复。',
+                    requiredPhrase: '测试群',
+                    reasonLabel: '删除原因',
+                    actionLabel: '确认删除',
+                  );
+                },
+                child: const Text('打开删除确认'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('打开删除确认'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('mobile-destructive-verification-sheet')),
+        findsOneWidget,
+      );
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        tester
+            .getSize(find.byKey(const Key('mobile-destructive-confirmation')))
+            .height,
+        lessThanOrEqualTo(40),
+      );
+      final submit = tester.widget<FilledButton>(
+        find.byKey(const Key('mobile-destructive-submit')),
+      );
+      expect(submit.onPressed, isNull);
+
+      await tester.enterText(
+        find.byKey(const Key('mobile-destructive-reason')),
+        'AI-UAT 测试清理',
+      );
+      await tester.enterText(
+        find.byKey(const Key('mobile-destructive-confirmation')),
+        '错误群名',
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('mobile-destructive-submit')),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('mobile-destructive-confirmation')),
+        '测试群',
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('mobile-destructive-submit')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      tester.testTextInput.hide();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('mobile-destructive-submit')),
+      );
+      tester
+          .widget<FilledButton>(
+            find.byKey(const Key('mobile-destructive-submit')),
+          )
+          .onPressed!();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 700));
+      final result = await pendingResult;
+      expect(result?.reason, 'AI-UAT 测试清理');
+      expect(result?.confirmation, '测试群');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('mobile sheets cover the shell bottom navigation', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: const SizedBox(
+            key: Key('test-shell-bottom-nav'),
+            height: 64,
+          ),
+          body: Navigator(
+            onGenerateRoute: (_) => MaterialPageRoute<void>(
+              builder: (_) => Scaffold(
+                body: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => showMobileChoiceSheet<String>(
+                      context,
+                      title: '操作',
+                      options: const [
+                        MobileSheetOption(value: 'one', label: '第一项'),
+                      ],
+                    ),
+                    child: const Text('打开操作'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开操作'));
+    await tester.pumpAndSettle();
+    final sheetBottom = tester
+        .getBottomRight(find.byKey(const Key('mobile-choice-sheet')))
+        .dy;
+    final navigationTop = tester
+        .getTopLeft(find.byKey(const Key('test-shell-bottom-nav')))
+        .dy;
+    expect(sheetBottom, greaterThan(navigationTop));
+    expect(sheetBottom, 844);
     expect(tester.takeException(), isNull);
   });
 
@@ -103,8 +276,20 @@ void main() {
     expect(find.text('抄送我的'), findsOneWidget);
     expect(find.text('草稿箱'), findsOneWidget);
     expect(find.text('待同步'), findsOneWidget);
-    expect(tester.getRect(find.text('待同步')).right, lessThan(390));
+    expect(
+      tester.getRect(find.text('我发起的')).left -
+          tester.getRect(find.text('待我处理')).left,
+      closeTo(56, 2),
+    );
+    final tabStrip = tester.widget<SingleChildScrollView>(
+      find.byKey(const Key('todo-tab-strip')),
+    );
+    expect(tabStrip.controller!.position.maxScrollExtent, 0);
     expect(find.text('搜索事项或申请编号'), findsOneWidget);
+    expect(
+      tester.getSize(find.widgetWithText(TextField, '搜索事项或申请编号')).height,
+      34,
+    );
     expect(find.byType(NetworkIndicator), findsNothing);
     expect(find.text('个人待办'), findsNothing);
     final flatContent = tester.widget<Material>(
@@ -122,6 +307,207 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('新建待办'), findsOneWidget);
     expect(find.text('新建申请'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('新建待办'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('todo-create-sheet')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('todo-title-input'))).height,
+      36,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('todo-create-button'))).height,
+      36,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('todo-create-button'))).width,
+      lessThan(120),
+    );
+    expect(find.byType(AlertDialog), findsNothing);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('todo-create-sheet')), findsNothing);
+  });
+
+  testWidgets('personal todo uses one compact completion control', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final source = PreviewData.oaBootstrap;
+    final personalTodo = OaTodo(
+      id: 'personal-completed',
+      title: '已完成个人待办',
+      description: '验收记录',
+      status: 'completed',
+      priority: 'normal',
+      dueAt: DateTime(2026, 9, 1, 12),
+      createdById: source.currentMemberId,
+    );
+    final bootstrap = OaBootstrap(
+      currentMemberId: source.currentMemberId,
+      displayName: source.displayName,
+      todos: [...source.todos, personalTodo],
+      announcements: source.announcements,
+      templates: source.templates,
+      approvalRequests: source.approvalRequests,
+      approvalRequestsNextCursor: source.approvalRequestsNextCursor,
+      approvalRequestsHasMore: source.approvalRequestsHasMore,
+      notifications: source.notifications,
+    );
+    await _pump(
+      tester,
+      const TodosPage(),
+      overrides: [
+        oaBootstrapProvider.overrideWith((ref) async => bootstrap),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        oaDraftsProvider.overrideWith((ref) async => const []),
+        oaOutboxProvider.overrideWith((ref) async => const []),
+      ],
+    );
+
+    await tester.tap(find.text('我发起的'));
+    await tester.pumpAndSettle();
+    final toggle = find.byKey(const ValueKey('todo-toggle-personal-completed'));
+    expect(toggle, findsOneWidget);
+    expect(tester.getSize(toggle), const Size.square(40));
+    expect(find.byType(Checkbox), findsOneWidget);
+    expect(find.byIcon(Icons.task_alt_rounded), findsNothing);
+    expect(find.byIcon(Icons.checklist_rounded), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('approval list loads the next page while scrolling', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final base = PreviewData.oaBootstrap;
+    final pending = base.approvalRequests.firstWhere(
+      (item) => item.operableTask != null,
+    );
+    final firstPage = List.generate(
+      20,
+      (index) => _copyApproval(
+        pending,
+        id: 'approval-page-${index + 1}',
+        title: '分页审批 ${index + 1}',
+      ),
+    );
+    final bootstrap = OaBootstrap(
+      currentMemberId: base.currentMemberId,
+      displayName: base.displayName,
+      todos: const [],
+      announcements: base.announcements,
+      templates: base.templates,
+      approvalRequests: firstPage,
+      approvalRequestsNextCursor: 'approval-cursor-2',
+      approvalRequestsHasMore: true,
+      notifications: base.notifications,
+    );
+    var secondPageCalls = 0;
+
+    await _pump(
+      tester,
+      const TodosPage(),
+      overrides: [
+        oaBootstrapProvider.overrideWith((ref) async => bootstrap),
+        oaApprovalRequestsPageProvider.overrideWith((ref, key) async {
+          expect(key.cursor, 'approval-cursor-2');
+          expect(key.view, 'pending');
+          secondPageCalls += 1;
+          return OaApprovalRequestPage(
+            items: [
+              _copyApproval(pending, id: 'approval-page-21', title: '自动载入的审批'),
+            ],
+            nextCursor: null,
+            hasMore: false,
+          );
+        }),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        oaDraftsProvider.overrideWith((ref) async => const []),
+        oaOutboxProvider.overrideWith((ref) async => const []),
+      ],
+    );
+
+    expect(secondPageCalls, 0);
+    expect(find.text('加载更多'), findsNothing);
+    await tester.drag(
+      find.byKey(const Key('approval-page-scroll')),
+      const Offset(0, -2200),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const Key('approval-page-scroll')),
+      const Offset(0, -900),
+    );
+    await tester.pumpAndSettle();
+
+    expect(secondPageCalls, 1);
+    expect(find.text('自动载入的审批'), findsOneWidget);
+    expect(find.byKey(const Key('approval-page-footer')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty approval result fills the next page automatically', (
+    tester,
+  ) async {
+    final base = PreviewData.oaBootstrap;
+    final pending = base.approvalRequests.firstWhere(
+      (item) => item.operableTask != null,
+    );
+    final bootstrap = OaBootstrap(
+      currentMemberId: base.currentMemberId,
+      displayName: base.displayName,
+      todos: const [],
+      announcements: base.announcements,
+      templates: base.templates,
+      approvalRequests: const [],
+      approvalRequestsNextCursor: 'empty-cursor-2',
+      approvalRequestsHasMore: true,
+      notifications: base.notifications,
+    );
+    var secondPageCalls = 0;
+
+    await _pump(
+      tester,
+      const TodosPage(),
+      overrides: [
+        oaBootstrapProvider.overrideWith((ref) async => bootstrap),
+        oaApprovalRequestsPageProvider.overrideWith((ref, key) async {
+          secondPageCalls += 1;
+          return OaApprovalRequestPage(
+            items: [
+              _copyApproval(pending, id: 'empty-page-result', title: '空首屏自动补齐'),
+            ],
+            nextCursor: null,
+            hasMore: false,
+          );
+        }),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        oaDraftsProvider.overrideWith((ref) async => const []),
+        oaOutboxProvider.overrideWith((ref) async => const []),
+      ],
+    );
+
+    expect(secondPageCalls, 1);
+    expect(find.text('空首屏自动补齐'), findsOneWidget);
+    expect(find.text('加载更多记录'), findsNothing);
+    expect(find.text('加载更多'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -144,7 +530,7 @@ void main() {
       state: 'failed',
       attempts: 1,
       nextRetryAt: now,
-      lastError: '申请表单校验失败，请检查必填项',
+      lastError: 'Approval form validation failed.\n请选择请假类型。\n请填写请假事由。',
       createdAt: now,
       updatedAt: now,
     );
@@ -163,6 +549,8 @@ void main() {
       ],
     );
 
+    await tester.ensureVisible(find.text('待同步'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('待同步'));
     await tester.pumpAndSettle();
     expect(find.textContaining('修改后重提 · 1 次'), findsOneWidget);
@@ -170,7 +558,7 @@ void main() {
       find.text(DateFormat('MM-dd HH:mm').format(now.toLocal())),
       findsOneWidget,
     );
-    expect(find.text('申请表单校验失败，请检查必填项'), findsOneWidget);
+    expect(find.textContaining('申请表单校验失败'), findsOneWidget);
     expect(
       tester
           .getSize(
@@ -187,8 +575,15 @@ void main() {
     expect(find.byType(PopupMenuButton<String>), findsNothing);
     expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('修改后重提'), findsOneWidget);
+    expect(find.text('查看失败原因'), findsOneWidget);
     expect(find.text('重试'), findsNothing);
     expect(find.text('放弃记录'), findsOneWidget);
+    await tester.tap(find.text('查看失败原因'));
+    await tester.pumpAndSettle();
+    expect(find.text('失败原因'), findsOneWidget);
+    expect(find.textContaining('请选择请假类型。'), findsWidgets);
+    expect(find.textContaining('请填写请假事由。'), findsWidgets);
+    expect(find.byType(AlertDialog), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -231,6 +626,12 @@ void main() {
       ],
     );
 
+    expect(find.byKey(const Key('todo-tabs-right-fade')), findsNothing);
+    expect(find.byKey(const Key('todo-tabs-left-fade')), findsNothing);
+    final tabStrip = tester.widget<SingleChildScrollView>(
+      find.byKey(const Key('todo-tab-strip')),
+    );
+    expect(tabStrip.controller!.position.maxScrollExtent, 0);
     final label = tester.getRect(find.text('待同步'));
     final badge = tester.getRect(
       find.byKey(const ValueKey('todo-tab-badge-待同步')),
@@ -365,7 +766,7 @@ void main() {
     expect(find.text('请款金额 *'), findsOneWidget);
     expect(find.text('请款事由 *'), findsOneWidget);
     expect(find.text('附件'), findsOneWidget);
-    expect(find.text('0 / 20'), findsOneWidget);
+    expect(find.text('0 / 1'), findsOneWidget);
     expect(find.text('请款凭证.pdf'), findsNothing);
     final amount = tester.widget<TextFormField>(
       find.byType(TextFormField).at(0),
@@ -505,6 +906,78 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'approval detail never exposes visual-form configuration as business data',
+    (tester) async {
+      final source = PreviewData.oaBootstrap.approvalRequests.first;
+      final request = OaApprovalRequest(
+        id: 'schema-config-detail',
+        requesterId: source.requesterId,
+        title: '请假审批',
+        formDataJson: jsonEncode({
+          'days': {'mode': '自动计算', 'readOnly': '只读', 'unit': '单位天'},
+          'hours': '自动计算，只读，单位小时',
+          'reason': '真实请假事由',
+        }),
+        formSchemaSnapshotJson: jsonEncode({
+          'fields': [
+            {
+              'id': 'days',
+              'label': '请假天数',
+              'type': 'number',
+              'readOnly': true,
+              'unit': '天',
+            },
+            {
+              'id': 'hours',
+              'label': '请假小时',
+              'type': 'number',
+              'readOnly': true,
+              'unit': '小时',
+            },
+            {'id': 'reason', 'label': '请假事由', 'type': 'text'},
+          ],
+        }),
+        status: source.status,
+        createdAt: source.createdAt,
+        updatedAt: source.updatedAt,
+        requesterName: source.requesterName,
+        requesterDepartmentName: source.requesterDepartmentName,
+        templateName: source.templateName,
+        templateCategory: source.templateCategory,
+        allowedActions: const [],
+        tasks: const [],
+        actions: const [],
+        attachments: const [],
+      );
+      await _pump(
+        tester,
+        ApprovalDetailPage(approvalId: request.id),
+        overrides: [
+          oaApprovalRequestProvider(request.id)
+              .overrideWith((ref) async => request),
+          oaBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.oaBootstrap,
+          ),
+          oaApplicationCatalogProvider.overrideWith(
+            (ref) async => PreviewData.oaCatalog,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.imBootstrap,
+          ),
+        ],
+      );
+
+      expect(find.text('请假天数'), findsOneWidget);
+      expect(find.text('请假小时'), findsOneWidget);
+      expect(find.text('真实请假事由'), findsOneWidget);
+      expect(find.textContaining('自动计算'), findsNothing);
+      expect(find.textContaining('只读'), findsNothing);
+      expect(find.textContaining('单位天'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('approval list keeps number, delegation and terminal status', (
     tester,
   ) async {
@@ -596,6 +1069,17 @@ void main() {
     await tester.tap(find.text('点击检查'));
     await tester.pumpAndSettle();
     expect(find.text('发现 v1.0.2'), findsOneWidget);
+    await tester.tap(find.text('发现 v1.0.2'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('client-update-sheet')), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('发现新版本'), findsOneWidget);
+    expect(find.text('版本 v1.0.2'), findsOneWidget);
+    expect(find.text('安全更新'), findsOneWidget);
+    expect(find.byKey(const Key('client-update-close')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('client-update-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('client-update-sheet')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -674,6 +1158,52 @@ void main() {
       140,
     );
 
+    final reasonField = find.byKey(const ValueKey('schema-reason'));
+    await tester.ensureVisible(reasonField);
+    await tester.tap(reasonField);
+    await tester.pump();
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'A',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(
+              of: reasonField,
+              matching: find.byType(EditableText),
+            ),
+          )
+          .focusNode
+          .hasFocus,
+      isTrue,
+    );
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'AI-UAT',
+        selection: TextSelection.collapsed(offset: 6),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('AI-UAT'), findsOneWidget);
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(
+              of: reasonField,
+              matching: find.byType(EditableText),
+            ),
+          )
+          .focusNode
+          .hasFocus,
+      isTrue,
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+
     await tester.tap(find.byKey(const ValueKey('schema-leaveType-select')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
@@ -737,7 +1267,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('请假天数 *'), findsOneWidget);
-    expect(find.textContaining('自动计算'), findsNothing);
+    expect(find.text('根据起止时间自动计算自然日'), findsOneWidget);
+    expect(find.text('自动计算'), findsNothing);
+    expect(find.text('只读'), findsNothing);
+    expect(find.textContaining('单位天'), findsNothing);
     expect(find.byIcon(Icons.calculate_outlined), findsNothing);
     final durationField = find.byKey(const ValueKey('schema-duration-'));
     final durationInput = tester.widget<TextField>(
@@ -750,6 +1283,126 @@ void main() {
     await tester.pump();
     expect(tester.testTextInput.isVisible, isFalse);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('schema configuration objects never render as field values', (
+    tester,
+  ) async {
+    const template = OaApprovalTemplate(
+      id: 'readonly-number-template',
+      name: '请假审批',
+      category: '考勤',
+      iconKey: 'leave',
+      workflowKey: 'attendance.leave',
+      version: 1,
+      formSchemaJson: '{"fields":[{"id":"days","label":"请假天数","type":"number","readOnly":true,"unit":"天"}]}',
+    );
+    final bootstrap = OaBootstrap(
+      currentMemberId: PreviewData.oaBootstrap.currentMemberId,
+      displayName: PreviewData.oaBootstrap.displayName,
+      todos: PreviewData.oaBootstrap.todos,
+      announcements: PreviewData.oaBootstrap.announcements,
+      templates: const [template],
+    );
+    await _pump(
+      tester,
+      const ApprovalRequestPage(
+        applicationKey: 'attendance.leave',
+        templateId: 'readonly-number-template',
+        initialFormData: {
+          'days': {'mode': '自动计算', 'readOnly': '只读', 'unit': '单位天'},
+        },
+      ),
+      overrides: [
+        oaBootstrapProvider.overrideWith((ref) async => bootstrap),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        oaWorkflowPreviewLoaderProvider.overrideWithValue(
+          ({
+            required String applicationKey,
+            required OaApprovalTemplate template,
+            required Map<String, Object?> formData,
+          }) async => PreviewData.workflowPreview(template),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('自动计算'), findsNothing);
+    expect(find.textContaining('只读'), findsNothing);
+    expect(find.textContaining('单位天'), findsNothing);
+    final input = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const ValueKey('schema-days-')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(input.controller?.text ?? '', isEmpty);
+    expect(input.readOnly, isTrue);
+    expect(input.decoration?.suffixText, '天');
+  });
+
+  testWidgets('serialized schema description never fills readonly input', (
+    tester,
+  ) async {
+    const template = OaApprovalTemplate(
+      id: 'readonly-text-template',
+      name: '请假审批',
+      category: '考勤',
+      iconKey: 'leave',
+      workflowKey: 'attendance.leave',
+      version: 1,
+      formSchemaJson: '{"fields":[{"id":"days","label":"请假天数","type":"number","readOnly":true,"unit":"天"}]}',
+    );
+    final bootstrap = OaBootstrap(
+      currentMemberId: PreviewData.oaBootstrap.currentMemberId,
+      displayName: PreviewData.oaBootstrap.displayName,
+      todos: PreviewData.oaBootstrap.todos,
+      announcements: PreviewData.oaBootstrap.announcements,
+      templates: const [template],
+    );
+    await _pump(
+      tester,
+      const ApprovalRequestPage(
+        applicationKey: 'attendance.leave',
+        templateId: 'readonly-text-template',
+        initialFormData: {'days': '自动计算，只读，单位天'},
+      ),
+      overrides: [
+        oaBootstrapProvider.overrideWith((ref) async => bootstrap),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        oaWorkflowPreviewLoaderProvider.overrideWithValue(
+          ({
+            required String applicationKey,
+            required OaApprovalTemplate template,
+            required Map<String, Object?> formData,
+          }) async => PreviewData.workflowPreview(template),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('自动计算'), findsNothing);
+    expect(find.textContaining('只读'), findsNothing);
+    expect(find.textContaining('单位天'), findsNothing);
+    final input = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const ValueKey('schema-days-')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(input.controller?.text ?? '', isEmpty);
+    expect(input.readOnly, isTrue);
+    expect(input.decoration?.suffixText, '天');
   });
 
   testWidgets(
@@ -818,19 +1471,16 @@ void main() {
       expect(amountBefore.decoration?.prefixText, isNull);
 
       await tester.enterText(
-        find.byKey(const ValueKey('schema-original-')),
+        find.byKey(const ValueKey('schema-original')),
         '1000',
       );
+      await tester.enterText(find.byKey(const ValueKey('schema-ratio')), '0.8');
       await tester.enterText(
-        find.byKey(const ValueKey('schema-ratio-')),
-        '0.8',
-      );
-      await tester.enterText(
-        find.byKey(const ValueKey('schema-exchangeRate-')),
+        find.byKey(const ValueKey('schema-exchangeRate')),
         '2',
       );
       await tester.enterText(
-        find.byKey(const ValueKey('schema-memberCount-')),
+        find.byKey(const ValueKey('schema-memberCount')),
         '4',
       );
       await tester.pumpAndSettle();
@@ -851,12 +1501,219 @@ void main() {
       expect(cost.controller?.text, '200.0000');
       expect(cost.decoration?.suffixText, 'CNY');
       expect(cost.readOnly, isTrue);
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
       await tester.tap(find.byKey(const ValueKey('schema-cost-200.0000')));
       await tester.pump();
       expect(tester.testTextInput.isVisible, isFalse);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('new request resolves backend schema defaults from requester', (
+    tester,
+  ) async {
+    final before = DateTime.now();
+    final requester = PreviewData.imBootstrap.currentMember;
+    const defaultsTemplate = OaApprovalTemplate(
+      id: 'defaults-template',
+      name: '默认值审批',
+      category: '测试',
+      workflowKey: 'test.defaults',
+      version: 3,
+      formSchemaJson:
+          '{"fields":['
+          '{"id":"requester","label":"申请人","type":"person","defaultValueSource":"requester"},'
+          '{"id":"department","label":"申请部门","type":"department","defaultValueSource":"requester_department"},'
+          '{"id":"applyDate","label":"申请日期","type":"date","defaultValueSource":"today"},'
+          '{"id":"sentAt","label":"发送时间","type":"datetime","defaultValueSource":"now"},'
+          '{"id":"period","label":"日期范围","type":"dateRange","defaultValueSource":"today"},'
+          '{"id":"fixedDate","label":"指定日期","type":"date","defaultValueSource":"fixed","defaultValue":"2026-09-01"}'
+          ']}',
+    );
+    final bootstrap = OaBootstrap(
+      currentMemberId: PreviewData.oaBootstrap.currentMemberId,
+      displayName: PreviewData.oaBootstrap.displayName,
+      todos: PreviewData.oaBootstrap.todos,
+      announcements: PreviewData.oaBootstrap.announcements,
+      templates: const [defaultsTemplate],
+    );
+    Map<String, Object?>? previewValues;
+    await _pump(
+      tester,
+      const ApprovalRequestPage(
+        applicationKey: 'test.defaults',
+        templateId: 'defaults-template',
+      ),
+      overrides: [
+        oaBootstrapProvider.overrideWith((ref) async => bootstrap),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        oaWorkflowPreviewLoaderProvider.overrideWithValue(({
+          required String applicationKey,
+          required OaApprovalTemplate template,
+          required Map<String, Object?> formData,
+        }) async {
+          previewValues = Map<String, Object?>.from(formData);
+          return PreviewData.workflowPreview(template);
+        }),
+      ],
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    final after = DateTime.now();
+    expect(previewValues, isNotNull);
+    expect(previewValues!['requester'], requester.id);
+    expect(previewValues!['department'], requester.departmentId);
+    final applyDate = DateTime.parse(previewValues!['applyDate']! as String);
+    expect(
+      DateUtils.dateOnly(applyDate),
+      anyOf(DateUtils.dateOnly(before), DateUtils.dateOnly(after)),
+    );
+    final sentAt = DateTime.parse(previewValues!['sentAt']! as String);
+    expect(
+      sentAt.isBefore(before.subtract(const Duration(seconds: 2))),
+      isFalse,
+    );
+    expect(sentAt.isAfter(after.add(const Duration(seconds: 2))), isFalse);
+    expect(previewValues!['period'], [
+      DateFormat('yyyy-MM-dd').format(applyDate),
+      DateFormat('yyyy-MM-dd').format(applyDate),
+    ]);
+    expect(previewValues!['fixedDate'], '2026-09-01');
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('schema-fixedDate-date')),
+        matching: find.text('2026/09/01'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('text validation and attachment behavior follow backend schema', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    const schemaTemplate = OaApprovalTemplate(
+      id: 'validation-template',
+      name: '字段规则审批',
+      category: '测试',
+      workflowKey: 'test.validation',
+      version: 2,
+      formSchemaJson:
+          '{"fields":['
+          '{"id":"address","label":"请款地址","type":"text","required":true,"validationFormat":"tron_address","minLength":34,"maxLength":34},'
+          '{"id":"note","label":"备注","type":"textarea","required":true,"minLength":3,"maxLength":5},'
+          '{"id":"proof","label":"证明附件","type":"attachment","required":true,"multiple":true,"maxCount":3,"imagePreview":false}'
+          ']}',
+    );
+    final bootstrap = OaBootstrap(
+      currentMemberId: PreviewData.oaBootstrap.currentMemberId,
+      displayName: PreviewData.oaBootstrap.displayName,
+      todos: PreviewData.oaBootstrap.todos,
+      announcements: PreviewData.oaBootstrap.announcements,
+      templates: const [schemaTemplate],
+    );
+    const attachments = [
+      OaLocalAttachment(
+        id: 'proof-1',
+        fileName: 'proof-1.png',
+        contentType: 'image/png',
+        bytes: [1],
+        formFieldId: 'proof',
+      ),
+      OaLocalAttachment(
+        id: 'proof-2',
+        fileName: 'proof-2.png',
+        contentType: 'image/png',
+        bytes: [2],
+        formFieldId: 'proof',
+      ),
+      OaLocalAttachment(
+        id: 'proof-3',
+        fileName: 'proof-3.png',
+        contentType: 'image/png',
+        bytes: [3],
+        formFieldId: 'proof',
+      ),
+    ];
+    await _pump(
+      tester,
+      const ApprovalRequestPage(
+        applicationKey: 'test.validation',
+        templateId: 'validation-template',
+        initialTitle: '已有表单',
+        initialAttachments: attachments,
+      ),
+      overrides: [
+        oaBootstrapProvider.overrideWith((ref) async => bootstrap),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        oaWorkflowPreviewLoaderProvider.overrideWithValue(
+          ({
+            required String applicationKey,
+            required OaApprovalTemplate template,
+            required Map<String, Object?> formData,
+          }) async => PreviewData.workflowPreview(template),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('schema-address')),
+      'T000000000000000000000000000000000',
+    );
+    await tester.enterText(find.byKey(const ValueKey('schema-note')), 'ab');
+    await tester.drag(find.byType(ListView).first, const Offset(0, -520));
+    await tester.pumpAndSettle();
+
+    expect(find.text('3 / 3'), findsOneWidget);
+    for (final attachment in attachments) {
+      final row = find.byKey(ValueKey('approval-attachment-${attachment.id}'));
+      expect(row, findsOneWidget);
+      expect(
+        find.descendant(of: row, matching: find.byType(Image)),
+        findsNothing,
+      );
+    }
+    await tester.tap(find.widgetWithText(OutlinedButton, '添加文件'));
+    await tester.pumpAndSettle();
+    expect(find.text('证明附件最多添加 3 个附件'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('approval-submit-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('请检查：请输入有效的 TRON 地址'), findsOneWidget);
+    await tester.drag(find.byType(ListView).first, const Offset(0, 900));
+    await tester.pumpAndSettle();
+    expect(find.text('请输入有效的 TRON 地址'), findsOneWidget);
+    expect(find.text('备注至少输入 3 个字符'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('schema-note')), 'abcdef');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    final submitButton = find.byKey(const Key('approval-submit-button'));
+    await tester.ensureVisible(submitButton);
+    await tester.tap(submitButton);
+    await tester.pump();
+    expect(find.text('备注最多输入 5 个字符'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('workflow preview stays expanded with compact desktop metadata', (
     tester,
@@ -894,8 +1751,27 @@ void main() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
-    final template = PreviewData.oaBootstrap.templates.firstWhere(
+    final sourceTemplate = PreviewData.oaBootstrap.templates.firstWhere(
       (item) => item.id == '3',
+    );
+    final template = OaApprovalTemplate(
+      id: sourceTemplate.id,
+      name: sourceTemplate.name,
+      category: sourceTemplate.category,
+      iconKey: sourceTemplate.iconKey,
+      workflowKey: sourceTemplate.workflowKey,
+      version: sourceTemplate.version,
+      formSchemaJson: sourceTemplate.formSchemaJson.replaceFirst(
+        '"type":"attachment"',
+        '"type":"attachment","multiple":true,"maxCount":20,"imagePreview":true',
+      ),
+    );
+    final bootstrap = OaBootstrap(
+      currentMemberId: PreviewData.oaBootstrap.currentMemberId,
+      displayName: PreviewData.oaBootstrap.displayName,
+      todos: PreviewData.oaBootstrap.todos,
+      announcements: PreviewData.oaBootstrap.announcements,
+      templates: [template],
     );
     final attachment = OaLocalAttachment(
       id: 'draft-image',
@@ -923,9 +1799,7 @@ void main() {
         templateId: template.id,
       ),
       overrides: [
-        oaBootstrapProvider.overrideWith(
-          (ref) async => PreviewData.oaBootstrap,
-        ),
+        oaBootstrapProvider.overrideWith((ref) async => bootstrap),
         oaApplicationCatalogProvider.overrideWith(
           (ref) async => PreviewData.oaCatalog,
         ),
@@ -1121,6 +1995,205 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('notification center loads the next page while scrolling', (
+    tester,
+  ) async {
+    var secondPageCalls = 0;
+    OaNotification notification(int index, {String? title}) => OaNotification(
+      id: 'paged-notification-$index',
+      requestId: 'approval-$index',
+      category: 'approval',
+      type: 'approval.updated',
+      title: title ?? '分页通知 $index',
+      body: '审批状态更新',
+      importance: 'normal',
+      action: 'view',
+      isRead: true,
+      readAt: DateTime(2026, 9, 1, 8),
+      createdAt: DateTime(2026, 9, 1, 8).subtract(Duration(minutes: index)),
+    );
+
+    await _pump(
+      tester,
+      const NotificationsPage(),
+      overrides: [
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        oaNotificationPageProvider.overrideWith((ref, key) async {
+          if (key.unreadOnly) {
+            return const OaNotificationPage(
+              items: [],
+              nextCursor: null,
+              hasMore: false,
+            );
+          }
+          if (key.cursor == 'cursor-2') {
+            secondPageCalls += 1;
+            return OaNotificationPage(
+              items: [notification(31, title: '第二页通知')],
+              nextCursor: null,
+              hasMore: false,
+            );
+          }
+          return OaNotificationPage(
+            items: List.generate(30, (index) => notification(index + 1)),
+            nextCursor: 'cursor-2',
+            hasMore: true,
+          );
+        }),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        pendingFriendApplicationsProvider.overrideWith((ref) async => const []),
+      ],
+    );
+
+    expect(secondPageCalls, 0);
+    expect(find.text('加载更多'), findsNothing);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -2200));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(secondPageCalls, 1);
+    expect(find.text('第二页通知'), findsOneWidget);
+    expect(find.byKey(const Key('notification-page-footer')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('notification center fills a short first page automatically', (
+    tester,
+  ) async {
+    var secondPageCalls = 0;
+    OaNotification notification(String id, String title) => OaNotification(
+      id: id,
+      requestId: id,
+      category: 'approval',
+      type: 'approval.updated',
+      title: title,
+      body: '审批状态更新',
+      importance: 'normal',
+      action: 'view',
+      isRead: true,
+      readAt: DateTime(2026, 9, 1, 8),
+      createdAt: DateTime(2026, 9, 1, 8),
+    );
+
+    await _pump(
+      tester,
+      const NotificationsPage(),
+      overrides: [
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        oaNotificationPageProvider.overrideWith((ref, key) async {
+          if (key.unreadOnly) {
+            return const OaNotificationPage(
+              items: [],
+              nextCursor: null,
+              hasMore: false,
+            );
+          }
+          if (key.cursor == 'cursor-short-2') {
+            secondPageCalls += 1;
+            return OaNotificationPage(
+              items: [notification('short-2', '自动补齐的通知')],
+              nextCursor: null,
+              hasMore: false,
+            );
+          }
+          return OaNotificationPage(
+            items: [notification('short-1', '首屏通知')],
+            nextCursor: 'cursor-short-2',
+            hasMore: true,
+          );
+        }),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        pendingFriendApplicationsProvider.overrideWith((ref) async => const []),
+      ],
+    );
+
+    expect(secondPageCalls, 1);
+    expect(find.text('首屏通知'), findsOneWidget);
+    expect(find.text('自动补齐的通知'), findsOneWidget);
+    expect(find.text('加载更多'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('notification paging retries after a new upward gesture', (
+    tester,
+  ) async {
+    var secondPageCalls = 0;
+    OaNotification notification(int index, {String? title}) => OaNotification(
+      id: 'retry-notification-$index',
+      requestId: 'retry-approval-$index',
+      category: 'approval',
+      type: 'approval.updated',
+      title: title ?? '重试分页通知 $index',
+      body: '审批状态更新',
+      importance: 'normal',
+      action: 'view',
+      isRead: true,
+      readAt: DateTime(2026, 9, 1, 8),
+      createdAt: DateTime(2026, 9, 1, 8).subtract(Duration(minutes: index)),
+    );
+
+    await _pump(
+      tester,
+      const NotificationsPage(),
+      overrides: [
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        oaNotificationPageProvider.overrideWith((ref, key) async {
+          if (key.unreadOnly) {
+            return const OaNotificationPage(
+              items: [],
+              nextCursor: null,
+              hasMore: false,
+            );
+          }
+          if (key.cursor == 'cursor-retry-2') {
+            secondPageCalls += 1;
+            if (secondPageCalls == 1) throw StateError('临时网络中断');
+            return OaNotificationPage(
+              items: [notification(31, title: '重试恢复的通知')],
+              nextCursor: null,
+              hasMore: false,
+            );
+          }
+          return OaNotificationPage(
+            items: List.generate(30, (index) => notification(index + 1)),
+            nextCursor: 'cursor-retry-2',
+            hasMore: true,
+          );
+        }),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        pendingFriendApplicationsProvider.overrideWith((ref) async => const []),
+      ],
+    );
+
+    await tester.drag(find.byType(ListView).last, const Offset(0, -2200));
+    await tester.pumpAndSettle();
+    expect(secondPageCalls, 1);
+    expect(find.text('重试恢复的通知'), findsNothing);
+    expect(find.byKey(const Key('notification-page-footer')), findsOneWidget);
+
+    await tester.drag(find.byType(ListView).last, const Offset(0, 300));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+    await tester.pumpAndSettle();
+
+    expect(secondPageCalls, 2);
+    expect(find.text('重试恢复的通知'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('account language exposes the desktop-aligned choices', (
     tester,
   ) async {
@@ -1140,6 +2213,7 @@ void main() {
     expect(find.text('浅色'), findsOneWidget);
     await tester.tap(find.text('浅色'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
     expect(find.text('浅色'), findsWidgets);
     expect(find.text('深色'), findsOneWidget);
     await tester.tapAt(Offset.zero);
@@ -1148,6 +2222,7 @@ void main() {
     expect(find.text('简体中文'), findsOneWidget);
     await tester.tap(find.text('简体中文'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
     expect(find.text('繁體中文'), findsOneWidget);
     expect(find.text('English'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -1553,7 +2628,12 @@ void main() {
     await tester.tap(find.text('转交'));
     await tester.pumpAndSettle();
     expect(find.text('选择转交人'), findsOneWidget);
+    expect(find.byKey(const Key('approval-member-picker')), findsOneWidget);
     expect(find.text('搜索姓名、账号或部门'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('approval-member-search'))).height,
+      34,
+    );
     expect(tester.testTextInput.isVisible, isFalse);
     await tester.tap(
       find.text(PreviewData.imBootstrap.contacts.first.displayName),
@@ -1590,9 +2670,65 @@ void main() {
       await tester.tap(find.text(entry.$1));
       await tester.pumpAndSettle();
       expect(find.text(entry.$2), findsWidgets);
+      expect(find.byKey(const Key('mobile-text-input-sheet')), findsOneWidget);
+      final compactSubmitSize = tester.getSize(
+        find.byKey(const Key('mobile-text-input-submit')),
+      );
+      expect(compactSubmitSize.height, lessThanOrEqualTo(36));
+      expect(compactSubmitSize.width, lessThan(120));
       await tester.tap(find.widgetWithText(TextButton, '取消'));
       await tester.pumpAndSettle();
     }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('single approval secondary action uses a compact choice sheet', (
+    tester,
+  ) async {
+    final original = PreviewData.oaBootstrap.approvalRequests.first;
+    final request = OaApprovalRequest(
+      id: original.id,
+      requesterId: original.requesterId,
+      title: original.title,
+      formDataJson: original.formDataJson,
+      formSchemaSnapshotJson: original.formSchemaSnapshotJson,
+      status: original.status,
+      createdAt: original.createdAt,
+      updatedAt: original.updatedAt,
+      requesterName: original.requesterName,
+      requesterDepartmentName: original.requesterDepartmentName,
+      templateName: original.templateName,
+      templateCategory: original.templateCategory,
+      allowedActions: const ['transfer'],
+      tasks: original.tasks,
+      actions: original.actions,
+      attachments: original.attachments,
+      ccs: original.ccs,
+    );
+    await _pump(
+      tester,
+      ApprovalDetailPage(approvalId: request.id),
+      overrides: [
+        oaApprovalRequestProvider(request.id)
+            .overrideWith((ref) async => request),
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+      ],
+    );
+
+    await tester.tap(find.byTooltip('更多操作'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-choice-sheet')), findsOneWidget);
+    expect(find.text('更多操作'), findsOneWidget);
+    expect(find.text('转交'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('mobile-choice-sheet'))).height,
+      lessThan(160),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -1706,6 +2842,29 @@ void main() {
     await tester.tap(find.widgetWithText(OutlinedButton, '补卡').first);
     await tester.pumpAndSettle();
     expect(find.text('补缺下班卡'), findsOneWidget);
+    expect(
+      find.byKey(const Key('attendance-correction-sheet')),
+      findsOneWidget,
+    );
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      tester
+          .getSize(find.byKey(const Key('attendance-correction-time')))
+          .height,
+      lessThanOrEqualTo(40),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('attendance-correction-submit')))
+          .height,
+      lessThanOrEqualTo(40),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('attendance-correction-submit')))
+          .width,
+      lessThan(120),
+    );
     await tester.tap(find.widgetWithText(TextButton, '取消'));
     await tester.pumpAndSettle();
     expect(find.text('补缺下班卡'), findsNothing);
@@ -1739,7 +2898,35 @@ void main() {
     await tester.tap(find.byTooltip('新增待办'));
     await tester.pumpAndSettle();
     expect(find.text('新增待办'), findsOneWidget);
-    await tester.binding.handlePopRoute();
+    expect(find.byKey(const Key('schedule-editor-sheet')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('schedule-title-input'))).height,
+      36,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('schedule-description-input')))
+          .height,
+      64,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('schedule-priority-select'))).height,
+      36,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('schedule-due-select'))).height,
+      36,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('schedule-save-button'))).height,
+      36,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('schedule-save-button'))).width,
+      lessThan(120),
+    );
+    expect(find.byType(AlertDialog), findsNothing);
+    await tester.tap(find.byTooltip('关闭').last);
     await tester.pumpAndSettle();
     expect(find.text('新增待办'), findsNothing);
     expect(tester.takeException(), isNull);

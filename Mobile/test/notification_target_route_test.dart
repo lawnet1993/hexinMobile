@@ -30,6 +30,35 @@ void main() {
       notificationTargetRoute(_notification(requestId: 'request-legacy')),
       '/approval/request-legacy',
     );
+    expect(
+      notificationTargetRoute(
+        _notification(
+          category: 'attendance',
+          type: 'attendance.exception.detected',
+        ),
+      ),
+      '/attendance',
+    );
+    expect(
+      notificationTargetRoute(
+        _notification(
+          category: 'attendance_exception',
+          type: 'attendance.exception.detected',
+          targetId: 'exception/2026-08-14',
+        ),
+      ),
+      '/attendance?exceptionId=exception%2F2026-08-14',
+    );
+    expect(
+      notificationTargetRoute(
+        _notification(
+          category: 'inspection',
+          type: 'inspection.started',
+          targetKind: 'oa_approval',
+        ),
+      ),
+      '/punch?inspection=active',
+    );
   });
 
   test('invalid conversation targets fail closed', () {
@@ -74,19 +103,75 @@ void main() {
     ]);
     expect(feed[0].type, 'im.group.message');
     expect(feed[1].type, 'im.direct.message');
-    expect(feed[2].targetKind, 'oa_approval');
+    expect(feed[2].targetKind, isEmpty);
+    expect(notificationKindLabel(feed[0]), '群聊');
+    expect(notificationKindLabel(feed[1]), '单聊');
+    expect(notificationKindLabel(feed[2]), '审批');
+  });
+
+  test(
+    'application notification labels do not collapse into system notices',
+    () {
+      expect(
+        notificationKindLabel(
+          _notification(category: 'attendance', type: 'attendance.exception'),
+        ),
+        '考勤',
+      );
+      expect(
+        notificationKindLabel(
+          _notification(category: 'inspection', type: 'inspection.started'),
+        ),
+        '巡检',
+      );
+      expect(
+        notificationKindLabel(
+          _notification(category: 'security', type: 'security.risk.detected'),
+        ),
+        '安全',
+      );
+      expect(
+        notificationKindLabel(
+          _notification(category: 'announcement', type: 'announcement.created'),
+        ),
+        '公告',
+      );
+      expect(
+        notificationKindLabel(
+          _notification(category: 'other', type: 'business.event'),
+        ),
+        '应用',
+      );
+    },
+  );
+
+  test('notification feed deduplicates only the exact event identity', () {
+    final feed = buildMobileNotificationFeed(
+      oaNotifications: [
+        _notification(id: 'inspection-1', category: 'inspection'),
+        _notification(id: 'inspection-1', category: 'inspection'),
+        _notification(id: 'inspection-2', category: 'inspection'),
+      ],
+      conversations: const [],
+      friendApplications: const [],
+    );
+
+    expect(feed.map((item) => item.id), ['inspection-1', 'inspection-2']);
   });
 }
 
 OaNotification _notification({
+  String id = 'notification-1',
   String requestId = '',
   String targetKind = '',
   String targetId = '',
+  String category = 'approval',
+  String type = 'test',
 }) => OaNotification(
-  id: 'notification-1',
+  id: id,
   requestId: requestId,
-  category: 'approval',
-  type: 'test',
+  category: category,
+  type: type,
   title: '测试通知',
   body: '',
   importance: 'normal',

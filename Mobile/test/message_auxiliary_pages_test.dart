@@ -68,6 +68,71 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('群发任务记录滚动到底自动读取下一页', (tester) async {
+    final source = PreviewData.imAssistantTasks.single;
+    ImAssistantTask task(int index, String content) => ImAssistantTask(
+      id: 'assistant-auto-$index',
+      messageKind: source.messageKind,
+      content: content,
+      attachmentJson: source.attachmentJson,
+      status: source.status,
+      receiverCount: source.receiverCount,
+      successCount: source.successCount,
+      failureCount: source.failureCount,
+      createdAt: source.createdAt,
+      updatedAt: source.updatedAt,
+    );
+    var secondPageCalls = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          imBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.imBootstrap,
+          ),
+          imAssistantTasksPageProvider.overrideWith((ref, page) async {
+            if (page == 2) secondPageCalls += 1;
+            return ImListPage(
+              items: page == 1
+                  ? List.generate(
+                      20,
+                      (index) => task(index + 1, '第一页群发任务 ${index + 1}'),
+                    )
+                  : [task(21, '自动加载的第二页任务')],
+              page: page,
+              pageSize: 20,
+              total: 21,
+            );
+          }),
+        ],
+        child: const MaterialApp(home: MessageAssistantPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(secondPageCalls, 0);
+    expect(find.text('自动加载的第二页任务'), findsNothing);
+    expect(find.textContaining('加载更多'), findsNothing);
+
+    final pageScroll = find.byKey(const Key('assistant-page-scroll'));
+    final outerScrollable = find
+        .descendant(of: pageScroll, matching: find.byType(Scrollable))
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('第一页群发任务 20'),
+      600,
+      scrollable: outerScrollable,
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('第一页群发任务 20'), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(secondPageCalls, 1);
+    expect(find.text('自动加载的第二页任务'), findsOneWidget);
+    expect(find.byKey(const Key('assistant-task-page-footer')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('收藏列表可打开原会话且操作按钮保持紧凑', (tester) async {
     final router = GoRouter(
       initialLocation: '/favorites',
@@ -121,7 +186,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('收藏列表使用移动端加载更多读取后续分页', (tester) async {
+  testWidgets('收藏列表在短首屏自动读取后续分页', (tester) async {
     final router = GoRouter(
       initialLocation: '/favorites',
       routes: [
@@ -139,6 +204,7 @@ void main() {
     addTearDown(router.dispose);
     final first = PreviewData.imFavorites.first;
     final second = PreviewData.imFavorites.last;
+    var secondPageCalls = 0;
 
     await tester.pumpWidget(
       ProviderScope(
@@ -147,6 +213,7 @@ void main() {
             (ref) async => PreviewData.imBootstrap,
           ),
           imFavoritesPageProvider.overrideWith((ref, page) async {
+            if (page == 2) secondPageCalls += 1;
             return ImListPage(
               items: page == 1 ? [first] : [second],
               page: page,
@@ -160,14 +227,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('加载更多（1/2）'), findsOneWidget);
-    expect(find.textContaining('接口联调清单'), findsNothing);
-
-    await tester.tap(find.text('加载更多（1/2）'));
-    await tester.pumpAndSettle();
-
+    expect(secondPageCalls, 1);
     expect(find.textContaining('接口联调清单'), findsOneWidget);
     expect(find.textContaining('加载更多'), findsNothing);
+    expect(find.byKey(const Key('favorite-page-footer')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

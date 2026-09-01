@@ -138,6 +138,14 @@ void main() {
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     final pageContext = tester.element(find.byType(MessagesPage));
     expect(scaffold.backgroundColor, Theme.of(pageContext).colorScheme.surface);
+    expect(
+      find.byKey(const ValueKey('message-group-avatar-ops')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('message-direct-avatar-tang')),
+      findsOneWidget,
+    );
 
     await tester.enterText(find.byType(TextField).first, 'term.gz01');
     await tester.pump();
@@ -171,6 +179,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('发起会话'), findsOneWidget);
+    expect(find.byKey(const Key('new-conversation-sheet')), findsOneWidget);
     expect(find.text('单聊'), findsOneWidget);
     final groupSegment = find.descendant(
       of: find.byType(SegmentedButton<bool>),
@@ -185,7 +194,7 @@ void main() {
       of: find.byType(BottomSheet),
       matching: find.byType(TextField),
     );
-    expect(tester.getSize(sheetFields).height, 38);
+    expect(tester.getSize(sheetFields).height, 34);
     expect(tester.takeException(), isNull);
 
     await tester.tap(groupSegment);

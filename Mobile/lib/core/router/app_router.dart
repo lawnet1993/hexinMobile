@@ -101,11 +101,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/punch',
-        builder: (context, state) => const AttendancePage(),
+        builder: (context, state) => AttendancePage(
+          openInspectionOnStart:
+              state.uri.queryParameters['inspection'] == 'active',
+        ),
       ),
       GoRoute(
         path: '/attendance',
-        builder: (context, state) => const AttendancePage(correctionMode: true),
+        builder: (context, state) => AttendancePage(
+          correctionMode: true,
+          initialExceptionId: state.uri.queryParameters['exceptionId'],
+        ),
       ),
       GoRoute(
         path: '/notifications',

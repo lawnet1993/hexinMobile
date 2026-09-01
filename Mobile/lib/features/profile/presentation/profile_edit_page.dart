@@ -145,6 +145,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
                         name: _nickname.text.isEmpty
                             ? (_profile?.displayName ?? '')
                             : _nickname.text,
+                        avatarKey: _profile?.avatarKey ?? '',
                         avatarDataUrl: _avatarDataUrl,
                         radius: 30,
                       ),

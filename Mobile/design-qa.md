@@ -780,3 +780,30 @@ final result: simulator passed; physical device pending
 - `flutter analyze` 0 issue，完整测试 178/178，个人页 Golden 更新后通过；测试额外断言冗余说明消失、三个真实状态入口保留。
 - Profile APK SHA-256 为 `31055298997419F37D37FE37E4463B658A5813F79DF22731D05E9F0A05157E2E`，已覆盖安装到 realme 真机。
 - 最终冷启动 `TotalTime=662ms`，最近 1600 行进程日志的崩溃、Flutter 未处理异常、RenderFlex、ANR 和 OOM 命中为 0。
+
+## 2026-09-01 IM 回执单行与群聊头像复核
+
+- 参考状态：用户提供的真机截图中，“回执”文字被挤到消息气泡下方并逐条重复。
+- 当前终态：[单聊双勾与气泡同行](docs/evidence/616-real-device-im-single-line/03-direct-receipt-single-line.png)、[真实已读抽屉](docs/evidence/616-real-device-im-single-line/04-read-receipt-sheet.png)、[消息列表群聊头像](docs/evidence/616-real-device-im-single-line/02-messages-group-avatar.png)。
+
+### Findings
+
+- [已修复 P2] 回执状态换行并重复显示文字。现在只保留 14dp 双勾，入口与消息气泡处于同一视觉行；长消息只允许气泡正文自身换行。
+- [已修复 P2] 消息列表群聊仍使用首字母头像，弱化了单聊/群聊边界。现在与通讯录一致使用 36dp 浅蓝群组图标，单聊保留真实成员头像与在线点。
+- [已通过] 双勾仍可点击，真实详情显示 `已读 1/1`；群聊标题、2 位成员、1 人在线、视频预览、时长和输入区均保持正常。
+
+### 五项视觉检查
+
+- 字体：未增加任何解释文案，“回执”文字已移除。
+- 间距：双勾复用现有消息行空间，窄屏未产生额外行高。
+- 色彩：群组图标使用现有主色与弱蓝底，不新增视觉体系。
+- 图标：使用 Material `groups_rounded` 与 `done_all_rounded`，没有字符或自绘图形。
+- 内容：已读数量、成员、时间、在线人数和媒体元数据均来自当前真实服务端数据。
+
+### 验证
+
+- 代码增加同行几何断言与群聊/单聊头像类型断言；31/31 IM、235/235 全量、13/13 Golden、0 静态问题通过。
+- realme RMX3366 Profile 包覆盖安装后逐页截图，当前进程关键异常 0 条。
+- 最终结果：通过。
+
+final result: passed

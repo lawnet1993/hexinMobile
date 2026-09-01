@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,13 @@ import '../../collaboration/domain/collaboration_models.dart';
 
 String? notificationTargetRoute(OaNotification item) {
   final targetId = item.targetId.trim();
+  if (_isInspectionNotification(item)) return '/punch?inspection=active';
+  if (_isAttendanceNotification(item)) {
+    final exceptionId = targetId.isNotEmpty ? targetId : item.requestId.trim();
+    return exceptionId.isEmpty
+        ? '/attendance'
+        : '/attendance?exceptionId=${Uri.encodeQueryComponent(exceptionId)}';
+  }
   switch (item.targetKind.trim()) {
     case 'im_conversation':
       if (targetId.isEmpty) return null;
@@ -85,9 +94,7 @@ List<OaNotification> buildMobileNotificationFeed({
       isRead: item.isRead,
       readAt: item.readAt,
       createdAt: item.createdAt,
-      targetKind: item.targetKind.trim().isEmpty
-          ? 'oa_approval'
-          : item.targetKind,
+      targetKind: item.targetKind,
       targetId: item.targetId.trim().isEmpty ? item.requestId : item.targetId,
     ),
   );
@@ -112,12 +119,17 @@ List<OaNotification> buildMobileNotificationFeed({
         targetId: 'requests',
       ),
   ];
-  result.sort(
+  final seenIds = <String>{};
+  final unique = result.where((item) {
+    final id = item.id.trim();
+    return id.isEmpty || seenIds.add(id);
+  }).toList();
+  unique.sort(
     (left, right) => (right.createdAt ?? DateTime(0)).compareTo(
       left.createdAt ?? DateTime(0),
     ),
   );
-  return result;
+  return unique;
 }
 
 class NotificationsPage extends ConsumerStatefulWidget {
@@ -139,11 +151,24 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   String? _nextCursor;
   final List<OaNotification> _additionalNotifications = [];
   String? _handlingApplicationId;
+  final ScrollController _notificationScrollController = ScrollController();
+  OaNotificationPage? _visibleFirstPage;
+  bool _autoLoadScheduled = false;
+  bool _autoLoadRetryBlocked = false;
 
   @override
   void initState() {
     super.initState();
     _section = widget.initialSection.clamp(0, 2);
+    _notificationScrollController.addListener(_onNotificationScroll);
+  }
+
+  @override
+  void dispose() {
+    _notificationScrollController
+      ..removeListener(_onNotificationScroll)
+      ..dispose();
+    super.dispose();
   }
 
   @override
@@ -244,6 +269,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                             leading: InitialAvatar(
                               name: application.applicant.displayName,
                               radius: 19,
+                              avatarKey: application.applicant.avatarKey,
                               avatarDataUrl:
                                   application.applicant.avatarDataUrl,
                             ),
@@ -369,6 +395,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                       ),
                     ),
                     data: (page) {
+                      _visibleFirstPage = page;
+                      _scheduleAutoLoad(page);
                       final oaItems = <OaNotification>[
                         ...page.items,
                         ..._additionalNotifications,
@@ -396,38 +424,54 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                       }
                       return RefreshIndicator(
                         onRefresh: _refreshNotifications,
-                        child: ListView.separated(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.zero,
-                          itemCount:
-                              items.length +
-                              ((_paginationStarted ? _hasMore : page.hasMore)
-                                  ? 1
-                                  : 0),
-                          separatorBuilder: (context, index) =>
-                              index >= items.length - 1
-                              ? const SizedBox.shrink()
-                              : const Divider(
-                                  height: 1,
-                                  indent: 62,
-                                  color: Color(0xFFF0F2F5),
-                                ),
-                          itemBuilder: (context, index) {
-                            if (index == items.length) {
-                              return Center(
-                                child: TextButton(
-                                  onPressed: _loadingMore
-                                      ? null
-                                      : () => _loadMore(page),
-                                  child: Text(_loadingMore ? '加载中…' : '加载更多'),
-                                ),
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: _handleNotificationGesture,
+                          child: ListView.separated(
+                            controller: _notificationScrollController,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.zero,
+                            itemCount:
+                                items.length +
+                                ((_paginationStarted ? _hasMore : page.hasMore)
+                                    ? 1
+                                    : 0),
+                            separatorBuilder: (context, index) =>
+                                index >= items.length - 1
+                                ? const SizedBox.shrink()
+                                : const Divider(
+                                    height: 1,
+                                    indent: 62,
+                                    color: Color(0xFFF0F2F5),
+                                  ),
+                            itemBuilder: (context, index) {
+                              if (index == items.length) {
+                                return SizedBox(
+                                  key: const Key('notification-page-footer'),
+                                  height: 44,
+                                  child: Center(
+                                    child: _loadingMore
+                                        ? const SizedBox.square(
+                                            dimension: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text(
+                                            '继续上滑',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: AppColors.weakText,
+                                            ),
+                                          ),
+                                  ),
+                                );
+                              }
+                              return _NotificationItem(
+                                item: items[index],
+                                onTap: () => _open(items[index]),
                               );
-                            }
-                            return _NotificationItem(
-                              item: items[index],
-                              onTap: () => _open(items[index]),
-                            );
-                          },
+                            },
+                          ),
                         ),
                       );
                     },
@@ -514,6 +558,48 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     _paginationStarted = false;
     _hasMore = false;
     _nextCursor = null;
+    _visibleFirstPage = null;
+    _autoLoadRetryBlocked = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_notificationScrollController.hasClients) return;
+      _notificationScrollController.jumpTo(0);
+    });
+  }
+
+  void _onNotificationScroll() {
+    if (_autoLoadRetryBlocked ||
+        !_notificationScrollController.hasClients ||
+        _notificationScrollController.position.extentAfter > 240) {
+      return;
+    }
+    final page = _visibleFirstPage;
+    if (page != null) unawaited(_loadMore(page));
+  }
+
+  bool _handleNotificationGesture(ScrollNotification notification) {
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null) {
+      _autoLoadRetryBlocked = false;
+    }
+    return false;
+  }
+
+  void _scheduleAutoLoad(OaNotificationPage page) {
+    final hasMore = _paginationStarted ? _hasMore : page.hasMore;
+    if (!hasMore ||
+        _loadingMore ||
+        _autoLoadScheduled ||
+        _autoLoadRetryBlocked) {
+      return;
+    }
+    _autoLoadScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoLoadScheduled = false;
+      if (!mounted || !_notificationScrollController.hasClients) return;
+      if (_notificationScrollController.position.extentAfter <= 240) {
+        unawaited(_loadMore(page));
+      }
+    });
   }
 
   Future<void> _loadMore(OaNotificationPage firstPage) async {
@@ -521,11 +607,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     final cursor = _paginationStarted ? _nextCursor : firstPage.nextCursor;
     final hasMore = _paginationStarted ? _hasMore : firstPage.hasMore;
     if (!hasMore || cursor == null || cursor.isEmpty) return;
+    final pageKey = (cursor: cursor, unreadOnly: _unreadOnly);
     setState(() => _loadingMore = true);
     try {
-      final next = await ref
-          .read(oaRepositoryProvider)
-          .notificationPage(cursor: cursor, unreadOnly: _unreadOnly);
+      final next = await ref.read(oaNotificationPageProvider(pageKey).future);
       if (!mounted) return;
       final knownIds = <String>{
         ...firstPage.items.map((item) => item.id),
@@ -535,11 +620,14 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         _additionalNotifications.addAll(
           next.items.where((item) => knownIds.add(item.id)),
         );
+        _autoLoadRetryBlocked = false;
         _paginationStarted = true;
         _nextCursor = next.nextCursor;
         _hasMore = next.hasMore;
       });
     } catch (error) {
+      _autoLoadRetryBlocked = true;
+      ref.invalidate(oaNotificationPageProvider(pageKey));
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('加载失败：$error')));
@@ -715,8 +803,8 @@ class _NotificationItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _importanceColor(item.importance);
-    final kind = _notificationKind(item);
+    final color = _notificationAccentColor(item);
+    final kind = notificationKindLabel(item);
     return InkWell(
       key: Key('notification-row-${item.id}'),
       onTap: onTap,
@@ -759,16 +847,27 @@ class _NotificationItem extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (kind != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
+                      const SizedBox(width: 6),
+                      Container(
+                        key: ValueKey('notification-kind-$kind'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: .09),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
                           kind,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppColors.primary,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            height: 1.25,
+                            fontWeight: FontWeight.w500,
+                            color: color,
                           ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -830,16 +929,30 @@ String _compactTime(DateTime value) {
   return DateFormat(sameDay ? 'HH:mm' : 'MM-dd').format(value);
 }
 
-String? _notificationKind(OaNotification item) {
-  if (item.targetKind != 'im_conversation') return null;
-  return item.type == 'im.group.message' || item.category == 'im_group'
-      ? '群聊'
-      : item.type == 'im.direct.message' || item.category == 'im_direct'
-      ? '单聊'
-      : '消息';
+String notificationKindLabel(OaNotification item) {
+  if (_isInspectionNotification(item)) return '巡检';
+  if (_isAttendanceNotification(item)) return '考勤';
+  if (item.targetKind == 'im_friend_requests') return '好友';
+  if (item.targetKind == 'im_conversation') {
+    return item.type == 'im.group.message' || item.category == 'im_group'
+        ? '群聊'
+        : item.type == 'im.direct.message' || item.category == 'im_direct'
+        ? '单聊'
+        : '消息';
+  }
+  if (_isApprovalNotification(item)) return '审批';
+  if (_isAnnouncementNotification(item)) return '公告';
+  if (_isSecurityNotification(item)) return '安全';
+  return '应用';
 }
 
 IconData _notificationIcon(OaNotification item) {
+  if (_isInspectionNotification(item)) {
+    return Icons.fact_check_outlined;
+  }
+  if (_isAttendanceNotification(item)) {
+    return Icons.event_busy_outlined;
+  }
   if (item.targetKind == 'im_friend_requests') {
     return Icons.person_add_alt_1_outlined;
   }
@@ -850,10 +963,86 @@ IconData _notificationIcon(OaNotification item) {
         ? Icons.person_outline_rounded
         : Icons.chat_bubble_outline_rounded;
   }
-  if (item.action == 'review' || item.requestId.isNotEmpty) {
+  if (_isApprovalNotification(item)) {
     return Icons.assignment_ind_outlined;
   }
+  if (_isAnnouncementNotification(item)) return Icons.campaign_outlined;
+  if (_isSecurityNotification(item)) return Icons.shield_outlined;
   return Icons.notifications_active_outlined;
+}
+
+Color _notificationAccentColor(OaNotification item) {
+  if (_isAttendanceNotification(item)) return const Color(0xFF00A870);
+  if (_isInspectionNotification(item)) return const Color(0xFF7A4EDB);
+  if (item.targetKind == 'im_friend_requests') return const Color(0xFF00A6A6);
+  if (item.targetKind == 'im_conversation') return AppColors.primary;
+  if (_isApprovalNotification(item)) return const Color(0xFFE87918);
+  if (_isAnnouncementNotification(item)) return const Color(0xFFD66B16);
+  if (_isSecurityNotification(item)) return AppColors.error;
+  return _importanceColor(item.importance);
+}
+
+bool _isApprovalNotification(OaNotification item) {
+  final targetKind = item.targetKind.trim().toLowerCase();
+  final category = item.category.trim().toLowerCase();
+  final type = item.type.trim().toLowerCase();
+  return targetKind == 'oa_approval' ||
+      category == 'approval' ||
+      category.startsWith('approval_') ||
+      category.startsWith('approval.') ||
+      type == 'approval' ||
+      type.startsWith('approval_') ||
+      type.startsWith('approval.') ||
+      item.action.trim().toLowerCase() == 'review' ||
+      item.requestId.trim().isNotEmpty;
+}
+
+bool _isAnnouncementNotification(OaNotification item) {
+  final category = item.category.trim().toLowerCase();
+  final type = item.type.trim().toLowerCase();
+  return category == 'announcement' ||
+      category == 'notice' ||
+      category.startsWith('announcement.') ||
+      type == 'announcement' ||
+      type == 'notice' ||
+      type.startsWith('announcement.');
+}
+
+bool _isSecurityNotification(OaNotification item) {
+  final category = item.category.trim().toLowerCase();
+  final type = item.type.trim().toLowerCase();
+  const prefixes = ['security', 'risk', 'network', 'endpoint', 'access'];
+  return prefixes.any(
+    (prefix) =>
+        category == prefix ||
+        category.startsWith('$prefix.') ||
+        category.startsWith('${prefix}_') ||
+        type == prefix ||
+        type.startsWith('$prefix.') ||
+        type.startsWith('${prefix}_'),
+  );
+}
+
+bool _isInspectionNotification(OaNotification item) {
+  final category = item.category.trim().toLowerCase();
+  final type = item.type.trim().toLowerCase();
+  return category == 'inspection' ||
+      category.startsWith('inspection_') ||
+      category.startsWith('inspection.') ||
+      type == 'inspection' ||
+      type.startsWith('inspection_') ||
+      type.startsWith('inspection.');
+}
+
+bool _isAttendanceNotification(OaNotification item) {
+  final category = item.category.trim().toLowerCase();
+  final type = item.type.trim().toLowerCase();
+  return category == 'attendance' ||
+      category.startsWith('attendance_') ||
+      category.startsWith('attendance.') ||
+      type == 'attendance' ||
+      type.startsWith('attendance_') ||
+      type.startsWith('attendance.');
 }
 
 Color _importanceColor(String importance) => switch (importance.toLowerCase()) {

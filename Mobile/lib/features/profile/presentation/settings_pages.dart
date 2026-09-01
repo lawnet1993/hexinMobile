@@ -11,6 +11,8 @@ import '../../../core/notifications/mobile_push_registration.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../core/updates/client_update_repository.dart';
+import '../../../core/updates/client_update_sheet.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../collaboration/application/mobile_device_authorization_coordinator.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -388,22 +390,12 @@ class _LoginDevicesPageState extends ConsumerState<LoginDevicesPage> {
   }
 
   Future<void> _revoke(ImDeviceAuthorization device) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('撤销设备授权'),
-        content: Text('撤销“${device.deviceName}”后，该设备需要重新登录。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('撤销'),
-          ),
-        ],
-      ),
+    final confirmed = await showMobileConfirmSheet(
+      context,
+      title: '撤销设备授权',
+      message: '撤销“${device.deviceName}”后，该设备需要重新登录。',
+      confirmLabel: '撤销',
+      destructive: true,
     );
     if (confirmed != true || !mounted) return;
     setState(() => _revokingId = device.deviceId);
@@ -809,44 +801,21 @@ Future<void> _showClientUpdate(
   BuildContext context,
   ClientUpdateInfo info,
 ) async {
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(info.isMandatory ? '必须更新客户端' : '发现新版本'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '最新版本 v${info.latestVersion}',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          if (info.releaseNotes.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(info.releaseNotes),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () async {
-            final uri = Uri.tryParse(info.packageUrl);
-            if (uri == null ||
-                !{'http', 'https'}.contains(uri.scheme.toLowerCase())) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('更新地址无效，请联系管理员')));
-              return;
-            }
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          },
-          child: const Text('下载更新'),
-        ),
-      ],
-    ),
+  await showClientUpdateSheet(
+    context,
+    info: info,
+    onDownload: () async {
+      final uri = Uri.tryParse(info.packageUrl);
+      if (uri == null ||
+          !{'http', 'https'}.contains(uri.scheme.toLowerCase())) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('更新地址无效，请联系管理员')));
+        }
+        return;
+      }
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    },
   );
 }
 
@@ -945,44 +914,13 @@ class _ChoiceRow extends StatelessWidget {
   final ValueChanged<String> onSelected;
 
   Future<void> _openChoices(BuildContext context) async {
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ),
-              for (final item in values)
-                ListTile(
-                  dense: true,
-                  minTileHeight: 48,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  title: Text(item, style: const TextStyle(fontSize: 14)),
-                  trailing: item == value
-                      ? const Icon(
-                          Icons.check_rounded,
-                          size: 20,
-                          color: AppColors.primary,
-                        )
-                      : null,
-                  onTap: () => Navigator.pop(context, item),
-                ),
-            ],
-          ),
-        ),
-      ),
+    final selected = await showMobileChoiceSheet<String>(
+      context,
+      title: label,
+      selectedValue: value,
+      options: values
+          .map((item) => MobileSheetOption(value: item, label: item))
+          .toList(),
     );
     if (selected != null && selected != value) onSelected(selected);
   }

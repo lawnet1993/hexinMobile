@@ -50,4 +50,66 @@ void main() {
     );
     expect(find.byType(FilledButton), findsNothing);
   });
+
+  testWidgets('notification target brings its attendance exception first', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          oaAttendanceOverviewProvider.overrideWith(
+            (ref) async => const OaAttendanceOverview(
+              today: null,
+              nextPunchType: 'check_in',
+              canPunch: false,
+              punchMessage: '',
+              monthExceptionCount: 2,
+              requirePunchCorrectionApproval: true,
+              monthlyPunchCorrectionLimit: 3,
+              monthPunchCorrectionCount: 0,
+              exceptions: [
+                OaAttendanceException(
+                  id: 'exception-latest',
+                  workDate: '2026-08-31',
+                  type: 'missing_check_in',
+                  status: 'pending',
+                  resolutionApprovalRequestId: null,
+                ),
+                OaAttendanceException(
+                  id: 'exception-target',
+                  workDate: '2026-08-14',
+                  type: 'missing_check_in',
+                  status: 'pending',
+                  resolutionApprovalRequestId: null,
+                ),
+              ],
+              recentRecords: [],
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: AttendancePage(
+            correctionMode: true,
+            initialExceptionId: 'exception-target',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final target = find.byKey(
+      const ValueKey('attendance-exception-exception-target'),
+    );
+    final latest = find.byKey(
+      const ValueKey('attendance-exception-exception-latest'),
+    );
+    expect(target, findsOneWidget);
+    expect(
+      tester.getTopLeft(target).dy,
+      lessThan(tester.getTopLeft(latest).dy),
+    );
+    final targetContainer = tester.widget<Container>(target);
+    final decoration = targetContainer.decoration! as BoxDecoration;
+    expect(decoration.color, isNot(Colors.transparent));
+  });
 }

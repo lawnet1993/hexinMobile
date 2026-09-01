@@ -155,6 +155,8 @@ final class SecureSessionStore {
   Future<void> deleteImCacheKey(String accountId) =>
       _storage.delete(key: '$_imCacheKeyPrefix${_storageKeySuffix(accountId)}');
 
+  Future<void> clearCredential() => _storage.delete(key: _credentialKey);
+
   Future<void> clearSession({bool clearCredential = false}) async {
     _cachedSession = null;
     await _storage.delete(key: _sessionKey);

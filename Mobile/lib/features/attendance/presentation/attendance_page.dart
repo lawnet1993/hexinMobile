@@ -12,11 +12,19 @@ import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/domain/collaboration_models.dart';
+import 'inspection_response_sheet.dart';
 
 class AttendancePage extends ConsumerStatefulWidget {
-  const AttendancePage({super.key, this.correctionMode = false});
+  const AttendancePage({
+    super.key,
+    this.correctionMode = false,
+    this.initialExceptionId,
+    this.openInspectionOnStart = false,
+  });
 
   final bool correctionMode;
+  final String? initialExceptionId;
+  final bool openInspectionOnStart;
 
   @override
   ConsumerState<AttendancePage> createState() => _AttendancePageState();
@@ -33,6 +41,12 @@ class _AttendancePageState extends ConsumerState<AttendancePage> {
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
+    if (widget.openInspectionOnStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showActiveInspectionPrompt(context: context, ref: ref, showEmpty: true);
+      });
+    }
   }
 
   @override
@@ -224,6 +238,15 @@ class _AttendancePageState extends ConsumerState<AttendancePage> {
     final exceptions = overview.exceptions
         .where((item) => item.status.toLowerCase() != 'resolved')
         .toList();
+    final initialExceptionId = widget.initialExceptionId?.trim() ?? '';
+    if (initialExceptionId.isNotEmpty) {
+      exceptions.sort((left, right) {
+        final leftSelected = left.id == initialExceptionId;
+        final rightSelected = right.id == initialExceptionId;
+        if (leftSelected == rightSelected) return 0;
+        return leftSelected ? -1 : 1;
+      });
+    }
     return RefreshIndicator(
       onRefresh: () => ref.refresh(oaAttendanceOverviewProvider.future),
       child: ListView(
@@ -260,6 +283,7 @@ class _AttendancePageState extends ConsumerState<AttendancePage> {
             ...exceptions.map(
               (item) => _ExceptionRow(
                 item: item,
+                highlighted: item.id == initialExceptionId,
                 onCorrect: () => _correct(item),
                 onOpenRequest: item.resolutionApprovalRequestId == null
                     ? null
@@ -649,18 +673,25 @@ class _ExceptionRow extends StatelessWidget {
   const _ExceptionRow({
     required this.item,
     required this.onCorrect,
+    required this.highlighted,
     this.onOpenRequest,
   });
 
   final OaAttendanceException item;
   final VoidCallback onCorrect;
+  final bool highlighted;
   final VoidCallback? onOpenRequest;
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: AppColors.border)),
+    key: ValueKey('attendance-exception-${item.id}'),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+    decoration: BoxDecoration(
+      color: highlighted
+          ? AppColors.primary.withValues(alpha: 0.06)
+          : Colors.transparent,
+      border: const Border(bottom: BorderSide(color: AppColors.border)),
+      borderRadius: highlighted ? BorderRadius.circular(8) : null,
     ),
     child: Row(
       children: [
@@ -699,80 +730,183 @@ Future<_CorrectionDraft?> _showCorrectionSheet(
   String? error;
   final result = await showModalBottomSheet<_CorrectionDraft>(
     context: context,
+    useRootNavigator: true,
+    useSafeArea: true,
     isScrollControlled: true,
-    showDragHandle: true,
+    showDragHandle: false,
     builder: (context) => StatefulBuilder(
       builder: (context, setSheetState) => SafeArea(
+        top: false,
         child: Padding(
+          key: const Key('attendance-correction-sheet'),
           padding: EdgeInsets.fromLTRB(
-            20,
-            0,
-            20,
-            20 + MediaQuery.viewInsetsOf(context).bottom,
+            16,
+            8,
+            16,
+            12 + MediaQuery.viewInsetsOf(context).bottom,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                '补${_exceptionLabel(exception.type)}',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final date = await showMobileDatePickerSheet(
-                    context,
-                    initialDate: selected,
-                    firstDate: selected.subtract(const Duration(days: 31)),
-                    lastDate: DateTime.now(),
-                  );
-                  if (date == null || !context.mounted) return;
-                  final time = await showMobileTimePickerSheet(
-                    context,
-                    initialTime: TimeOfDay.fromDateTime(selected),
-                  );
-                  if (time == null) return;
-                  setSheetState(() {
-                    selected = DateTime(
-                      date.year,
-                      date.month,
-                      date.day,
-                      time.hour,
-                      time.minute,
-                    );
-                  });
-                },
-                icon: const Icon(Icons.schedule_rounded),
-                label: Text(DateFormat('yyyy-MM-dd HH:mm').format(selected)),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reason,
-                minLines: 2,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  labelText: '补卡原因',
-                  errorText: error,
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
                 ),
               ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: () {
-                  if (reason.text.trim().isEmpty) {
-                    setSheetState(() => error = '请填写补卡原因');
-                    return;
-                  }
-                  Navigator.pop(
-                    context,
-                    _CorrectionDraft(selected, reason.text.trim()),
-                  );
-                },
-                child: const Text('提交补卡'),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '补${_exceptionLabel(exception.type)}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 19),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
+              const SizedBox(height: 6),
+              const Text(
+                '补卡时间',
+                style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const Key('attendance-correction-time'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(168, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () async {
+                    final date = await showMobileDatePickerSheet(
+                      context,
+                      initialDate: selected,
+                      firstDate: selected.subtract(const Duration(days: 31)),
+                      lastDate: DateTime.now(),
+                    );
+                    if (date == null || !context.mounted) return;
+                    final time = await showMobileTimePickerSheet(
+                      context,
+                      initialTime: TimeOfDay.fromDateTime(selected),
+                    );
+                    if (time == null) return;
+                    setSheetState(() {
+                      selected = DateTime(
+                        date.year,
+                        date.month,
+                        date.day,
+                        time.hour,
+                        time.minute,
+                      );
+                    });
+                  },
+                  icon: const Icon(Icons.schedule_rounded, size: 17),
+                  label: Text(DateFormat('yyyy-MM-dd HH:mm').format(selected)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '补卡原因',
+                style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                key: const Key('attendance-correction-reason'),
+                controller: reason,
+                minLines: 2,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: true,
+                  fillColor: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: .6),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 9,
+                  ),
+                  hintText: '请填写补卡原因',
+                  border: const OutlineInputBorder(
+                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                ),
+                onChanged: (_) {
+                  if (error != null) setSheetState(() => error = null);
+                },
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 5),
+                Text(
+                  error!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(60, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const Key('attendance-correction-submit'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(84, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () {
+                      if (reason.text.trim().isEmpty) {
+                        setSheetState(() => error = '请填写补卡原因');
+                        return;
+                      }
+                      Navigator.pop(
+                        context,
+                        _CorrectionDraft(selected, reason.text.trim()),
+                      );
+                    },
+                    child: const Text('提交补卡'),
+                  ),
+                ],
               ),
             ],
           ),

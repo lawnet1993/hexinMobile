@@ -1,0 +1,7 @@
+install=Performing Streamed Install | Success
+size=65819655
+built_sha256=4953D2C2EC068CCC62C9C9C9A5E873685321927196DF40F1DF8D7D01632CF2F5
+installed_sha256=4953D2C2EC068CCC62C9C9C9A5E873685321927196DF40F1DF8D7D01632CF2F5
+hash_match=True
+package_path=/data/app/~~TJeoxOysZkMAEZPi8PA14w==/com.hexing.zhilian.hexing_terminal_mobile-Yq-Dg8SZRT7Kntdlqs1xHA==/base.apk
+lock_state=      showing=true |         mIsShowing=true |         mInputRestricted=true |     mIsImeShowing=false |     mShowingDream=false mDreamingLockscreen=true |     isKeyguardShowing=true |         mImeShowing=false

@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -538,6 +539,7 @@ class _RequestHeader extends StatelessWidget {
         InitialAvatar(
           name: request.requesterName.isEmpty ? '申请人' : request.requesterName,
           radius: 21,
+          avatarKey: member?.avatarKey ?? '',
           avatarDataUrl: member?.avatarDataUrl ?? '',
         ),
         const SizedBox(width: 10),
@@ -764,6 +766,7 @@ class _SubmissionTimelineItem extends StatelessWidget {
         InitialAvatar(
           name: request.requesterName.isEmpty ? '申请人' : request.requesterName,
           radius: 17,
+          avatarKey: member?.avatarKey ?? '',
           avatarDataUrl: member?.avatarDataUrl ?? '',
         ),
         const SizedBox(width: 8),
@@ -858,6 +861,7 @@ class _TimelineItem extends StatelessWidget {
           InitialAvatar(
             name: actorDetails.isEmpty ? task.nodeName : actorDetails.first,
             radius: 17,
+            avatarKey: member?.avatarKey ?? '',
             avatarDataUrl: member?.avatarDataUrl ?? '',
           ),
           const SizedBox(width: 8),
@@ -1082,64 +1086,19 @@ Future<_ReviewDraft?> _showReviewSheet(
   BuildContext context,
   bool approve,
 ) async {
-  final controller = TextEditingController();
-  String? validationMessage;
-  final result = await showModalBottomSheet<_ReviewDraft>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setSheetState) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            0,
-            20,
-            20 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                approve ? '同意审批' : '驳回审批',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                autofocus: !approve,
-                minLines: 2,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  labelText: approve ? '处理意见（选填）' : '驳回原因',
-                  errorText: validationMessage,
-                ),
-              ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: () {
-                  final comment = controller.text.trim();
-                  if (!approve && comment.isEmpty) {
-                    setSheetState(() => validationMessage = '请填写驳回原因');
-                    return;
-                  }
-                  Navigator.pop(context, _ReviewDraft(comment));
-                },
-                child: Text(approve ? '确认同意' : '确认驳回'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
+  final comment = await showMobileTextInputSheet(
+    context,
+    title: approve ? '同意审批' : '驳回审批',
+    label: approve ? '处理意见（选填）' : '驳回原因',
+    hintText: approve ? '请输入处理意见' : '请输入驳回原因',
+    minLines: 2,
+    maxLines: 4,
+    actionLabel: approve ? '确认同意' : '确认驳回',
+    autofocus: !approve,
+    allowEmpty: approve,
+    validator: (value) => !approve && value.isEmpty ? '请填写驳回原因' : null,
   );
-  await disposeRouteTextController(controller);
-  return result;
+  return comment == null ? null : _ReviewDraft(comment);
 }
 
 Future<ImMember?> _showMemberPicker(
@@ -1151,8 +1110,10 @@ Future<ImMember?> _showMemberPicker(
   var query = '';
   final result = await showModalBottomSheet<ImMember>(
     context: context,
+    useRootNavigator: true,
+    useSafeArea: true,
     isScrollControlled: true,
-    showDragHandle: true,
+    showDragHandle: false,
     builder: (context) => StatefulBuilder(
       builder: (context, setSheetState) {
         final filtered = members.where((member) {
@@ -1164,29 +1125,57 @@ Future<ImMember?> _showMemberPicker(
         }).toList();
         final listHeight = filtered.isEmpty
             ? 96.0
-            : (filtered.length * 58.0).clamp(58.0, 290.0);
+            : (filtered.length * 52.0).clamp(52.0, 286.0);
         return SafeArea(
+          top: false,
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              18,
-              0,
-              18,
-              16 + MediaQuery.viewInsetsOf(context).bottom,
+              16,
+              8,
+              16,
+              12 + MediaQuery.viewInsetsOf(context).bottom,
             ),
             child: SizedBox(
+              key: const Key('approval-member-picker'),
               height: 108 + listHeight,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(title, style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  TextField(
+                  Center(
+                    child: Container(
+                      width: 32,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '关闭',
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded, size: 19),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  MobileSearchField(
+                    key: const Key('approval-member-search'),
                     controller: searchController,
                     autofocus: false,
-                    decoration: const InputDecoration(
-                      hintText: '搜索姓名、账号或部门',
-                      prefixIcon: Icon(Icons.search_rounded),
-                    ),
+                    hintText: '搜索姓名、账号或部门',
                     onChanged: (value) =>
                         setSheetState(() => query = value.trim()),
                   ),
@@ -1202,21 +1191,30 @@ Future<ImMember?> _showMemberPicker(
                             itemBuilder: (context, index) {
                               final member = filtered[index];
                               return ListTile(
+                                minTileHeight: 50,
+                                dense: true,
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 6,
                                 ),
-                                minVerticalPadding: 4,
                                 visualDensity: VisualDensity.compact,
                                 leading: InitialAvatar(
                                   name: member.displayName,
-                                  radius: 18,
+                                  radius: 17,
+                                  avatarKey: member.avatarKey,
                                   avatarDataUrl: member.avatarDataUrl,
                                 ),
-                                title: Text(member.displayName),
+                                title: Text(
+                                  member.displayName,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                                 subtitle: Text(
                                   [member.username, member.departmentName]
                                       .where((value) => value.isNotEmpty)
                                       .join(' · '),
+                                  style: const TextStyle(fontSize: 11),
                                 ),
                                 onTap: () => Navigator.pop(context, member),
                               );
@@ -1239,132 +1237,98 @@ Future<String?> _showReasonSheet(
   BuildContext context, {
   required String title,
   bool required = true,
-}) async {
-  final controller = TextEditingController();
-  String? errorText;
-  final result = await showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setSheetState) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            0,
-            20,
-            20 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                minLines: 2,
-                maxLines: 4,
-                maxLength: 500,
-                decoration: InputDecoration(
-                  labelText: required ? title : '$title（选填）',
-                  errorText: errorText,
-                ),
-              ),
-              const SizedBox(height: 14),
-              FilledButton(
-                onPressed: () {
-                  final value = controller.text.trim();
-                  if (required && value.isEmpty) {
-                    setSheetState(() => errorText = '请填写$title');
-                    return;
-                  }
-                  Navigator.pop(context, value);
-                },
-                child: const Text('确认'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-  await disposeRouteTextController(controller);
-  return result;
-}
+}) => showMobileTextInputSheet(
+  context,
+  title: title,
+  label: required ? title : '$title（选填）',
+  hintText: '请输入$title',
+  maxLength: 500,
+  minLines: 2,
+  maxLines: 4,
+  actionLabel: '确认',
+  allowEmpty: !required,
+  validator: (value) => required && value.isEmpty ? '请填写$title' : null,
+);
 
 Future<String?> _showAddSignMode(BuildContext context) =>
-    showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.vertical_align_top_rounded),
-              title: const Text('前加签'),
-              subtitle: const Text('新增人员先处理，之后回到当前节点'),
-              onTap: () => Navigator.pop(context, 'before'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.vertical_align_bottom_rounded),
-              title: const Text('后加签'),
-              subtitle: const Text('当前节点处理后，由新增人员继续处理'),
-              onTap: () => Navigator.pop(context, 'after'),
-            ),
-            const SizedBox(height: 8),
-          ],
+    showMobileChoiceSheet<String>(
+      context,
+      title: '选择加签方式',
+      options: const [
+        MobileSheetOption(
+          value: 'before',
+          label: '前加签',
+          subtitle: '新增人员先处理，之后回到当前节点',
+          icon: Icons.vertical_align_top_rounded,
         ),
-      ),
+        MobileSheetOption(
+          value: 'after',
+          label: '后加签',
+          subtitle: '当前节点处理后，由新增人员继续处理',
+          icon: Icons.vertical_align_bottom_rounded,
+        ),
+      ],
     );
 
 Future<String?> _showSecondaryActionsSheet(
   BuildContext context,
   List<String> actions,
-) => showModalBottomSheet<String>(
-  context: context,
-  showDragHandle: true,
-  builder: (context) => SafeArea(
-    top: false,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
-            child: Text(
-              '更多操作',
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+) {
+  if (actions.length <= 2) {
+    return showMobileChoiceSheet<String>(
+      context,
+      title: '更多操作',
+      options: [
+        for (final action in actions)
+          MobileSheetOption(
+            value: action,
+            label: _actionLabel(action),
+            icon: _actionIcon(action),
+            destructive: action == 'withdraw',
+          ),
+      ],
+    );
+  }
+  return showModalBottomSheet<String>(
+    context: context,
+    useRootNavigator: true,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+              child: Text(
+                '更多操作',
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
             ),
-          ),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              for (final action in actions)
-                SizedBox(
-                  width: 64,
-                  child: _SecondaryActionItem(
-                    action: action,
-                    onTap: () => Navigator.pop(context, action),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                for (final action in actions)
+                  SizedBox(
+                    width: 64,
+                    child: _SecondaryActionItem(
+                      action: action,
+                      onTap: () => Navigator.pop(context, action),
+                    ),
                   ),
-                ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     ),
-  ),
-);
+  );
+}
 
 class _SecondaryActionItem extends StatelessWidget {
   const _SecondaryActionItem({required this.action, required this.onTap});
@@ -1433,8 +1397,20 @@ List<_FieldValue> _formRows(OaApprovalRequest request) {
       final type = field['type']?.toString().toLowerCase();
       if (type == 'attachment' || type == 'file') continue;
       final label = (field['label'] ?? field['title'] ?? key).toString();
+      final rawValue = data[key];
+      final configuredDisplayValue = data['${key}__display'];
+      final value =
+          configuredDisplayValue != null &&
+              !_isSchemaConfigurationValue(configuredDisplayValue, field)
+          ? configuredDisplayValue
+          : rawValue;
       rows.add(
-        _FieldValue(label, _displayValue(data['${key}__display'] ?? data[key])),
+        _FieldValue(
+          label,
+          _isSchemaConfigurationValue(value, field)
+              ? '-'
+              : _displayValue(value),
+        ),
       );
     }
   }
@@ -1444,7 +1420,8 @@ List<_FieldValue> _formRows(OaApprovalRequest request) {
         (entry) =>
             !entry.key.endsWith('__display') &&
             !entry.key.startsWith('_') &&
-            !_isAttachmentValue(entry.value),
+            !_isAttachmentValue(entry.value) &&
+            !_isSchemaConfigurationValue(entry.value, const {}),
       )
       .map(
         (entry) => _FieldValue(
@@ -1453,6 +1430,46 @@ List<_FieldValue> _formRows(OaApprovalRequest request) {
         ),
       )
       .toList();
+}
+
+bool _isSchemaConfigurationValue(Object? value, Map<String, Object?> field) {
+  if (value is Map) {
+    final keys = value.keys
+        .map((item) => item.toString().toLowerCase())
+        .toSet();
+    return keys.intersection(const {
+      'mode',
+      'readonly',
+      'unit',
+      'calculation',
+      'formula',
+      'durationunit',
+      'durationstartfieldid',
+      'durationendfieldid',
+      'autocalculate',
+    }).isNotEmpty;
+  }
+  if (value is! String) return false;
+  final fieldIsDerived =
+      field['readOnly'] == true ||
+      field['readonly'] == true ||
+      field['calculation'] is Map ||
+      field['durationUnit']?.toString().trim().isNotEmpty == true;
+  if (field.isNotEmpty && !fieldIsDerived) return false;
+  final parts = value
+      .split(RegExp(r'[,，;；|、]'))
+      .map((item) => item.replaceAll(RegExp(r'\s+'), '').trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+  if (parts.length < 2) return false;
+  final knownParts = parts.every(
+    (item) =>
+        item == '自动计算' ||
+        item == '只读' ||
+        item.startsWith('单位') ||
+        item.startsWith('公式'),
+  );
+  return knownParts && parts.any((item) => item == '自动计算' || item == '只读');
 }
 
 bool _isAttachmentValue(Object? value) {

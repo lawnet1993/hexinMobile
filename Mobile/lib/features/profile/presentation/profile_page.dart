@@ -6,6 +6,7 @@ import 'package:secure_tunnel/secure_tunnel.dart';
 import '../../../core/notifications/mobile_push_registration.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_mode_controller.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../collaboration/application/mobile_device_authorization_coordinator.dart';
@@ -52,6 +53,7 @@ class ProfilePage extends ConsumerWidget {
                         name: name,
                         radius: 21,
                         online: member?.isOnline,
+                        avatarKey: member?.avatarKey ?? '',
                         avatarDataUrl: member?.avatarDataUrl ?? '',
                       ),
                       const SizedBox(width: 10),
@@ -207,22 +209,12 @@ class ProfilePage extends ConsumerWidget {
   }
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('退出后需要重新验证终端账号。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('退出'),
-          ),
-        ],
-      ),
+    final confirmed = await showMobileConfirmSheet(
+      context,
+      title: '退出登录',
+      message: '退出后需要重新验证终端账号。',
+      confirmLabel: '退出',
+      destructive: true,
     );
     if (confirmed == true) {
       try {

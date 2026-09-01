@@ -259,7 +259,7 @@ void main() {
         expect(value as String, startsWith('enc:v1:'));
       }
       expect(message['content'], isNot(contains('private message body')));
-      expect(await raw.getVersion(), 9);
+      expect(await raw.getVersion(), 10);
     } finally {
       await raw.close();
     }
@@ -271,9 +271,10 @@ void main() {
     );
     try {
       expect(
-        (await reopened.readBootstrap(
-          'account-a',
-        ))?.conversations.single.preview,
+        (await reopened.readBootstrap('account-a'))
+            ?.conversations
+            .single
+            .preview,
         'Preview a',
       );
       expect(
@@ -369,6 +370,7 @@ void main() {
         title: '研发协作群',
         notice: '真实群公告',
         groupNo: 'GROUP-A',
+        currentUserRole: 'owner',
       );
 
       await store.replaceConversationMembers('account-a', 'conversation-a', [
@@ -387,6 +389,7 @@ void main() {
       expect(members.single.displayName, '详情用户');
       expect(members.single.isOrganizationManager, isTrue);
       expect(cachedProfile?.notice, '真实群公告');
+      expect(cachedProfile?.currentUserRole, 'owner');
       expect(
         await store.readConversationMembers('account-b', 'conversation-a'),
         isEmpty,

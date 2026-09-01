@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -35,6 +36,10 @@ class _ConversationDetailPageState
 
   ImConversation get conversation => widget.conversation;
 
+  ({String conversationId, int page, int pageSize, String keyword})
+  get _memberPageKey =>
+      (conversationId: conversation.id, page: 1, pageSize: 50, keyword: '');
+
   @override
   void initState() {
     super.initState();
@@ -53,12 +58,15 @@ class _ConversationDetailPageState
 
   Future<void> _refresh() async {
     final repository = ref.read(imRepositoryProvider);
-    await repository.refreshConversationMembers(conversation.id);
-    ref.invalidate(conversationMembersProvider(conversation.id));
     if (conversation.isGroup) {
+      ref.invalidate(conversationMemberPageProvider(_memberPageKey));
+      await ref.read(conversationMemberPageProvider(_memberPageKey).future);
       await repository.refreshGroupProfile(conversation.id);
       ref.invalidate(groupProfileProvider(conversation.id));
       ref.invalidate(groupManagersProvider(conversation.id));
+    } else {
+      await repository.refreshConversationMembers(conversation.id);
+      ref.invalidate(conversationMembersProvider(conversation.id));
     }
   }
 
@@ -145,30 +153,13 @@ class _ConversationDetailPageState
     required int maxLength,
     int maxLines = 1,
   }) async {
-    final controller = TextEditingController(text: value);
-    final nextValue = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: maxLength,
-          maxLines: maxLines,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+    final nextValue = await showMobileTextInputSheet(
+      context,
+      title: title,
+      initialValue: value,
+      maxLength: maxLength,
+      maxLines: maxLines,
     );
-    await disposeRouteTextController(controller);
     if (nextValue == null || !mounted) return;
     await _run('$title失败', () async {
       await ref.read(imRepositoryProvider).updateGroupProfile(conversation.id, {
@@ -197,8 +188,10 @@ class _ConversationDetailPageState
         .toList();
     final selected = await showModalBottomSheet<List<String>>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
-      showDragHandle: true,
+      showDragHandle: false,
       builder: (_) => _MemberPickerSheet(title: '添加群成员', members: candidates),
     );
     if (selected == null || selected.isEmpty || !mounted) return;
@@ -206,7 +199,7 @@ class _ConversationDetailPageState
       await ref
           .read(imRepositoryProvider)
           .addGroupMembers(conversation.id, selected);
-      ref.invalidate(conversationMembersProvider(conversation.id));
+      ref.invalidate(conversationMemberPageProvider(_memberPageKey));
     });
   }
 
@@ -217,8 +210,10 @@ class _ConversationDetailPageState
   }) async {
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
+      showDragHandle: false,
       builder: (_) => _GroupMemberDirectorySheet(
         conversationId: conversation.id,
         currentMemberId: widget.currentMember.id,
@@ -240,42 +235,32 @@ class _ConversationDetailPageState
     required ImMember member,
     required bool isManager,
   }) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.admin_panel_settings_outlined),
-              title: Text(isManager ? '取消管理员' : '设为管理员'),
-              onTap: () => Navigator.pop(context, 'role'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.volume_off_outlined),
-              title: const Text('禁言 24 小时'),
-              onTap: () => Navigator.pop(context, 'mute'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.swap_horiz_rounded),
-              title: const Text('转让群主'),
-              onTap: () => Navigator.pop(context, 'owner'),
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.person_remove_outlined,
-                color: AppColors.error,
-              ),
-              title: const Text(
-                '移出群聊',
-                style: TextStyle(color: AppColors.error),
-              ),
-              onTap: () => Navigator.pop(context, 'remove'),
-            ),
-          ],
+    final action = await showMobileChoiceSheet<String>(
+      context,
+      title: '管理 ${member.displayName}',
+      options: [
+        MobileSheetOption(
+          value: 'role',
+          label: isManager ? '取消管理员' : '设为管理员',
+          icon: Icons.admin_panel_settings_outlined,
         ),
-      ),
+        const MobileSheetOption(
+          value: 'mute',
+          label: '禁言 24 小时',
+          icon: Icons.volume_off_outlined,
+        ),
+        const MobileSheetOption(
+          value: 'owner',
+          label: '转让群主',
+          icon: Icons.swap_horiz_rounded,
+        ),
+        const MobileSheetOption(
+          value: 'remove',
+          label: '移出群聊',
+          icon: Icons.person_remove_outlined,
+          destructive: true,
+        ),
+      ],
     );
     if (action == null || !mounted) return;
     if (action == 'mute') {
@@ -318,7 +303,7 @@ class _ConversationDetailPageState
         await repository.transferGroupOwner(conversation.id, member.id);
       } else {
         await repository.removeGroupMember(conversation.id, member.id);
-        ref.invalidate(conversationMembersProvider(conversation.id));
+        ref.invalidate(conversationMemberPageProvider(_memberPageKey));
       }
       ref.invalidate(groupManagersProvider(conversation.id));
     });
@@ -362,8 +347,10 @@ class _ConversationDetailPageState
     if (bootstrap == null || !bootstrap.permissions.createGroup) return;
     final draft = await showModalBottomSheet<_GroupDraft>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
-      showDragHandle: true,
+      showDragHandle: false,
       builder: (_) =>
           _CreateGroupSheet(fixedMember: member, contacts: bootstrap.contacts),
     );
@@ -383,32 +370,28 @@ class _ConversationDetailPageState
     required String action,
     bool destructive = false,
   }) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(title),
-            content: Text(content),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                style: destructive
-                    ? FilledButton.styleFrom(backgroundColor: AppColors.error)
-                    : null,
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(action),
-              ),
-            ],
-          ),
+    return await showMobileConfirmSheet(
+          context,
+          title: title,
+          message: content,
+          confirmLabel: action,
+          destructive: destructive,
         ) ??
         false;
   }
 
   @override
   Widget build(BuildContext context) {
-    final members = ref.watch(conversationMembersProvider(conversation.id));
+    final groupMemberPage = conversation.isGroup
+        ? ref.watch(conversationMemberPageProvider(_memberPageKey))
+        : null;
+    final AsyncValue<List<ImMember>> members = conversation.isGroup
+        ? groupMemberPage!.whenData((page) => page.items)
+        : ref.watch(conversationMembersProvider(conversation.id));
+    final memberTotal = groupMemberPage?.value?.total;
+    final presence = conversation.isGroup
+        ? ref.watch(conversationPresenceProvider(conversation.id)).value
+        : null;
     final profile = conversation.isGroup
         ? ref.watch(groupProfileProvider(conversation.id)).value
         : null;
@@ -449,8 +432,12 @@ class _ConversationDetailPageState
         .where((item) => item.groupRole.toLowerCase() == 'owner')
         .firstOrNull
         ?.id;
-    final canManage = managerIds.contains(widget.currentMember.id);
-    final isOwner = ownerId == widget.currentMember.id;
+    final currentUserRole = profile?.currentUserRole.trim().toLowerCase() ?? '';
+    final canManage =
+        managerIds.contains(widget.currentMember.id) ||
+        const {'owner', 'admin', 'administrator'}.contains(currentUserRole);
+    final isOwner =
+        ownerId == widget.currentMember.id || currentUserRole == 'owner';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
@@ -463,8 +450,13 @@ class _ConversationDetailPageState
               icon: Icons.cloud_off_outlined,
               title: '详情加载失败',
               description: error.toString(),
-              onRetry: () =>
-                  ref.invalidate(conversationMembersProvider(conversation.id)),
+              onRetry: () => conversation.isGroup
+                  ? ref.invalidate(
+                      conversationMemberPageProvider(_memberPageKey),
+                    )
+                  : ref.invalidate(
+                      conversationMembersProvider(conversation.id),
+                    ),
             ),
             data: (items) => RefreshIndicator(
               onRefresh: _refresh,
@@ -472,9 +464,10 @@ class _ConversationDetailPageState
                   ? _GroupDetail(
                       conversation: conversation,
                       members: items,
-                      onlineMemberCount: items
-                          .where((member) => member.isOnline)
-                          .length,
+                      memberCount: memberTotal ?? items.length,
+                      onlineMemberCount:
+                          presence?.onlineMemberCount ??
+                          items.where((member) => member.isOnline).length,
                       profile: profile,
                       currentMember: widget.currentMember,
                       managerIds: managerIds,
@@ -618,6 +611,7 @@ class _DirectDetail extends StatelessWidget {
                 name: displayName,
                 radius: 24,
                 online: member?.isOnline == true,
+                avatarKey: member?.avatarKey ?? '',
                 avatarDataUrl: member?.avatarDataUrl ?? '',
               ),
               const SizedBox(width: 12),
@@ -735,6 +729,7 @@ class _GroupDetail extends StatelessWidget {
   const _GroupDetail({
     required this.conversation,
     required this.members,
+    required this.memberCount,
     required this.onlineMemberCount,
     required this.profile,
     required this.currentMember,
@@ -763,6 +758,7 @@ class _GroupDetail extends StatelessWidget {
 
   final ImConversation conversation;
   final List<ImMember> members;
+  final int memberCount;
   final int onlineMemberCount;
   final ImGroupProfile? profile;
   final ImMember currentMember;
@@ -817,7 +813,7 @@ class _GroupDetail extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${members.length} 位成员 · $onlineMemberCount 人在线',
+                    '$memberCount 位成员 · $onlineMemberCount 人在线',
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.secondaryText,
@@ -846,7 +842,7 @@ class _GroupDetail extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '群成员（${members.length}）',
+                    '群成员（$memberCount）',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -894,6 +890,7 @@ class _GroupDetail extends StatelessWidget {
                         name: member.displayName,
                         radius: 20,
                         online: member.isOnline,
+                        avatarKey: member.avatarKey,
                         avatarDataUrl: member.avatarDataUrl,
                       ),
                       const SizedBox(height: 3),
@@ -1279,43 +1276,64 @@ class _GroupMemberDirectorySheetState
   Widget build(BuildContext context) {
     final value = ref.watch(conversationMemberPageProvider(_key));
     return SizedBox(
+      key: const Key('group-member-directory-sheet'),
       height: MediaQuery.sizeOf(context).height * .88,
       child: Column(
         children: [
+          const SizedBox(height: 8),
+          Center(
+            child: Container(
+              width: 32,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 10, 8),
+            padding: const EdgeInsets.only(left: 16, right: 8),
             child: Row(
               children: [
                 const Expanded(
                   child: Text(
                     '全部群成员',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
                 IconButton(
                   tooltip: '关闭',
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
+                  icon: const Icon(Icons.close_rounded, size: 19),
                 ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-            child: TextField(
-              controller: _searchController,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _search(),
-              decoration: InputDecoration(
-                hintText: '搜索姓名或账号',
-                prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                suffixIcon: IconButton(
-                  tooltip: '搜索',
-                  onPressed: _search,
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: MobileSearchField(
+                    key: const Key('group-member-directory-search'),
+                    controller: _searchController,
+                    hintText: '搜索姓名或账号',
+                    onSubmitted: (_) => _search(),
+                  ),
                 ),
-                isDense: true,
-              ),
+                const SizedBox(width: 6),
+                SizedBox.square(
+                  dimension: 34,
+                  child: IconButton.filledTonal(
+                    tooltip: '搜索',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    onPressed: _search,
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -1335,10 +1353,8 @@ class _GroupMemberDirectorySheetState
                       icon: Icons.group_off_outlined,
                       title: '没有匹配的群成员',
                     )
-                  : ListView.separated(
+                  : ListView.builder(
                       itemCount: result.items.length,
-                      separatorBuilder: (_, _) =>
-                          const Divider(height: 1, indent: 62),
                       itemBuilder: (context, index) {
                         final member = result.items[index];
                         final isOwner = member.id == widget.ownerId;
@@ -1347,83 +1363,94 @@ class _GroupMemberDirectorySheetState
                             widget.canManageMembers &&
                             member.id != widget.currentMemberId &&
                             !isOwner;
-                        return ListTile(
-                          dense: true,
-                          leading: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              InitialAvatar(
-                                name: member.displayName,
-                                radius: 18,
-                                avatarDataUrl: member.avatarDataUrl,
-                              ),
-                              Positioned(
-                                right: -1,
-                                bottom: -1,
-                                child: Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: member.isOnline
-                                        ? const Color(0xFF22B573)
-                                        : const Color(0xFFB8C0CC),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 1.5,
+                        return SizedBox(
+                          key: ValueKey(
+                            'group-member-directory-member-${member.id}',
+                          ),
+                          height: 54,
+                          child: ListTile(
+                            dense: true,
+                            visualDensity: VisualDensity.compact,
+                            minLeadingWidth: 36,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                            ),
+                            leading: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                InitialAvatar(
+                                  name: member.displayName,
+                                  radius: 18,
+                                  avatarKey: member.avatarKey,
+                                  avatarDataUrl: member.avatarDataUrl,
+                                ),
+                                Positioned(
+                                  right: -1,
+                                  bottom: -1,
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(
+                                      color: member.isOnline
+                                          ? const Color(0xFF22B573)
+                                          : const Color(0xFFB8C0CC),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1.5,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          title: Text(
-                            member.id == widget.currentMemberId
-                                ? '${member.displayName}（我）'
-                                : member.displayName,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          subtitle: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                [
-                                  member.departmentName,
-                                  member.username,
-                                ].where((item) => item.isNotEmpty).join(' · '),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 10.5),
-                              ),
-                              const SizedBox(height: 1),
-                              Text(
-                                _memberPresenceLabel(member),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  color: member.isOnline
-                                      ? const Color(0xFF0A9F64)
-                                      : AppColors.secondaryText,
+                              ],
+                            ),
+                            title: Text(
+                              member.id == widget.currentMemberId
+                                  ? '${member.displayName}（我）'
+                                  : member.displayName,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            subtitle: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  [member.departmentName, member.username]
+                                      .where((item) => item.isNotEmpty)
+                                      .join(' · '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 10.5),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 1),
+                                Text(
+                                  _memberPresenceLabel(member),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: member.isOnline
+                                        ? const Color(0xFF0A9F64)
+                                        : AppColors.secondaryText,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isOwner)
+                                  const _MemberRoleLabel(label: '群主')
+                                else if (isManager)
+                                  const _MemberRoleLabel(label: '管理员'),
+                                if (canOperate)
+                                  const Icon(Icons.chevron_right_rounded),
+                              ],
+                            ),
+                            onTap: canOperate
+                                ? () => widget.onManageMember(member)
+                                : null,
                           ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (isOwner)
-                                const _MemberRoleLabel(label: '群主')
-                              else if (isManager)
-                                const _MemberRoleLabel(label: '管理员'),
-                              if (canOperate)
-                                const Icon(Icons.chevron_right_rounded),
-                            ],
-                          ),
-                          onTap: canOperate
-                              ? () => widget.onManageMember(member)
-                              : null,
                         );
                       },
                     ),
@@ -1504,22 +1531,50 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
         .toList();
     return SafeArea(
       child: SizedBox(
+        key: const Key('group-member-picker-sheet'),
         height: MediaQuery.sizeOf(context).height * .72,
         child: Column(
           children: [
-            Text(
-              widget.title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            const SizedBox(height: 8),
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 19),
+                  ),
+                ],
+              ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                autofocus: true,
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: MobileSearchField(
+                key: const Key('group-member-picker-search'),
+                hintText: '搜索姓名、部门或账号',
+                autofocus: false,
                 onChanged: (value) => setState(() => _query = value.trim()),
-                decoration: const InputDecoration(
-                  hintText: '搜索姓名、部门或账号',
-                  prefixIcon: Icon(Icons.search_rounded),
-                ),
               ),
             ),
             Expanded(
@@ -1532,41 +1587,86 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
                       itemCount: members.length,
                       itemBuilder: (context, index) {
                         final member = members[index];
-                        return CheckboxListTile(
-                          value: _selected.contains(member.id),
-                          secondary: InitialAvatar(
-                            name: member.displayName,
-                            radius: 20,
-                            avatarDataUrl: member.avatarDataUrl,
+                        return SizedBox(
+                          key: ValueKey(
+                            'group-member-picker-member-${member.id}',
                           ),
-                          title: Text(member.displayName),
-                          subtitle: Text(
-                            [
-                              member.departmentName,
-                              member.username,
-                            ].where((item) => item.isNotEmpty).join(' · '),
+                          height: 50,
+                          child: CheckboxListTile(
+                            dense: true,
+                            visualDensity: VisualDensity.compact,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                            ),
+                            value: _selected.contains(member.id),
+                            secondary: InitialAvatar(
+                              name: member.displayName,
+                              radius: 17,
+                              online: member.isOnline,
+                              avatarKey: member.avatarKey,
+                              avatarDataUrl: member.avatarDataUrl,
+                            ),
+                            title: Text(
+                              member.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              [
+                                member.departmentName,
+                                member.username,
+                              ].where((item) => item.isNotEmpty).join(' · '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.secondaryText,
+                              ),
+                            ),
+                            onChanged: (selected) => setState(() {
+                              if (selected == true) {
+                                _selected.add(member.id);
+                              } else {
+                                _selected.remove(member.id);
+                              }
+                            }),
                           ),
-                          onChanged: (selected) => setState(() {
-                            if (selected == true) {
-                              _selected.add(member.id);
-                            } else {
-                              _selected.remove(member.id);
-                            }
-                          }),
                         );
                       },
                     ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _selected.isEmpty
-                      ? null
-                      : () => Navigator.pop(context, _selected.toList()),
-                  child: Text('确定（${_selected.length}）'),
-                ),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(60, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const Key('group-member-picker-submit'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(78, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: _selected.isEmpty
+                        ? null
+                        : () => Navigator.pop(context, _selected.toList()),
+                    child: Text('确定（${_selected.length}）'),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1616,35 +1716,115 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
         .toList();
     return SafeArea(
       child: SizedBox(
+        key: const Key('create-group-sheet'),
         height: MediaQuery.sizeOf(context).height * .72,
         child: Column(
           children: [
-            const Text(
-              '发起群聊',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: TextField(
-                controller: _title,
-                maxLength: 80,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: '群名称',
-                  counterText: '',
+            const SizedBox(height: 8),
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(99),
                 ),
               ),
             ),
-            ListTile(
-              leading: InitialAvatar(
-                name: widget.fixedMember.displayName,
-                radius: 20,
-                avatarDataUrl: widget.fixedMember.avatarDataUrl,
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 8),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '发起群聊',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 19),
+                  ),
+                ],
               ),
-              title: Text(widget.fixedMember.displayName),
-              trailing: const Icon(
-                Icons.check_circle,
-                color: AppColors.primary,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: SizedBox(
+                height: 36,
+                child: TextField(
+                  key: const Key('create-group-title-input'),
+                  controller: _title,
+                  maxLength: 80,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: '群名称',
+                    counterText: '',
+                    isDense: true,
+                    filled: true,
+                    fillColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: .6),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    border: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    enabledBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 50,
+              child: ListTile(
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                leading: InitialAvatar(
+                  name: widget.fixedMember.displayName,
+                  radius: 17,
+                  online: widget.fixedMember.isOnline,
+                  avatarKey: widget.fixedMember.avatarKey,
+                  avatarDataUrl: widget.fixedMember.avatarDataUrl,
+                ),
+                title: Text(
+                  widget.fixedMember.displayName,
+                  style: const TextStyle(fontSize: 13.5),
+                ),
+                subtitle: Text(
+                  [
+                    widget.fixedMember.departmentName,
+                    widget.fixedMember.username,
+                  ].where((item) => item.isNotEmpty).join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                trailing: const Icon(
+                  Icons.check_circle,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
               ),
             ),
             Expanded(
@@ -1652,42 +1832,87 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                 itemCount: contacts.length,
                 itemBuilder: (context, index) {
                   final member = contacts[index];
-                  return CheckboxListTile(
-                    value: _selected.contains(member.id),
-                    secondary: InitialAvatar(
-                      name: member.displayName,
-                      radius: 20,
-                      avatarDataUrl: member.avatarDataUrl,
+                  return SizedBox(
+                    key: ValueKey('create-group-member-${member.id}'),
+                    height: 50,
+                    child: CheckboxListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                      ),
+                      value: _selected.contains(member.id),
+                      secondary: InitialAvatar(
+                        name: member.displayName,
+                        radius: 17,
+                        online: member.isOnline,
+                        avatarKey: member.avatarKey,
+                        avatarDataUrl: member.avatarDataUrl,
+                      ),
+                      title: Text(
+                        member.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13.5),
+                      ),
+                      subtitle: Text(
+                        [
+                          member.departmentName,
+                          member.username,
+                        ].where((item) => item.isNotEmpty).join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
+                      onChanged: (selected) => setState(() {
+                        if (selected == true) {
+                          _selected.add(member.id);
+                        } else {
+                          _selected.remove(member.id);
+                        }
+                      }),
                     ),
-                    title: Text(member.displayName),
-                    subtitle: Text(member.departmentName),
-                    onChanged: (selected) => setState(() {
-                      if (selected == true) {
-                        _selected.add(member.id);
-                      } else {
-                        _selected.remove(member.id);
-                      }
-                    }),
                   );
                 },
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _title.text.trim().isEmpty
-                      ? null
-                      : () => Navigator.pop(
-                          context,
-                          _GroupDraft(
-                            title: _title.text.trim(),
-                            memberIds: _selected.toList(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(60, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const Key('create-group-submit'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(88, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: _title.text.trim().isEmpty
+                        ? null
+                        : () => Navigator.pop(
+                            context,
+                            _GroupDraft(
+                              title: _title.text.trim(),
+                              memberIds: _selected.toList(),
+                            ),
                           ),
-                        ),
-                  child: Text('创建群聊（${_selected.length + 1}人）'),
-                ),
+                    child: Text('创建（${_selected.length + 1}人）'),
+                  ),
+                ],
               ),
             ),
           ],

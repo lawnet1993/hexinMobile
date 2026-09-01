@@ -26,6 +26,7 @@ class _AllAppsPageState extends ConsumerState<AllAppsPage> {
     final entries = applications.where((item) {
       return _query.isEmpty || item.title.contains(_query);
     }).toList();
+    final groups = _groupByCategory(entries);
     return Scaffold(
       appBar: AppBar(centerTitle: true, title: const Text('全部应用')),
       body: ListView(
@@ -51,13 +52,56 @@ class _AllAppsPageState extends ConsumerState<AllAppsPage> {
             )
           else
             MobileSurface(
-              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-              child: _AppGrid(items: entries),
+              key: const Key('all-app-catalog-surface'),
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+              child: Column(
+                children: [
+                  for (var index = 0; index < groups.length; index++) ...[
+                    _AppCategorySection(group: groups[index]),
+                  ],
+                ],
+              ),
             ),
         ],
       ),
     );
   }
+}
+
+List<({String category, List<MobileAppEntry> items})> _groupByCategory(
+  List<MobileAppEntry> entries,
+) {
+  final groups = <String, List<MobileAppEntry>>{};
+  for (final entry in entries) {
+    final category = entry.category.trim().isEmpty ? '其他' : entry.category;
+    groups.putIfAbsent(category, () => <MobileAppEntry>[]).add(entry);
+  }
+  return [
+    for (final group in groups.entries)
+      (category: group.key, items: group.value),
+  ];
+}
+
+class _AppCategorySection extends StatelessWidget {
+  const _AppCategorySection({required this.group});
+
+  final ({String category, List<MobileAppEntry> items}) group;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(6, 5, 6, 0),
+        child: Text(
+          group.category,
+          key: Key('all-app-category-${group.category}'),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+      ),
+      _AppGrid(items: group.items),
+    ],
+  );
 }
 
 class _AppGrid extends StatelessWidget {
@@ -71,8 +115,8 @@ class _AppGrid extends StatelessWidget {
     physics: const NeverScrollableScrollPhysics(),
     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: 5,
-      mainAxisExtent: 64,
-      mainAxisSpacing: 2,
+      mainAxisExtent: 58,
+      mainAxisSpacing: 0,
       crossAxisSpacing: 2,
     ),
     itemCount: items.length,
@@ -107,7 +151,7 @@ class _AppGrid extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 item.title,
-                maxLines: 2,
+                maxLines: 1,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

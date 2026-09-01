@@ -37,6 +37,16 @@ final class OaTodo {
   final DateTime? updatedAt;
 }
 
+bool isTerminalTodoStatus(String status) => const {
+  'approved',
+  'rejected',
+  'withdrawn',
+  'terminated',
+  'completed',
+  'canceled',
+  'cancelled',
+}.contains(status.trim().toLowerCase());
+
 final class OaAnnouncement {
   const OaAnnouncement({
     required this.id,
@@ -988,6 +998,7 @@ final class ImGroupProfile {
     this.identityEnabled = false,
     this.muted = false,
     this.status = '',
+    this.currentUserRole = '',
     this.updatedAt,
   });
 
@@ -1006,6 +1017,7 @@ final class ImGroupProfile {
     identityEnabled: _boolean(_value(json, 'identityEnabled')),
     muted: _boolean(_value(json, 'muted')),
     status: _text(json, 'status'),
+    currentUserRole: _text(json, 'currentUserRole'),
     updatedAt: _date(_value(json, 'updatedAt')),
   );
 
@@ -1023,6 +1035,7 @@ final class ImGroupProfile {
   final bool identityEnabled;
   final bool muted;
   final String status;
+  final String currentUserRole;
   final DateTime? updatedAt;
 }
 
@@ -1985,7 +1998,12 @@ final class ImSearchResult {
     this.username = '',
     this.groupNo = '',
     this.avatarUrl = '',
+    this.avatarKey = '',
+    this.avatarDataUrl = '',
+    this.departmentName = '',
+    this.isOnline = false,
     this.isFriend = false,
+    this.canStartDirect = false,
   });
 
   factory ImSearchResult.fromJson(Map<String, Object?> json) => ImSearchResult(
@@ -1995,7 +2013,12 @@ final class ImSearchResult {
     username: _text(json, 'userName'),
     groupNo: _text(json, 'groupNo'),
     avatarUrl: _text(json, 'avatarUrl'),
+    avatarKey: _text(json, 'avatarKey'),
+    avatarDataUrl: _text(json, 'avatarDataUrl'),
+    departmentName: _text(json, 'departmentName'),
+    isOnline: _boolean(_value(json, 'isOnline')),
     isFriend: _boolean(_value(json, 'isFriend')),
+    canStartDirect: _boolean(_value(json, 'canStartDirect')),
   );
 
   final String type;
@@ -2004,7 +2027,12 @@ final class ImSearchResult {
   final String username;
   final String groupNo;
   final String avatarUrl;
+  final String avatarKey;
+  final String avatarDataUrl;
+  final String departmentName;
+  final bool isOnline;
   final bool isFriend;
+  final bool canStartDirect;
 }
 
 final class ImConversationPresence {
