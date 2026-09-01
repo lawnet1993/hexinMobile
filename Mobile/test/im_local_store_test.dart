@@ -401,6 +401,42 @@ void main() {
     },
   );
 
+  test(
+    'paged conversation members merge without dropping cached members',
+    () async {
+      const first = ImMember(
+        id: 'member-first',
+        username: 'first',
+        displayName: '首批成员',
+        isOnline: false,
+      );
+      const second = ImMember(
+        id: 'member-second',
+        username: 'second',
+        displayName: '分页成员',
+        isOnline: true,
+        avatarKey: 'person',
+      );
+      await store.replaceConversationMembers('account-a', 'conversation-a', [
+        first,
+      ]);
+
+      await store.mergeConversationMembers(
+        'account-a',
+        'conversation-a',
+        const [second],
+        positionOffset: 50,
+      );
+
+      final members = await store.readConversationMembers(
+        'account-a',
+        'conversation-a',
+      );
+      expect(members.map((item) => item.id), ['member-first', 'member-second']);
+      expect(members.last.avatarKey, 'person');
+    },
+  );
+
   test('existing version 1 cache upgrades through schema version 4', () async {
     final directory = await Directory.systemTemp.createTemp('hexing-im-v1-');
     final databasePath = '${directory.path}${Platform.pathSeparator}im.db';

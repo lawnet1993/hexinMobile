@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -39,7 +40,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
           ? await repository.createGroup(draft.title, draft.memberIds)
           : await repository.createDirect(draft.memberIds.single);
       ref.invalidate(imBootstrapProvider);
-      if (mounted) context.push('/chat/${conversation.id}');
+      if (mounted) {
+        context.push('/chat/${conversation.id}', extra: conversation);
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -53,6 +56,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
   @override
   Widget build(BuildContext context) {
     final value = ref.watch(imBootstrapProvider);
+    final presenceAvailable =
+        ref.watch(imRealtimeAvailabilityProvider) ==
+        ImRealtimeAvailability.available;
     const tabs = ['全部', '未读', '@我', '群组'];
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -150,7 +156,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
                     error: (error, _) => EmptyState(
                       icon: Icons.cloud_off_outlined,
                       title: '消息加载失败',
-                      description: error.toString(),
+                      description: mobileErrorText(error),
                       onRetry: () => ref.invalidate(imBootstrapProvider),
                     ),
                     data: (data) {
@@ -182,6 +188,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
                             item: items[index],
                             currentMember: data.currentMember,
                             contacts: data.contacts,
+                            presenceAvailable: presenceAvailable,
                           ),
                         ),
                       );
@@ -435,11 +442,13 @@ class _ConversationTile extends ConsumerWidget {
     required this.item,
     required this.currentMember,
     required this.contacts,
+    required this.presenceAvailable,
   });
 
   final ImConversation item;
   final ImMember currentMember;
   final List<ImMember> contacts;
+  final bool presenceAvailable;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -469,8 +478,11 @@ class _ConversationTile extends ConsumerWidget {
         child: Row(
           children: [
             Semantics(
+              key: ValueKey('message-conversation-semantics-${item.id}'),
               label: item.isGroup
                   ? '群聊'
+                  : !presenceAvailable
+                  ? '单聊，状态未知'
                   : peer?.isOnline == true
                   ? '单聊，对方在线'
                   : '单聊，对方离线',
@@ -494,7 +506,7 @@ class _ConversationTile extends ConsumerWidget {
                       key: ValueKey('message-direct-avatar-${item.id}'),
                       name: title,
                       radius: 18,
-                      online: peer?.isOnline,
+                      online: presenceAvailable ? peer?.isOnline : null,
                       avatarKey: peer?.avatarKey ?? '',
                       avatarDataUrl: peer?.avatarDataUrl ?? '',
                       backgroundColor: const Color(0xFFE8F6F2),

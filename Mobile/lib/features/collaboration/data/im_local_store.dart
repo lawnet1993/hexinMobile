@@ -620,6 +620,38 @@ final class ImLocalStore {
     });
   }
 
+  Future<void> mergeConversationMembers(
+    String accountId,
+    String conversationId,
+    List<ImMember> members, {
+    int positionOffset = 0,
+  }) async {
+    if (members.isEmpty) return;
+    final database = await _database;
+    await database.transaction((transaction) async {
+      for (var index = 0; index < members.length; index += 1) {
+        final member = members[index];
+        await transaction.insert('im_conversation_members', {
+          'account_id': accountId,
+          'conversation_id': conversationId,
+          'id': member.id,
+          'username': member.username,
+          'display_name': member.displayName,
+          'is_online': member.isOnline ? 1 : 0,
+          'avatar_key': member.avatarKey,
+          'avatar_data_url': member.avatarDataUrl,
+          'department_id': member.departmentId,
+          'department_name': member.departmentName,
+          'is_organization_manager': member.isOrganizationManager ? 1 : 0,
+          'is_friend': member.isFriend ? 1 : 0,
+          'can_start_direct': member.canStartDirect ? 1 : 0,
+          'position': positionOffset + index,
+          'updated_at': _now(),
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    });
+  }
+
   Future<ImGroupProfile?> readGroupProfile(
     String accountId,
     String conversationId,

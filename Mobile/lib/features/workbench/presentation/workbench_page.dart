@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/tdesign_icons.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -40,7 +41,7 @@ class _WorkbenchPageState extends ConsumerState<WorkbenchPage> {
           error: (error, _) => EmptyState(
             icon: TDIcons.cloud,
             title: '工作台加载失败',
-            description: error.toString(),
+            description: mobileErrorText(error),
             onRetry: () => ref.invalidate(oaBootstrapProvider),
           ),
           data: (data) {

@@ -109,9 +109,24 @@ Uint8List? _avatarBytes(String value) {
 }
 
 ImageProvider<Object>? _avatarImage(String value) {
+  if (value.isEmpty) return null;
+  final cached = _avatarImageCache.remove(value);
+  if (cached != null) {
+    _avatarImageCache[value] = cached;
+    return cached;
+  }
   final bytes = _avatarBytes(value);
-  return bytes == null ? null : MemoryImage(bytes);
+  if (bytes == null) return null;
+  final image = MemoryImage(bytes);
+  _avatarImageCache[value] = image;
+  if (_avatarImageCache.length > _avatarImageCacheLimit) {
+    _avatarImageCache.remove(_avatarImageCache.keys.first);
+  }
+  return image;
 }
+
+const _avatarImageCacheLimit = 64;
+final _avatarImageCache = <String, ImageProvider<Object>>{};
 
 class NetworkIndicator extends ConsumerWidget {
   const NetworkIndicator({super.key, this.size = 22});

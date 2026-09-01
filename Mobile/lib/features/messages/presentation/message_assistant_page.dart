@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -175,6 +176,9 @@ class _MessageAssistantPageState extends ConsumerState<MessageAssistantPage> {
   Widget build(BuildContext context) {
     final bootstrap = ref.watch(imBootstrapProvider);
     final tasks = ref.watch(imAssistantTasksPageProvider(1));
+    final presenceAvailable =
+        ref.watch(imRealtimeAvailabilityProvider) ==
+        ImRealtimeAvailability.available;
     return Scaffold(
       appBar: AppBar(title: const Text('群发助手')),
       body: SafeArea(
@@ -183,7 +187,7 @@ class _MessageAssistantPageState extends ConsumerState<MessageAssistantPage> {
           error: (error, _) => EmptyState(
             icon: Icons.cloud_off_outlined,
             title: '数据加载失败',
-            description: error.toString(),
+            description: mobileErrorText(error),
           ),
           data: (data) {
             if (!data.permissions.batchSend) {
@@ -197,7 +201,7 @@ class _MessageAssistantPageState extends ConsumerState<MessageAssistantPage> {
                     .where((item) => item.id != data.currentMember.id)
                     .toList()
                   ..sort((left, right) {
-                    if (left.isOnline != right.isOnline) {
+                    if (presenceAvailable && left.isOnline != right.isOnline) {
                       return left.isOnline ? -1 : 1;
                     }
                     return left.displayName.compareTo(right.displayName);
@@ -315,7 +319,9 @@ class _MessageAssistantPageState extends ConsumerState<MessageAssistantPage> {
                                       leading: InitialAvatar(
                                         name: member.displayName,
                                         radius: 15,
-                                        online: member.isOnline,
+                                        online: presenceAvailable
+                                            ? member.isOnline
+                                            : null,
                                         avatarKey: member.avatarKey,
                                         avatarDataUrl: member.avatarDataUrl,
                                       ),
@@ -376,7 +382,7 @@ class _MessageAssistantPageState extends ConsumerState<MessageAssistantPage> {
                     error: (error, _) => EmptyState(
                       icon: Icons.error_outline_rounded,
                       title: '任务加载失败',
-                      description: error.toString(),
+                      description: mobileErrorText(error),
                       onRetry: _resetTaskPages,
                     ),
                     data: (page) {

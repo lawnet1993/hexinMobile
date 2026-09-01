@@ -15,6 +15,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
@@ -22,6 +23,8 @@ import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/data/oa_local_store.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 import '../domain/approval_form_calculation.dart';
+
+const _workflowPreviewTimeout = Duration(seconds: 12);
 
 class ApprovalRequestPage extends ConsumerStatefulWidget {
   const ApprovalRequestPage({
@@ -107,7 +110,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
         body: EmptyState(
           icon: Icons.cloud_off_outlined,
           title: '审批应用加载失败',
-          description: error.toString(),
+          description: mobileErrorText(error),
           onRetry: () => ref.invalidate(oaBootstrapProvider),
         ),
       ),
@@ -394,9 +397,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(
-              firstError == null ? '请检查必填项' : '请检查：$firstError',
-            ),
+            content: Text(firstError == null ? '请检查必填项' : '请检查：$firstError'),
           ),
         );
       return;
@@ -489,15 +490,18 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     if (mounted) {
       setState(() {
         _previewing = true;
+        _workflowPreviewFingerprint = fingerprint;
         _workflowPreviewError = null;
       });
     }
     try {
-      final preview = await ref.read(oaWorkflowPreviewLoaderProvider)(
-        applicationKey: widget.applicationKey,
-        template: template,
-        formData: Map<String, Object?>.from(_values),
-      );
+      final preview = await ref
+          .read(oaWorkflowPreviewLoaderProvider)(
+            applicationKey: widget.applicationKey,
+            template: template,
+            formData: Map<String, Object?>.from(_values),
+          )
+          .timeout(_workflowPreviewTimeout);
       if (mounted && sequence == _workflowPreviewSequence) {
         setState(() {
           _workflowPreview = preview;
@@ -2022,7 +2026,7 @@ class ApprovalWorkflowInline extends StatelessWidget {
           else if (value == null && error != null)
             _WorkflowInlineStatus(
               icon: Icons.info_outline_rounded,
-              label: '填写必填项后自动更新',
+              label: _workflowPreviewFailureLabel(error!),
               action: IconButton(
                 tooltip: '重新解析审批流程',
                 onPressed: onRetry,
@@ -2275,6 +2279,22 @@ String _errorMessage(Object error) {
     if (message.trim().isNotEmpty) return message;
   }
   return error.toString().replaceFirst('Exception: ', '');
+}
+
+String _workflowPreviewFailureLabel(Object error) {
+  if (error is TimeoutException || error is SocketException) {
+    return '网络不可用，表单与草稿已保留';
+  }
+  if (error is DioException) {
+    final status = error.response?.statusCode;
+    if (status == null || status >= 500 || status == 408 || status == 429) {
+      return '网络不可用，表单与草稿已保留';
+    }
+    if (status == 400 || status == 422) {
+      return '请检查必填项后重新解析';
+    }
+  }
+  return '暂时无法解析审批流程';
 }
 
 final class _SubmissionErrorDetails {

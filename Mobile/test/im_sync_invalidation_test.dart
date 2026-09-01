@@ -6,6 +6,31 @@ import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 
 void main() {
+  test('IM realtime availability follows transport health', () {
+    final container = ProviderContainer.test();
+    final controller = container.read(
+      imRealtimeAvailabilityControllerProvider.notifier,
+    );
+
+    controller.markConnecting();
+    expect(
+      container.read(imRealtimeAvailabilityProvider),
+      ImRealtimeAvailability.connecting,
+    );
+    controller.markAvailable();
+    expect(
+      container.read(imRealtimeAvailabilityProvider),
+      ImRealtimeAvailability.available,
+    );
+    controller.markUnavailable();
+    expect(
+      container.read(imRealtimeAvailabilityProvider),
+      ImRealtimeAvailability.unavailable,
+    );
+
+    container.dispose();
+  });
+
   test('IM sync classifies invalidation by event type and conversation', () {
     final events = <ImSyncEvent>[
       _event(1, 'message.created', 'direct-a'),
@@ -110,7 +135,7 @@ void main() {
       fireImmediately: true,
     );
     await container.pump();
-    expect(loadCount, 1, reason: '五分钟保留期内不应重新读取消息窗口');
+    expect(loadCount, 1, reason: '热会话保留期内不应重新读取消息窗口');
 
     container.invalidate(conversationMessageRevisionProvider('group-b'));
     await container.pump();
@@ -165,6 +190,59 @@ void main() {
       imMessageSnapshotsDiffer(
         [cached],
         [cached.copyWith(recalledAt: DateTime.utc(2026, 8, 31, 8, 2))],
+      ),
+      isTrue,
+    );
+  });
+
+  test('badge mismatch detects a missed conversation event', () {
+    const currentMember = ImMember(
+      id: 'member-me',
+      username: 'term.me',
+      displayName: '当前成员',
+      isOnline: true,
+    );
+    final bootstrap = ImBootstrap(
+      currentMember: currentMember,
+      conversations: [
+        ImConversation(
+          id: 'group-a',
+          type: 'group',
+          title: '群聊',
+          preview: '旧消息',
+          updatedAt: DateTime.utc(2026, 9, 1, 4),
+          unreadCount: 1,
+        ),
+        ImConversation(
+          id: 'direct-a',
+          type: 'direct',
+          title: '单聊',
+          preview: '',
+          updatedAt: DateTime.utc(2026, 9, 1, 4),
+          unreadCount: 2,
+        ),
+      ],
+      contacts: const [],
+    );
+
+    expect(
+      imUnreadProjectionDiffers(
+        const ImBadgeSummary(unreadMessages: 3, pendingFriendRequests: 0),
+        bootstrap,
+      ),
+      isFalse,
+    );
+    expect(
+      imUnreadProjectionDiffers(
+        const ImBadgeSummary(unreadMessages: 4, pendingFriendRequests: 0),
+        bootstrap,
+      ),
+      isTrue,
+    );
+    expect(
+      imUnreadProjectionDiffers(
+        const ImBadgeSummary(unreadMessages: 0, pendingFriendRequests: 0),
+        null,
       ),
       isTrue,
     );

@@ -10,6 +10,9 @@ import '../data/collaboration_repositories.dart';
 final imSyncCoordinatorProvider = Provider<ImSyncCoordinator>((ref) {
   final coordinator = ImSyncCoordinator(
     ref.read(imRepositoryProvider),
+    availabilityController: ref.read(
+      imRealtimeAvailabilityControllerProvider.notifier,
+    ),
     onChanged: (change) {
       ref.invalidate(imBootstrapProvider);
       ref.invalidate(imBadgeSummaryProvider);
@@ -39,36 +42,50 @@ final imSyncCoordinatorProvider = Provider<ImSyncCoordinator>((ref) {
 final class ImSyncCoordinator {
   ImSyncCoordinator(
     this._repository, {
+    required this.availabilityController,
     required this.onChanged,
     this.onSessionInvalid,
   });
 
   final ImRepository _repository;
+  final ImRealtimeAvailabilityController availabilityController;
   final void Function(ImSyncInvalidation) onChanged;
   final Future<void> Function({required bool replaced})? onSessionInvalid;
   bool _running = false;
   CancelToken? _activePull;
   Future<void>? _loop;
+  bool _conversationProjectionReconcileRequested = false;
   final List<Completer<void>> _wakeWaiters = <Completer<void>>[];
 
   Future<void> start() async {
     if (_running || AppEnvironment.demoMode) return;
     _running = true;
+    availabilityController.markConnecting();
     try {
       await _repository.refreshBootstrap();
+      availabilityController.markAvailable();
       onChanged(const ImSyncInvalidation());
     } catch (_) {
+      availabilityController.markUnavailable();
       // Cached projections remain usable while the network is unavailable.
     }
     _loop = _run();
   }
 
-  void synchronizeNow() {
+  void synchronizeNow({bool reconcileConversations = false}) {
+    if (reconcileConversations) {
+      _conversationProjectionReconcileRequested = true;
+    }
     _activePull?.cancel('sync-wakeup');
   }
 
-  Future<void> synchronizeNowAndWait() async {
+  Future<void> synchronizeNowAndWait({
+    bool reconcileConversations = false,
+  }) async {
     if (!_running) return;
+    if (reconcileConversations) {
+      _conversationProjectionReconcileRequested = true;
+    }
     final completer = Completer<void>();
     _wakeWaiters.add(completer);
     _activePull?.cancel('sync-wakeup');
@@ -81,6 +98,7 @@ final class ImSyncCoordinator {
 
   Future<void> stop() async {
     _running = false;
+    availabilityController.markUnavailable();
     _activePull?.cancel('sync-stop');
     await _loop;
     _loop = null;
@@ -91,6 +109,12 @@ final class ImSyncCoordinator {
     while (_running) {
       var completedSyncAttempt = false;
       try {
+        if (_conversationProjectionReconcileRequested) {
+          _conversationProjectionReconcileRequested = false;
+          final projectionChanged = await _repository
+              .reconcileBootstrapFromBadges();
+          if (projectionChanged) onChanged(const ImSyncInvalidation());
+        }
         final delivered = await _repository.flushOutboxDetailed();
         if (delivered.conversationIds.isNotEmpty) {
           onChanged(
@@ -102,6 +126,7 @@ final class ImSyncCoordinator {
         final cancelToken = CancelToken();
         _activePull = cancelToken;
         final result = await _repository.pullEvents(cancelToken: cancelToken);
+        availabilityController.markAvailable();
         completedSyncAttempt = result.eventCount < 500;
         if (result.changed) {
           onChanged(
@@ -111,6 +136,10 @@ final class ImSyncCoordinator {
               groupProfileConversationIds: result.groupProfileConversationIds,
             ),
           );
+        } else if (result.eventCount == 0) {
+          final projectionChanged = await _repository
+              .reconcileBootstrapFromBadges();
+          if (projectionChanged) onChanged(const ImSyncInvalidation());
         }
       } on DioException catch (error) {
         final status = error.response?.statusCode;
@@ -121,12 +150,15 @@ final class ImSyncCoordinator {
         final replaced = status == 409 && code == 'session_replaced';
         if ((status == 401 || replaced) && _running) {
           _running = false;
+          availabilityController.markUnavailable();
           await onSessionInvalid?.call(replaced: replaced);
         } else if (!CancelToken.isCancel(error) && _running) {
+          availabilityController.markUnavailable();
           await Future<void>.delayed(const Duration(seconds: 3));
         }
       } catch (_) {
         if (_running) {
+          availabilityController.markUnavailable();
           await Future<void>.delayed(const Duration(seconds: 3));
         }
       } finally {

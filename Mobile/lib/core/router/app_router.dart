@@ -6,6 +6,7 @@ import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/presentation/login_page.dart';
 import '../../features/attendance/presentation/attendance_page.dart';
 import '../../features/contacts/presentation/contacts_page.dart';
+import '../../features/collaboration/domain/collaboration_models.dart';
 import '../../features/messages/presentation/chat_page.dart';
 import '../../features/messages/presentation/messages_page.dart';
 import '../../features/messages/presentation/message_assistant_page.dart';
@@ -127,6 +128,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/chat/:id',
         builder: (context, state) => ChatPage(
           conversationId: state.pathParameters['id']!,
+          initialConversation: state.extra is ImConversation
+              ? state.extra! as ImConversation
+              : null,
           initialResourceTab: switch (state.uri.queryParameters['tab']) {
             'files' => 1,
             'tasks' => 2,

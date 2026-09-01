@@ -202,6 +202,108 @@ void main() {
       );
     });
   }
+
+  testWidgets('profile does not expose cached online state while offline', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_PreviewAuthController.new),
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.unavailable,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.imBootstrap,
+          ),
+          tunnelControllerProvider.overrideWith(_PreviewTunnelController.new),
+        ],
+        child: const MaterialApp(home: ProfilePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('状态未知'), findsOneWidget);
+    expect(find.text('在线'), findsNothing);
+  });
+
+  testWidgets('conversation details do not expose cached presence offline', (
+    tester,
+  ) async {
+    final group = PreviewData.imBootstrap.conversations.firstWhere(
+      (item) => item.id == 'ops',
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.unavailable,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.imBootstrap,
+          ),
+          conversationMembersProvider.overrideWith(
+            (ref, id) async => PreviewData.conversationMembers(id),
+          ),
+          conversationMemberPageProvider.overrideWith((ref, key) async {
+            final members = PreviewData.conversationMembers(key.conversationId);
+            return ImMemberPage(
+              items: members.take(key.pageSize).toList(growable: false),
+              page: key.page,
+              pageSize: key.pageSize,
+              total: members.length,
+            );
+          }),
+          groupProfileProvider.overrideWith(
+            (ref, id) async => PreviewData.groupProfile(id),
+          ),
+          groupManagersProvider.overrideWith(
+            (ref, id) async => PreviewData.groupManagers(id),
+          ),
+        ],
+        child: MaterialApp(
+          home: ConversationDetailPage(
+            conversation: group,
+            currentMember: PreviewData.imBootstrap.currentMember,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('3 位成员'), findsOneWidget);
+    expect(find.textContaining('人在线'), findsNothing);
+
+    final direct = PreviewData.imBootstrap.conversations.firstWhere(
+      (item) => item.id == 'tang',
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.unavailable,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.imBootstrap,
+          ),
+          conversationMembersProvider.overrideWith(
+            (ref, id) async => PreviewData.conversationMembers(id),
+          ),
+        ],
+        child: MaterialApp(
+          home: ConversationDetailPage(
+            conversation: direct,
+            currentMember: PreviewData.imBootstrap.currentMember,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('状态未知'), findsOneWidget);
+    expect(find.text('在线'), findsNothing);
+  });
 }
 
 class _MandatoryUpdatePreview extends StatefulWidget {

@@ -16,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
@@ -126,11 +127,13 @@ class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({
     super.key,
     required this.conversationId,
+    this.initialConversation,
     this.enablePresence = true,
     this.initialResourceTab = 0,
   });
 
   final String conversationId;
+  final ImConversation? initialConversation;
   final bool enablePresence;
   final int initialResourceTab;
 
@@ -1295,6 +1298,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         : null;
     final conversation =
         storedConversation ??
+        widget.initialConversation ??
         (syntheticDirectMember == null
             ? null
             : ImConversation(
@@ -1330,21 +1334,37 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               )
               .value
         : null;
+    final cachedGroupMembers = conversation?.isGroup == true
+        ? ref
+              .watch(conversationCachedMembersProvider(widget.conversationId))
+              .value
+        : null;
+    final directMembers = conversation?.isDirect == true
+        ? ref.watch(conversationMembersProvider(widget.conversationId)).value
+        : null;
     final members = conversation == null
         ? null
         : conversation.isGroup
-        ? groupMemberPage?.items
-        : ref.watch(conversationMembersProvider(widget.conversationId)).value;
+        ? (groupMemberPage?.items.isNotEmpty ?? false)
+              ? groupMemberPage!.items
+              : cachedGroupMembers
+        : directMembers;
     final memberTotal = conversation?.isGroup == true
-        ? groupMemberPage?.total ?? members?.length ?? 0
+        ? (groupMemberPage?.total ?? 0) > 0
+              ? groupMemberPage!.total
+              : cachedGroupMembers?.length ?? 0
         : members?.length ?? 0;
     final groupProfileState = conversation?.isGroup == true
         ? ref.watch(groupProfileProvider(widget.conversationId))
         : null;
     final groupProfile = groupProfileState?.value;
+    final realtimeAvailable =
+        ref.watch(imRealtimeAvailabilityProvider) ==
+        ImRealtimeAvailability.available;
     final presence = widget.enablePresence
         ? ref.watch(conversationPresenceProvider(widget.conversationId)).value
         : null;
+    final authoritativePresence = realtimeAvailable ? presence : null;
     final currentMember = bootstrap?.currentMember;
     final composerRestriction = _groupComposerRestriction(
       conversation: conversation,
@@ -1371,9 +1391,31 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             contacts: bootstrap?.contacts ?? const <ImMember>[],
           )
         : conversation?.title ?? '会话';
+    final String conversationStatusLabel;
+    if (conversation == null) {
+      conversationStatusLabel = '';
+    } else if (conversation.isGroup) {
+      if (memberTotal > 0) {
+        conversationStatusLabel = authoritativePresence == null
+            ? '$memberTotal 位成员'
+            : '$memberTotal 位成员 · ${authoritativePresence.onlineMemberCount} 人在线';
+      } else if ((authoritativePresence?.onlineMemberCount ?? 0) > 0) {
+        conversationStatusLabel =
+            '${authoritativePresence!.onlineMemberCount} 人在线';
+      } else {
+        conversationStatusLabel = '';
+      }
+    } else {
+      conversationStatusLabel = _directPresenceLabel(
+        directMember,
+        authoritativePresence,
+        realtimeAvailable: realtimeAvailable,
+      );
+    }
     final memberMap = <String, ImMember>{
       for (final member in <ImMember?>[
         currentMember,
+        ...?bootstrap?.contacts,
         directMember,
         ...?members,
       ].nonNulls)
@@ -1394,7 +1436,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               InitialAvatar(
                 name: directTitle,
                 radius: 17,
-                online: presence?.peerOnline ?? directMember?.isOnline,
+                online:
+                    authoritativePresence?.peerOnline ??
+                    (realtimeAvailable ? directMember?.isOnline : null),
                 avatarKey: directMember?.avatarKey ?? '',
                 avatarDataUrl: directMember?.avatarDataUrl ?? '',
               ),
@@ -1408,13 +1452,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (conversation != null)
+                  if (conversationStatusLabel.isNotEmpty)
                     Text(
-                      conversation.isGroup
-                          ? presence == null
-                                ? '$memberTotal 位成员'
-                                : '$memberTotal 位成员 · ${presence.onlineMemberCount} 人在线'
-                          : _directPresenceLabel(directMember, presence),
+                      conversationStatusLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1547,7 +1587,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               error: (error, _) => EmptyState(
                 icon: Icons.cloud_off_outlined,
                 title: '消息加载失败',
-                description: error.toString(),
+                description: mobileErrorText(error),
                 onRetry: () => ref.invalidate(
                   conversationMessageWindowProvider(_messageWindowKey),
                 ),
@@ -1612,13 +1652,30 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           findChildIndexCallback: (key) => messageIndexes[key],
                           itemBuilder: (context, index) {
                             final item = visibleItems[index];
+                            final previous = index > 0
+                                ? visibleItems[index - 1]
+                                : null;
+                            final next = index + 1 < visibleItems.length
+                                ? visibleItems[index + 1]
+                                : null;
+                            final mine =
+                                item.senderId == bootstrap?.currentMember.id;
+                            final startsIdentityGroup =
+                                !_messagesShareIdentityGroup(previous, item);
+                            final compactWithNext =
+                                _messagesShareCompactCluster(item, next);
+                            final showDateDivider =
+                                index == 0 ||
+                                !_messagesShareCalendarDay(previous, item);
                             return Column(
                               key: ValueKey<String>('message:${item.id}'),
                               children: [
-                                if (index == 0)
+                                if (showDateDivider)
                                   Column(
                                     children: [
-                                      if (_query.isEmpty && _loadingOlder)
+                                      if (index == 0 &&
+                                          _query.isEmpty &&
+                                          _loadingOlder)
                                         const Padding(
                                           padding: EdgeInsets.only(bottom: 10),
                                           child: SizedBox.square(
@@ -1633,16 +1690,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                         ),
                                       Padding(
                                         padding: const EdgeInsets.only(
-                                          bottom: 14,
+                                          bottom: 12,
                                         ),
-                                        child: Text(
-                                          item.createdAt == null
-                                              ? '今天'
-                                              : DateFormat('MM-dd HH:mm')
-                                                    .format(item.createdAt!),
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: AppColors.weakText,
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFE8EEF6),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 9,
+                                              vertical: 3,
+                                            ),
+                                            child: Text(
+                                              _messageDayLabel(item.createdAt),
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w500,
+                                                color: AppColors.secondaryText,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -1655,11 +1724,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                   ),
                                   child: _MessageBubble(
                                     item: item,
-                                    mine:
-                                        item.senderId ==
-                                        bootstrap?.currentMember.id,
+                                    mine: mine,
                                     currentMemberName:
                                         bootstrap?.currentMember.displayName ??
+                                        '',
+                                    currentMemberAvatarKey:
+                                        bootstrap?.currentMember.avatarKey ??
                                         '',
                                     currentMemberAvatarDataUrl:
                                         bootstrap
@@ -1668,7 +1738,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                         '',
                                     sender: memberMap[item.senderId],
                                     showSenderName:
-                                        conversation?.isGroup == true,
+                                        conversation?.isGroup == true &&
+                                        !mine &&
+                                        startsIdentityGroup,
+                                    reserveSenderAvatar: true,
+                                    showSenderAvatar: startsIdentityGroup,
+                                    compactWithNext: compactWithNext,
                                     onOpenAttachment: item.kind == 'file'
                                         ? () => _openAttachment(item)
                                         : const {
@@ -2485,8 +2560,15 @@ Color _taskPriorityColor(String priority) => switch (priority) {
 
 String _directPresenceLabel(
   ImMember? member,
-  ImConversationPresence? presence,
-) {
+  ImConversationPresence? presence, {
+  required bool realtimeAvailable,
+}) {
+  if (!realtimeAvailable) {
+    final lastSeenAt = member?.lastSeenAt;
+    return lastSeenAt == null
+        ? '状态未知'
+        : '最后在线 ${DateFormat('MM-dd HH:mm').format(lastSeenAt)}';
+  }
   final online = presence?.peerOnline ?? member?.isOnline;
   final lastSeenAt = presence?.peerLastSeenAt ?? member?.lastSeenAt;
   final status = online == true
@@ -2648,14 +2730,46 @@ String? _groupComposerRestriction({
   return '全员禁言中';
 }
 
+bool _messagesShareCalendarDay(ImMessage? first, ImMessage? second) {
+  final firstAt = first?.createdAt?.toLocal();
+  final secondAt = second?.createdAt?.toLocal();
+  if (firstAt == null || secondAt == null) return false;
+  return firstAt.year == secondAt.year &&
+      firstAt.month == secondAt.month &&
+      firstAt.day == secondAt.day;
+}
+
+bool _messagesShareIdentityGroup(ImMessage? first, ImMessage? second) {
+  if (first == null || second == null || first.senderId != second.senderId) {
+    return false;
+  }
+  return _messagesShareCalendarDay(first, second);
+}
+
+bool _messagesShareCompactCluster(ImMessage? first, ImMessage? second) {
+  if (!_messagesShareIdentityGroup(first, second)) return false;
+  final firstAt = first!.createdAt!;
+  final secondAt = second!.createdAt!;
+  return secondAt.difference(firstAt).abs() <= const Duration(minutes: 5);
+}
+
+String _messageDayLabel(DateTime? createdAt) {
+  if (createdAt == null) return '今天';
+  return DateFormat('MM月dd日').format(createdAt.toLocal());
+}
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.item,
     required this.mine,
     required this.currentMemberName,
+    required this.currentMemberAvatarKey,
     required this.currentMemberAvatarDataUrl,
     required this.sender,
     required this.showSenderName,
+    required this.reserveSenderAvatar,
+    required this.showSenderAvatar,
+    required this.compactWithNext,
     required this.onOpenAttachment,
     required this.onRetry,
     required this.showReadReceiptAction,
@@ -2666,9 +2780,13 @@ class _MessageBubble extends StatelessWidget {
   final ImMessage item;
   final bool mine;
   final String currentMemberName;
+  final String currentMemberAvatarKey;
   final String currentMemberAvatarDataUrl;
   final ImMember? sender;
   final bool showSenderName;
+  final bool reserveSenderAvatar;
+  final bool showSenderAvatar;
+  final bool compactWithNext;
   final VoidCallback? onOpenAttachment;
   final VoidCallback? onRetry;
   final bool showReadReceiptAction;
@@ -2678,22 +2796,32 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final emojiOnly = item.kind == 'text' && _isEmojiOnlyMessage(item.content);
+    const outgoingBubble = Color(0xFFDCEAFF);
+    final bubbleColor = mine ? outgoingBubble : Colors.white;
+    final contentColor = AppColors.text;
+    final metaColor = mine ? const Color(0xFF54709B) : AppColors.weakText;
     return Padding(
-      padding: EdgeInsets.only(bottom: mine && showReadReceiptAction ? 2 : 14),
+      padding: EdgeInsets.only(bottom: compactWithNext ? 3 : 9),
       child: Row(
         mainAxisAlignment: mine
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!mine) ...[
-            InitialAvatar(
-              name: sender?.displayName ?? item.senderId,
-              radius: 20,
-              avatarKey: sender?.avatarKey ?? '',
-              avatarDataUrl: sender?.avatarDataUrl ?? '',
+          if (!mine && reserveSenderAvatar) ...[
+            SizedBox.square(
+              dimension: 30,
+              child: showSenderAvatar
+                  ? InitialAvatar(
+                      key: ValueKey<String>('message-avatar-${item.id}'),
+                      name: sender?.displayName ?? item.senderId,
+                      radius: 15,
+                      avatarKey: sender?.avatarKey ?? '',
+                      avatarDataUrl: sender?.avatarDataUrl ?? '',
+                    )
+                  : null,
             ),
-            const SizedBox(width: 9),
+            const SizedBox(width: 7),
           ],
           Flexible(
             child: Column(
@@ -2701,202 +2829,308 @@ class _MessageBubble extends StatelessWidget {
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                if (!mine && showSenderName) ...[
-                  Text(
-                    sender?.displayName ?? '群成员',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.secondaryText,
+                InkWell(
+                  onTap: onOpenAttachment,
+                  onLongPress: onLongPress,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(14),
+                    topRight: const Radius.circular(14),
+                    bottomLeft: Radius.circular(
+                      !mine && !compactWithNext ? 4 : 14,
+                    ),
+                    bottomRight: Radius.circular(
+                      mine && !compactWithNext ? 4 : 14,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                ],
-                Row(
-                  mainAxisAlignment: mine
-                      ? MainAxisAlignment.end
-                      : MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: InkWell(
-                        onTap: onOpenAttachment,
-                        onLongPress: onLongPress,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 280),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 13,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: mine ? AppColors.primary : Colors.white,
-                            border: mine
-                                ? null
-                                : Border.all(color: AppColors.border),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: item.recalledAt != null
-                              ? Text(
-                                  '消息已撤回',
-                                  style: TextStyle(
-                                    color: mine ? Colors.white : AppColors.text,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                )
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (item.replyTo != null)
-                                      Container(
-                                        constraints: const BoxConstraints(
-                                          maxWidth: 250,
-                                        ),
-                                        margin: const EdgeInsets.only(
-                                          bottom: 6,
-                                        ),
-                                        padding: const EdgeInsets.only(left: 7),
-                                        decoration: const BoxDecoration(
-                                          border: Border(
-                                            left: BorderSide(
-                                              color: AppColors.primary,
-                                              width: 2,
-                                            ),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          item.replyTo!.recalledAt != null
-                                              ? '消息已撤回'
-                                              : item.replyTo!.content,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: mine
-                                                ? Colors.white70
-                                                : AppColors.secondaryText,
-                                          ),
-                                        ),
-                                      ),
-                                    if (item.kind == 'file')
-                                      _AttachmentContent(item: item, mine: mine)
-                                    else if (const {
-                                          'video',
-                                          'audio',
-                                        }.contains(item.kind) &&
-                                        item.attachments.isNotEmpty)
-                                      _MediaMessageContent(
-                                        message: item,
-                                        mine: mine,
-                                      )
-                                    else if (item.kind == 'image' &&
-                                        item.images.isNotEmpty)
-                                      _ImageMessageContent(message: item)
-                                    else if (item.kind == 'contact' &&
-                                        item.contactCard != null)
-                                      _ContactCardContent(
-                                        card: item.contactCard!,
-                                        mine: mine,
-                                      )
-                                    else
-                                      Text.rich(
-                                        key: ValueKey(
-                                          'message-text-${item.id}',
-                                        ),
-                                        TextSpan(
-                                          children: _messageSpans(
-                                            item,
-                                            mine
-                                                ? Colors.white
-                                                : AppColors.text,
-                                          ),
-                                        ),
-                                        style: emojiOnly
-                                            ? const TextStyle(
-                                                fontSize: 30,
-                                                height: 1.12,
-                                              )
-                                            : null,
-                                      ),
-                                  ],
-                                ),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 292),
+                    padding: const EdgeInsets.fromLTRB(11, 7, 8, 6),
+                    decoration: BoxDecoration(
+                      color: bubbleColor,
+                      border: mine
+                          ? null
+                          : Border.all(color: const Color(0xFFDDE3EC)),
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(14),
+                        topRight: const Radius.circular(14),
+                        bottomLeft: Radius.circular(
+                          !mine && !compactWithNext ? 4 : 14,
+                        ),
+                        bottomRight: Radius.circular(
+                          mine && !compactWithNext ? 4 : 14,
                         ),
                       ),
                     ),
-                    if (mine && showReadReceiptAction) ...[
-                      Semantics(
-                        button: true,
-                        label: '查看已读详情',
-                        child: InkWell(
-                          key: ValueKey<String>(
-                            'message-read-receipt-${item.id}',
-                          ),
-                          onTap: onOpenReadReceipt,
-                          borderRadius: BorderRadius.circular(4),
-                          child: const SizedBox(
-                            width: 16,
-                            height: 22,
-                            child: Icon(
-                              Icons.done_all_rounded,
-                              size: 13,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!mine && showSenderName) ...[
+                          Text(
+                            sender?.displayName ?? '群成员',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              height: 1.1,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.primary,
                             ),
                           ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                if (mine && item.localStatus != ImLocalMessageStatus.sent) ...[
-                  const SizedBox(height: 4),
-                  InkWell(
-                    onTap: onRetry,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          item.localStatus == ImLocalMessageStatus.failed
-                              ? Icons.error_outline_rounded
-                              : Icons.schedule_rounded,
-                          size: 14,
-                          color: item.localStatus == ImLocalMessageStatus.failed
-                              ? AppColors.error
-                              : AppColors.secondaryText,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          item.localStatus == ImLocalMessageStatus.failed
-                              ? '发送失败，点此重试'
-                              : '发送中',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color:
-                                item.localStatus == ImLocalMessageStatus.failed
-                                ? AppColors.error
-                                : AppColors.secondaryText,
-                          ),
-                        ),
+                          const SizedBox(height: 4),
+                        ],
+                        if (item.recalledAt != null)
+                          _MessageTextWithMeta(
+                            item: item,
+                            mine: mine,
+                            contentColor: contentColor,
+                            metaColor: metaColor,
+                            emojiOnly: false,
+                            recalled: true,
+                            showReadReceiptAction: showReadReceiptAction,
+                            onOpenReadReceipt: onOpenReadReceipt,
+                            onRetry: onRetry,
+                          )
+                        else ...[
+                          if (item.replyTo != null)
+                            Container(
+                              constraints: const BoxConstraints(maxWidth: 250),
+                              margin: const EdgeInsets.only(bottom: 6),
+                              padding: const EdgeInsets.only(left: 7),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(
+                                    color: AppColors.primary,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                item.replyTo!.recalledAt != null
+                                    ? '消息已撤回'
+                                    : item.replyTo!.content,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.secondaryText,
+                                ),
+                              ),
+                            ),
+                          if (item.kind == 'text')
+                            _MessageTextWithMeta(
+                              item: item,
+                              mine: mine,
+                              contentColor: contentColor,
+                              metaColor: metaColor,
+                              emojiOnly: emojiOnly,
+                              showReadReceiptAction: showReadReceiptAction,
+                              onOpenReadReceipt: onOpenReadReceipt,
+                              onRetry: onRetry,
+                            )
+                          else ...[
+                            if (item.kind == 'file')
+                              _AttachmentContent(item: item)
+                            else if (const {
+                                  'video',
+                                  'audio',
+                                }.contains(item.kind) &&
+                                item.attachments.isNotEmpty)
+                              _MediaMessageContent(message: item)
+                            else if (item.kind == 'image' &&
+                                item.images.isNotEmpty)
+                              _ImageMessageContent(message: item)
+                            else if (item.kind == 'contact' &&
+                                item.contactCard != null)
+                              _ContactCardContent(card: item.contactCard!)
+                            else
+                              Text(
+                                item.content,
+                                style: TextStyle(color: contentColor),
+                              ),
+                            const SizedBox(height: 3),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: _MessageMeta(
+                                item: item,
+                                mine: mine,
+                                color: metaColor,
+                                showReadReceiptAction: showReadReceiptAction,
+                                onOpenReadReceipt: onOpenReadReceipt,
+                                onRetry: onRetry,
+                              ),
+                            ),
+                          ],
+                        ],
                       ],
                     ),
                   ),
-                ],
+                ),
               ],
             ),
           ),
-          if (mine) ...[
-            const SizedBox(width: 9),
-            InitialAvatar(
-              name: currentMemberName.isEmpty
-                  ? item.senderId
-                  : currentMemberName,
-              radius: 20,
-              avatarDataUrl: currentMemberAvatarDataUrl,
+          if (mine && reserveSenderAvatar) ...[
+            const SizedBox(width: 7),
+            SizedBox.square(
+              dimension: 30,
+              child: showSenderAvatar
+                  ? InitialAvatar(
+                      key: ValueKey<String>('message-avatar-${item.id}'),
+                      name: currentMemberName.isEmpty
+                          ? item.senderId
+                          : currentMemberName,
+                      radius: 15,
+                      avatarKey: currentMemberAvatarKey,
+                      avatarDataUrl: currentMemberAvatarDataUrl,
+                    )
+                  : null,
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _MessageTextWithMeta extends StatelessWidget {
+  const _MessageTextWithMeta({
+    required this.item,
+    required this.mine,
+    required this.contentColor,
+    required this.metaColor,
+    required this.emojiOnly,
+    required this.showReadReceiptAction,
+    required this.onOpenReadReceipt,
+    required this.onRetry,
+    this.recalled = false,
+  });
+
+  final ImMessage item;
+  final bool mine;
+  final Color contentColor;
+  final Color metaColor;
+  final bool emojiOnly;
+  final bool showReadReceiptAction;
+  final VoidCallback onOpenReadReceipt;
+  final VoidCallback? onRetry;
+  final bool recalled;
+
+  @override
+  Widget build(BuildContext context) {
+    final largeEmoji = emojiOnly || _isEmojiOnlyMessage(item.content);
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.end,
+      spacing: 7,
+      runSpacing: 1,
+      children: [
+        recalled
+            ? Text(
+                '消息已撤回',
+                style: TextStyle(
+                  color: contentColor,
+                  fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                ),
+              )
+            : Text.rich(
+                key: ValueKey('message-text-${item.id}'),
+                TextSpan(children: _messageSpans(item, contentColor)),
+                style: TextStyle(
+                  color: contentColor,
+                  fontSize: largeEmoji ? 30 : 15,
+                  height: largeEmoji ? 1.12 : 1.32,
+                ),
+              ),
+        _MessageMeta(
+          item: item,
+          mine: mine,
+          color: metaColor,
+          showReadReceiptAction: showReadReceiptAction,
+          onOpenReadReceipt: onOpenReadReceipt,
+          onRetry: onRetry,
+        ),
+      ],
+    );
+  }
+}
+
+class _MessageMeta extends StatelessWidget {
+  const _MessageMeta({
+    required this.item,
+    required this.mine,
+    required this.color,
+    required this.showReadReceiptAction,
+    required this.onOpenReadReceipt,
+    required this.onRetry,
+  });
+
+  final ImMessage item;
+  final bool mine;
+  final Color color;
+  final bool showReadReceiptAction;
+  final VoidCallback onOpenReadReceipt;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final time = item.createdAt == null
+        ? ''
+        : DateFormat('HH:mm').format(item.createdAt!.toLocal());
+    final failed = item.localStatus == ImLocalMessageStatus.failed;
+    final pending = item.localStatus == ImLocalMessageStatus.pending;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (time.isNotEmpty)
+          Text(
+            time,
+            key: ValueKey<String>('message-time-${item.id}'),
+            style: TextStyle(
+              fontSize: 9,
+              height: 1,
+              fontWeight: FontWeight.w500,
+              color: color,
+            ),
+          ),
+        if (mine) ...[
+          const SizedBox(width: 2),
+          if (failed)
+            Semantics(
+              button: true,
+              label: '发送失败，点此重试',
+              child: InkWell(
+                key: ValueKey<String>('message-retry-${item.id}'),
+                onTap: onRetry,
+                borderRadius: BorderRadius.circular(8),
+                child: const Icon(
+                  Icons.error_rounded,
+                  size: 13,
+                  color: AppColors.error,
+                ),
+              ),
+            )
+          else if (pending)
+            Icon(
+              Icons.schedule_rounded,
+              key: ValueKey<String>('message-pending-${item.id}'),
+              size: 12,
+              color: color,
+            )
+          else if (showReadReceiptAction)
+            Semantics(
+              button: true,
+              label: '查看已读详情',
+              child: InkWell(
+                key: ValueKey<String>('message-read-receipt-${item.id}'),
+                onTap: onOpenReadReceipt,
+                borderRadius: BorderRadius.circular(8),
+                child: Icon(Icons.done_all_rounded, size: 13, color: color),
+              ),
+            )
+          else
+            Icon(Icons.done_rounded, size: 12, color: color),
+        ],
+      ],
     );
   }
 }
@@ -2988,16 +3222,15 @@ class _ImageMessageContent extends ConsumerWidget {
 }
 
 class _MediaMessageContent extends ConsumerWidget {
-  const _MediaMessageContent({required this.message, required this.mine});
+  const _MediaMessageContent({required this.message});
 
   final ImMessage message;
-  final bool mine;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final attachment = message.attachments.first;
     final video = message.kind == 'video';
-    final color = mine ? Colors.white : AppColors.primary;
+    const color = AppColors.primary;
     final preview = video
         ? ref.watch(
             imVideoPreviewProvider((
@@ -3058,9 +3291,7 @@ class _MediaMessageContent extends ConsumerWidget {
                           _fileSize(attachment.size),
                         ].join(' · '),
                         style: TextStyle(
-                          color: mine
-                              ? Colors.white70
-                              : AppColors.secondaryText,
+                          color: AppColors.secondaryText,
                           fontSize: 11,
                         ),
                       ),
@@ -3182,19 +3413,15 @@ class _VideoPreviewLoading extends StatelessWidget {
 }
 
 class _AttachmentContent extends StatelessWidget {
-  const _AttachmentContent({required this.item, required this.mine});
+  const _AttachmentContent({required this.item});
 
   final ImMessage item;
-  final bool mine;
 
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(
-        Icons.insert_drive_file_rounded,
-        color: mine ? Colors.white : AppColors.primary,
-      ),
+      Icon(Icons.insert_drive_file_rounded, color: AppColors.primary),
       const SizedBox(width: 10),
       Flexible(
         child: Column(
@@ -3205,36 +3432,28 @@ class _AttachmentContent extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: mine ? Colors.white : AppColors.text,
+                color: AppColors.text,
                 fontWeight: FontWeight.w600,
               ),
             ),
             if (item.attachmentSize != null)
               Text(
                 _fileSize(item.attachmentSize!),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: mine ? Colors.white70 : AppColors.secondaryText,
-                ),
+                style: TextStyle(fontSize: 11, color: AppColors.secondaryText),
               ),
           ],
         ),
       ),
       const SizedBox(width: 8),
-      Icon(
-        Icons.download_rounded,
-        size: 18,
-        color: mine ? Colors.white : AppColors.secondaryText,
-      ),
+      Icon(Icons.download_rounded, size: 18, color: AppColors.secondaryText),
     ],
   );
 }
 
 class _ContactCardContent extends StatelessWidget {
-  const _ContactCardContent({required this.card, required this.mine});
+  const _ContactCardContent({required this.card});
 
   final ImContactCard card;
-  final bool mine;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -3256,7 +3475,7 @@ class _ContactCardContent extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: mine ? Colors.white : AppColors.text,
+                color: AppColors.text,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -3267,10 +3486,7 @@ class _ContactCardContent extends StatelessWidget {
               ].where((value) => value.isNotEmpty).join(' · '),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                color: mine ? Colors.white70 : AppColors.secondaryText,
-              ),
+              style: TextStyle(fontSize: 11, color: AppColors.secondaryText),
             ),
           ],
         ),
@@ -3474,12 +3690,18 @@ class _MentionPickerSheetState extends ConsumerState<_MentionPickerSheet> {
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 14,
                             ),
-                            leading: InitialAvatar(
-                              name: member.displayName,
-                              radius: 17,
-                              online: member.isOnline,
-                              avatarKey: member.avatarKey,
-                              avatarDataUrl: member.avatarDataUrl,
+                            leading: Consumer(
+                              builder: (context, ref, _) => InitialAvatar(
+                                name: member.displayName,
+                                radius: 17,
+                                online:
+                                    ref.watch(imRealtimeAvailabilityProvider) ==
+                                        ImRealtimeAvailability.available
+                                    ? member.isOnline
+                                    : null,
+                                avatarKey: member.avatarKey,
+                                avatarDataUrl: member.avatarDataUrl,
+                              ),
                             ),
                             title: Text(
                               member.displayName,
@@ -3605,12 +3827,18 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14,
                       ),
-                      leading: InitialAvatar(
-                        name: member.displayName,
-                        radius: 17,
-                        online: member.isOnline,
-                        avatarKey: member.avatarKey,
-                        avatarDataUrl: member.avatarDataUrl,
+                      leading: Consumer(
+                        builder: (context, ref, _) => InitialAvatar(
+                          name: member.displayName,
+                          radius: 17,
+                          online:
+                              ref.watch(imRealtimeAvailabilityProvider) ==
+                                  ImRealtimeAvailability.available
+                              ? member.isOnline
+                              : null,
+                          avatarKey: member.avatarKey,
+                          avatarDataUrl: member.avatarDataUrl,
+                        ),
                       ),
                       title: Text(
                         member.displayName,

@@ -47,6 +47,29 @@ final collaborationAccountScopeProvider = Provider<String>((ref) {
   );
 });
 
+enum ImRealtimeAvailability { connecting, available, unavailable }
+
+final imRealtimeAvailabilityControllerProvider =
+    NotifierProvider<ImRealtimeAvailabilityController, ImRealtimeAvailability>(
+      ImRealtimeAvailabilityController.new,
+    );
+
+final imRealtimeAvailabilityProvider = Provider<ImRealtimeAvailability>((ref) {
+  return ref.watch(imRealtimeAvailabilityControllerProvider);
+});
+
+class ImRealtimeAvailabilityController
+    extends Notifier<ImRealtimeAvailability> {
+  @override
+  ImRealtimeAvailability build() => ImRealtimeAvailability.available;
+
+  void markConnecting() => state = ImRealtimeAvailability.connecting;
+
+  void markAvailable() => state = ImRealtimeAvailability.available;
+
+  void markUnavailable() => state = ImRealtimeAvailability.unavailable;
+}
+
 final imLocalStoreProvider = Provider<ImLocalStore>((ref) {
   final sessionStore = ref.read(secureSessionStoreProvider);
   final store = ImLocalStore(
@@ -416,7 +439,7 @@ final conversationMessageRevisionProvider = Provider.autoDispose
 
 final conversationMessageWindowProvider = FutureProvider.autoDispose
     .family<List<ImMessage>, ConversationMessageWindowKey>((ref, key) async {
-      _retainForHotReopen(ref);
+      _retainForHotReopen(ref, retention: const Duration(minutes: 30));
       ref.watch(collaborationAccountScopeProvider);
       ref.watch(conversationMessageRevisionProvider(key.conversationId));
       if (AppEnvironment.demoMode) {
@@ -656,12 +679,15 @@ final imVideoPreviewProvider = FutureProvider.autoDispose
       return filePath == null ? null : ImVideoPreviewSource.file(filePath);
     });
 
-void _retainForHotReopen(Ref ref) {
+void _retainForHotReopen(
+  Ref ref, {
+  Duration retention = const Duration(minutes: 5),
+}) {
   final keepAlive = ref.keepAlive();
   Timer? expiry;
   ref.onCancel(() {
     expiry?.cancel();
-    expiry = Timer(const Duration(minutes: 5), keepAlive.close);
+    expiry = Timer(retention, keepAlive.close);
   });
   ref.onResume(() {
     expiry?.cancel();
@@ -692,6 +718,18 @@ final conversationMembersProvider =
         return PreviewData.conversationMembers(id);
       }
       return ref.read(imRepositoryProvider).conversationMembersCacheFirst(id);
+    });
+
+final conversationCachedMembersProvider =
+    FutureProvider.family<List<ImMember>, String>((ref, id) async {
+      final accountId = ref.watch(collaborationAccountScopeProvider);
+      if (AppEnvironment.demoMode) {
+        return PreviewData.conversationMembers(id);
+      }
+      if (accountId.isEmpty) return const <ImMember>[];
+      return ref
+          .read(imLocalStoreProvider)
+          .readConversationMembers(accountId, id);
     });
 
 final conversationMemberPageProvider =
@@ -773,6 +811,15 @@ final imAssistantTasksProvider = FutureProvider<List<ImAssistantTask>>((
   return (await ref.watch(imAssistantTasksPageProvider(1).future)).items;
 });
 
+bool imUnreadProjectionDiffers(ImBadgeSummary remote, ImBootstrap? local) {
+  if (local == null) return true;
+  final localUnread = local.conversations.fold<int>(
+    0,
+    (total, conversation) => total + conversation.unreadCount,
+  );
+  return localUnread != remote.unreadMessages;
+}
+
 final imAssistantTasksPageProvider =
     FutureProvider.family<ImListPage<ImAssistantTask>, int>((ref, page) async {
       ref.watch(collaborationAccountScopeProvider);
@@ -843,7 +890,20 @@ final conversationPresenceProvider =
           serverTime: DateTime.now(),
         );
       }
-      return ref.read(imRepositoryProvider).conversationPresence(id);
+      try {
+        final presence = await ref
+            .read(imRepositoryProvider)
+            .conversationPresence(id);
+        ref
+            .read(imRealtimeAvailabilityControllerProvider.notifier)
+            .markAvailable();
+        return presence;
+      } catch (_) {
+        ref
+            .read(imRealtimeAvailabilityControllerProvider.notifier)
+            .markUnavailable();
+        rethrow;
+      }
     });
 
 final groupProfileProvider = FutureProvider.family<ImGroupProfile?, String>((
@@ -2428,6 +2488,20 @@ final class ImRepository {
     return result;
   }
 
+  /// Repairs a stale conversation list when the event stream omits a message.
+  ///
+  /// The badge endpoint is intentionally used as the cheap probe. A complete
+  /// bootstrap (which can include a large contact directory) is fetched only
+  /// when the server unread total disagrees with the local projection.
+  Future<bool> reconcileBootstrapFromBadges() async {
+    final session = await _session();
+    final cached = await _store.readBootstrap(session.userId);
+    final remoteBadges = await badgeSummary();
+    if (!imUnreadProjectionDiffers(remoteBadges, cached)) return false;
+    await refreshBootstrap();
+    return true;
+  }
+
   Future<ImBootstrap> _fetchBootstrap() async {
     final dio = await _client.forIm();
     final response = await dio.get<Map<String, Object?>>('/api/im/bootstrap');
@@ -2557,12 +2631,9 @@ final class ImRepository {
       session.userId,
       conversationId,
     );
-    try {
-      return await refreshConversationMembers(conversationId);
-    } catch (_) {
-      if (cached.isNotEmpty) return cached;
-      rethrow;
-    }
+    return cached.isNotEmpty
+        ? cached
+        : refreshConversationMembers(conversationId);
   }
 
   Future<List<ImMember>> refreshConversationMembers(
@@ -2591,6 +2662,7 @@ final class ImRepository {
     int pageSize = 50,
     String keyword = '',
   }) async {
+    final session = await _session();
     final dio = await _client.forIm();
     final response = await dio.get<Map<String, Object?>>(
       '/api/im/conversations/$conversationId/members/page',
@@ -2600,7 +2672,16 @@ final class ImRepository {
         if (keyword.trim().isNotEmpty) 'keyword': keyword.trim(),
       },
     );
-    return ImMemberPage.fromJson(response.data ?? const <String, Object?>{});
+    final result = ImMemberPage.fromJson(
+      response.data ?? const <String, Object?>{},
+    );
+    await _store.mergeConversationMembers(
+      session.userId,
+      conversationId,
+      result.items,
+      positionOffset: (result.page - 1) * result.pageSize,
+    );
+    return result;
   }
 
   Future<ImGroupProfile?> groupProfileCacheFirst(String conversationId) async {
@@ -3081,7 +3162,6 @@ final class ImRepository {
     if (!conversation.isDirect) {
       throw StateError('单聊接口返回了非单聊会话，已拒绝打开');
     }
-    await refreshBootstrap();
     return conversation;
   }
 
@@ -3116,7 +3196,6 @@ final class ImRepository {
     if (!conversation.isGroup) {
       throw StateError('群聊接口返回了非群聊会话，已拒绝打开');
     }
-    await refreshBootstrap();
     return conversation;
   }
 

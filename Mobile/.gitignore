@@ -39,6 +39,10 @@ android/replay_pid*.log
 android/build/
 docs/device-acceptance/
 docs/evidence/**/*.apk
+docs/evidence/**/*.db
+/*.png
+/*.xml
+/*.db
 test/failures/
 
 # Symbolication related

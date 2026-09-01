@@ -68,6 +68,9 @@ class _MobileShellState extends ConsumerState<MobileShell>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      ref
+          .read(imRealtimeAvailabilityControllerProvider.notifier)
+          .markConnecting();
       _synchronizeRuntime();
       _synchronizeCollaboration();
       _checkClientUpdate();
@@ -99,7 +102,9 @@ class _MobileShellState extends ConsumerState<MobileShell>
 
   Future<void> _openPushRoute(String route) async {
     if (!mounted || _sessionRuntimeStopped) return;
-    await _imSyncCoordinator.synchronizeNowAndWait();
+    await _imSyncCoordinator.synchronizeNowAndWait(
+      reconcileConversations: true,
+    );
     if (!mounted || _sessionRuntimeStopped) return;
     context.go(route);
   }
@@ -125,7 +130,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       if (_sessionRuntimeStopped) return;
-      _imSyncCoordinator.synchronizeNow();
+      _imSyncCoordinator.synchronizeNow(reconcileConversations: true);
       _presenceCoordinator.synchronizeNow();
       _oaSyncCoordinator.synchronizeNow();
       _pushRegistration.synchronize().ignore();

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hexing_terminal_mobile/core/demo/preview_data.dart';
+import 'package:hexing_terminal_mobile/core/theme/app_colors.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration_repositories.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:hexing_terminal_mobile/features/messages/presentation/chat_page.dart';
@@ -326,6 +327,182 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('consecutive sender keeps one avatar on the first message', (
+    tester,
+  ) async {
+    final messages = [
+      ImMessage(
+        id: 'cluster-first',
+        conversationId: 'ops',
+        sequence: 20,
+        senderId: 'member-1',
+        content: '第一条连续消息',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 9, 1, 4),
+      ),
+      ImMessage(
+        id: 'cluster-last',
+        conversationId: 'ops',
+        sequence: 21,
+        senderId: 'member-1',
+        content: '第二条连续消息',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 9, 1, 11),
+      ),
+    ];
+
+    await _pumpChat(tester, 'ops', messages: messages);
+
+    expect(
+      find.byKey(const ValueKey<String>('message-avatar-cluster-first')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('message-avatar-cluster-last')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('message-time-cluster-first')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('message-time-cluster-last')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('outgoing messages keep the current member avatar key', (
+    tester,
+  ) async {
+    const currentMember = ImMember(
+      id: 'me-with-avatar',
+      username: 'term.me',
+      displayName: '当前成员',
+      isOnline: true,
+      avatarKey: 'terminal-manager',
+    );
+    final source = PreviewData.imBootstrap;
+    final bootstrap = ImBootstrap(
+      currentMember: currentMember,
+      conversations: source.conversations,
+      contacts: source.contacts,
+      permissions: source.permissions,
+      config: source.config,
+    );
+    final outgoing = ImMessage(
+      id: 'outgoing-avatar-key',
+      conversationId: 'ops',
+      sequence: 22,
+      senderId: currentMember.id,
+      content: '头像 key 不应丢失',
+      kind: 'text',
+      createdAt: DateTime.utc(2026, 9, 1, 4, 2),
+    );
+
+    await _pumpChat(tester, 'ops', bootstrap: bootstrap, messages: [outgoing]);
+
+    final avatar = tester.widget<InitialAvatar>(
+      find.byKey(const ValueKey<String>('message-avatar-outgoing-avatar-key')),
+    );
+    expect(avatar.avatarKey, currentMember.avatarKey);
+  });
+
+  testWidgets(
+    'group chat falls back to cached members while paging is offline',
+    (tester) async {
+      const cachedSender = ImMember(
+        id: 'cached-group-sender',
+        username: 'cached.sender',
+        displayName: '缓存成员',
+        isOnline: false,
+        avatarKey: 'terminal-member',
+      );
+      final cachedMembers = [
+        PreviewData.imBootstrap.currentMember,
+        cachedSender,
+      ];
+      final message = ImMessage(
+        id: 'cached-member-avatar',
+        conversationId: 'ops',
+        sequence: 23,
+        senderId: cachedSender.id,
+        content: '离线时仍显示缓存头像',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 9, 1, 4, 3),
+      );
+
+      await _pumpChat(
+        tester,
+        'ops',
+        messages: [message],
+        members: cachedMembers,
+        pageMembers: const [],
+      );
+
+      final avatar = tester.widget<InitialAvatar>(
+        find.byKey(
+          const ValueKey<String>('message-avatar-cached-member-avatar'),
+        ),
+      );
+      expect(avatar.name, cachedSender.displayName);
+      expect(avatar.avatarKey, cachedSender.avatarKey);
+      expect(find.text('2 位成员'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'group messages reuse contact avatars before member paging loads',
+    (tester) async {
+      const contactSender = ImMember(
+        id: 'contact-group-sender',
+        username: 'contact.sender',
+        displayName: '通讯录成员',
+        isOnline: true,
+        avatarKey: 'person',
+      );
+      final source = PreviewData.imBootstrap;
+      final bootstrap = ImBootstrap(
+        currentMember: source.currentMember,
+        conversations: source.conversations,
+        contacts: const [contactSender],
+        permissions: source.permissions,
+        config: source.config,
+      );
+      final message = ImMessage(
+        id: 'contact-member-avatar',
+        conversationId: 'ops',
+        sequence: 24,
+        senderId: contactSender.id,
+        content: '分页未完成也显示联系人头像',
+        kind: 'text',
+        createdAt: DateTime.utc(2026, 9, 1, 4, 4),
+      );
+
+      await _pumpChat(
+        tester,
+        'ops',
+        bootstrap: bootstrap,
+        messages: [message],
+        members: const [],
+        pageMembers: const [],
+      );
+
+      final avatar = tester.widget<InitialAvatar>(
+        find.byKey(
+          const ValueKey<String>('message-avatar-contact-member-avatar'),
+        ),
+      );
+      expect(avatar.name, contactSender.displayName);
+      expect(avatar.avatarKey, contactSender.avatarKey);
+    },
+  );
+
+  testWidgets('group chat hides an unknown member count', (tester) async {
+    await _pumpChat(tester, 'ops', members: const [], pageMembers: const []);
+
+    expect(find.text('0 位成员'), findsNothing);
+  });
+
   testWidgets('group composer follows server mute state and member role', (
     tester,
   ) async {
@@ -582,6 +759,23 @@ void main() {
     },
   );
 
+  testWidgets('direct chat does not expose cached online state while offline', (
+    tester,
+  ) async {
+    await _pumpChat(
+      tester,
+      'tang',
+      realtimeAvailability: ImRealtimeAvailability.unavailable,
+    );
+
+    expect(find.text('状态未知'), findsOneWidget);
+    expect(find.text('在线'), findsNothing);
+    final avatar = tester.widget<InitialAvatar>(
+      find.byType(InitialAvatar).first,
+    );
+    expect(avatar.online, isNull);
+  });
+
   testWidgets('pure emoji messages use the desktop enlarged treatment', (
     tester,
   ) async {
@@ -634,7 +828,7 @@ void main() {
     final mixed = tester.widget<Text>(
       find.byKey(const ValueKey<String>('message-text-emoji-mixed')),
     );
-    expect(mixed.style?.fontSize, isNull);
+    expect(mixed.style?.fontSize, 15);
   });
 
   testWidgets(
@@ -911,6 +1105,40 @@ void main() {
     expect(semantics.properties.label, '视频预览，现场验收.mp4');
   });
 
+  testWidgets('outgoing media fallback stays readable on the light bubble', (
+    tester,
+  ) async {
+    final message = ImMessage(
+      id: 'outgoing-video-fallback',
+      conversationId: 'ops',
+      sequence: 13,
+      senderId: PreviewData.imBootstrap.currentMember.id,
+      content: '现场验收.mp4',
+      kind: 'video',
+      attachments: const [
+        ImMessageAttachment(
+          id: 'outgoing-video-attachment',
+          type: 'video',
+          fileName: '现场验收.mp4',
+          contentType: 'video/mp4',
+          size: 4096,
+          sha256: 'outgoing-video-sha256',
+          durationSeconds: 18,
+        ),
+      ],
+      createdAt: DateTime(2026, 8, 31, 12, 1),
+    );
+
+    await _pumpChat(tester, 'ops', messages: [message]);
+
+    final play = tester.widget<Icon>(find.byIcon(Icons.play_circle_outline));
+    expect(play.color, AppColors.primary);
+    expect(find.text('现场验收.mp4'), findsNothing);
+    expect(find.text('18 秒 · 4.0 KB'), findsOneWidget);
+    final metadata = tester.widget<Text>(find.text('18 秒 · 4.0 KB'));
+    expect(metadata.style?.color, AppColors.secondaryText);
+  });
+
   testWidgets('chat image decodes at thumbnail width before full preview', (
     tester,
   ) async {
@@ -982,8 +1210,16 @@ void main() {
 
     await _pumpChat(tester, 'ops', messages: [pending, failed]);
 
-    expect(find.text('发送中'), findsOneWidget);
-    expect(find.text('发送失败，点此重试'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('message-pending-local-pending')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('message-retry-local-failed')),
+      findsOneWidget,
+    );
+    expect(find.text('发送中'), findsNothing);
+    expect(find.text('发送失败，点此重试'), findsNothing);
   });
 
   testWidgets('scrolling to the top loads older messages without a button', (
@@ -1144,6 +1380,7 @@ Future<void> _pumpChat(
   List<ImMessage> messages = const [],
   ImBootstrap? bootstrap,
   List<ImMember>? members,
+  List<ImMember>? pageMembers,
   ImGroupProfile? groupProfile,
   Future<ImGroupProfile?> Function(String conversationId)? groupProfileLoader,
   Uint8List? videoPreview,
@@ -1153,11 +1390,14 @@ Future<void> _pumpChat(
   ValueChanged<String>? onFullMembersRequested,
   ValueChanged<String>? onMemberPageRequested,
   ImMessageReadReceiptLoader? readReceiptLoader,
+  ImRealtimeAvailability realtimeAvailability =
+      ImRealtimeAvailability.available,
   bool settle = true,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        imRealtimeAvailabilityProvider.overrideWithValue(realtimeAvailability),
         imBootstrapProvider.overrideWith(
           (ref) async => bootstrap ?? PreviewData.imBootstrap,
         ),
@@ -1211,10 +1451,15 @@ Future<void> _pumpChat(
           onFullMembersRequested?.call(id);
           return members ?? PreviewData.conversationMembers(id);
         }),
+        conversationCachedMembersProvider.overrideWith(
+          (ref, id) async => members ?? PreviewData.conversationMembers(id),
+        ),
         conversationMemberPageProvider.overrideWith((ref, key) async {
           onMemberPageRequested?.call(key.keyword);
           final source =
-              members ?? PreviewData.conversationMembers(key.conversationId);
+              pageMembers ??
+              members ??
+              PreviewData.conversationMembers(key.conversationId);
           final keyword = key.keyword.trim().toLowerCase();
           final filtered = source
               .where(

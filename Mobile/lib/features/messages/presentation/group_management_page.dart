@@ -474,12 +474,18 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
             final item = _muted[index];
             return ListTile(
               dense: true,
-              leading: InitialAvatar(
-                name: item.member.displayName,
-                radius: 17,
-                online: item.member.isOnline,
-                avatarKey: item.member.avatarKey,
-                avatarDataUrl: item.member.avatarDataUrl,
+              leading: Consumer(
+                builder: (context, ref, _) => InitialAvatar(
+                  name: item.member.displayName,
+                  radius: 17,
+                  online:
+                      ref.watch(imRealtimeAvailabilityProvider) ==
+                          ImRealtimeAvailability.available
+                      ? item.member.isOnline
+                      : null,
+                  avatarKey: item.member.avatarKey,
+                  avatarDataUrl: item.member.avatarDataUrl,
+                ),
               ),
               title: Text(
                 item.member.displayName,
@@ -596,12 +602,18 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
             final isOwner = item.groupRole.toLowerCase() == 'owner';
             return ListTile(
               dense: true,
-              leading: InitialAvatar(
-                name: item.displayName,
-                radius: 17,
-                online: item.isOnline,
-                avatarKey: item.avatarKey,
-                avatarDataUrl: item.avatarDataUrl,
+              leading: Consumer(
+                builder: (context, ref, _) => InitialAvatar(
+                  name: item.displayName,
+                  radius: 17,
+                  online:
+                      ref.watch(imRealtimeAvailabilityProvider) ==
+                          ImRealtimeAvailability.available
+                      ? item.isOnline
+                      : null,
+                  avatarKey: item.avatarKey,
+                  avatarDataUrl: item.avatarDataUrl,
+                ),
               ),
               title: Text(
                 item.displayName,

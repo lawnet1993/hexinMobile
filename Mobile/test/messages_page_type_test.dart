@@ -242,4 +242,30 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('实时通道断开后不显示缓存在线绿点', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.unavailable,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.imBootstrap,
+          ),
+        ],
+        child: const MaterialApp(home: MessagesPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final semantics = tester.widget<Semantics>(
+      find.byKey(const ValueKey('message-conversation-semantics-tang')),
+    );
+    expect(semantics.properties.label, '单聊，状态未知');
+    final avatar = tester.widget<InitialAvatar>(
+      find.byKey(const ValueKey('message-direct-avatar-tang')),
+    );
+    expect(avatar.online, isNull);
+  });
 }

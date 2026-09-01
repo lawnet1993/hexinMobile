@@ -12,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../core/updates/client_update_repository.dart';
 import '../../../core/updates/client_update_sheet.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../collaboration/application/mobile_device_authorization_coordinator.dart';
@@ -361,6 +362,8 @@ class LoginDevicesPage extends ConsumerStatefulWidget {
 }
 
 class _LoginDevicesPageState extends ConsumerState<LoginDevicesPage> {
+  static const _deviceSyncTimeout = Duration(seconds: 12);
+
   bool _registering = false;
   String? _revokingId;
 
@@ -374,15 +377,24 @@ class _LoginDevicesPageState extends ConsumerState<LoginDevicesPage> {
 
   Future<void> _registerCurrent({bool silent = false}) async {
     if (_registering) return;
+    if (silent &&
+        ref.read(imRealtimeAvailabilityProvider) !=
+            ImRealtimeAvailability.available) {
+      return;
+    }
     setState(() => _registering = true);
     try {
       await ref
           .read(mobileDeviceAuthorizationCoordinatorProvider)
-          .synchronize();
+          .synchronize()
+          .timeout(_deviceSyncTimeout);
     } catch (error) {
       if (mounted && !silent) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('设备授权失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(mobileErrorText(error, fallback: '设备授权失败，请稍后重试')),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _registering = false);
@@ -418,70 +430,154 @@ class _LoginDevicesPageState extends ConsumerState<LoginDevicesPage> {
   Widget build(BuildContext context) {
     final session = ref.watch(authControllerProvider).value;
     final devices = ref.watch(imDeviceAuthorizationsProvider);
+    final currentDevice = ref.watch(currentMobileDeviceAuthorizationProvider);
+    final syncUnavailable =
+        ref.watch(imRealtimeAvailabilityProvider) !=
+        ImRealtimeAvailability.available;
+    final loadedItems = devices.value ?? const <ImDeviceAuthorization>[];
+    final visibleItems = loadedItems.isNotEmpty
+        ? loadedItems
+        : currentDevice == null
+        ? const <ImDeviceAuthorization>[]
+        : <ImDeviceAuthorization>[currentDevice];
     return _SettingsScaffold(
       title: '登录设备',
       children: [
         _SettingsSection(
           title: '已授权设备',
-          child: devices.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (error, _) => Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                children: [
-                  Text('设备列表加载失败：$error'),
-                  TextButton(
-                    onPressed: () =>
-                        ref.invalidate(imDeviceAuthorizationsProvider),
-                    child: const Text('重试'),
-                  ),
-                ],
-              ),
-            ),
-            data: (items) => items.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: SizedBox(
-                        height: 40,
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            textStyle: const TextStyle(fontSize: 13.5),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          onPressed: _registering
-                              ? null
-                              : () => _registerCurrent(),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: Text(_registering ? '授权中…' : '授权当前设备'),
-                        ),
+          child: visibleItems.isNotEmpty
+              ? Column(
+                  children: [
+                    if (syncUnavailable)
+                      _DeviceSyncUnavailable(
+                        cached: true,
+                        loading: _registering,
+                        onRetry: _retryDevices,
                       ),
-                    ),
-                  )
-                : Column(
-                    children: [
-                      for (var i = 0; i < items.length; i++) ...[
-                        _DeviceAuthorizationTile(
-                          device: items[i],
-                          currentDeviceId: session?.deviceId ?? '',
-                          revoking: _revokingId == items[i].deviceId,
-                          onRevoke: () => _revoke(items[i]),
-                        ),
-                        if (i < items.length - 1)
-                          const Divider(height: 1, indent: 58),
-                      ],
+                    for (var i = 0; i < visibleItems.length; i++) ...[
+                      _DeviceAuthorizationTile(
+                        device: visibleItems[i],
+                        currentDeviceId: session?.deviceId ?? '',
+                        revoking: _revokingId == visibleItems[i].deviceId,
+                        onRevoke: () => _revoke(visibleItems[i]),
+                      ),
+                      if (i < visibleItems.length - 1)
+                        const Divider(height: 1, indent: 58),
                     ],
+                  ],
+                )
+              : devices.when(
+                  loading: () => syncUnavailable
+                      ? _DeviceSyncUnavailable(
+                          loading: _registering,
+                          onRetry: _retryDevices,
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.all(18),
+                          child: Center(
+                            child: SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        ),
+                  error: (error, _) => _DeviceSyncUnavailable(
+                    message: mobileErrorText(error, fallback: '设备状态同步失败'),
+                    loading: _registering,
+                    onRetry: _retryDevices,
                   ),
-          ),
+                  data: (_) => syncUnavailable
+                      ? _DeviceSyncUnavailable(
+                          loading: _registering,
+                          onRetry: _retryDevices,
+                        )
+                      : _AuthorizeCurrentDevice(
+                          registering: _registering,
+                          onRegister: _registerCurrent,
+                        ),
+                ),
         ),
       ],
     );
   }
+
+  void _retryDevices() {
+    ref.invalidate(imDeviceAuthorizationsProvider);
+    _registerCurrent();
+  }
+}
+
+class _DeviceSyncUnavailable extends StatelessWidget {
+  const _DeviceSyncUnavailable({
+    required this.loading,
+    required this.onRetry,
+    this.cached = false,
+    this.message,
+  });
+
+  final bool cached;
+  final String? message;
+  final bool loading;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+    child: Row(
+      children: [
+        const Icon(
+          Icons.cloud_off_outlined,
+          size: 19,
+          color: AppColors.secondaryText,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            message ?? (cached ? '离线 · 显示缓存' : '暂时无法同步设备'),
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppColors.secondaryText,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: loading ? null : onRetry,
+          child: Text(loading ? '重试中…' : '重试'),
+        ),
+      ],
+    ),
+  );
+}
+
+class _AuthorizeCurrentDevice extends StatelessWidget {
+  const _AuthorizeCurrentDevice({
+    required this.registering,
+    required this.onRegister,
+  });
+
+  final bool registering;
+  final VoidCallback onRegister;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(12),
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        height: 40,
+        child: FilledButton.icon(
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            textStyle: const TextStyle(fontSize: 13.5),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          onPressed: registering ? null : onRegister,
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: Text(registering ? '授权中…' : '授权当前设备'),
+        ),
+      ),
+    ),
+  );
 }
 
 class _DeviceAuthorizationTile extends StatelessWidget {

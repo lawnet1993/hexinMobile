@@ -1,8 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hexing_terminal_mobile/core/storage/secure_session_store.dart';
+import 'package:hexing_terminal_mobile/features/auth/application/auth_controller.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/application/mobile_device_authorization_coordinator.dart';
+import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration_repositories.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:hexing_terminal_mobile/features/profile/presentation/profile_page.dart';
+import 'package:hexing_terminal_mobile/features/profile/presentation/settings_pages.dart';
 
 void main() {
   test(
@@ -106,6 +113,54 @@ void main() {
       'realme RMX3366 · android',
     );
   });
+
+  test('device summary settles immediately while collaboration is offline', () {
+    expect(
+      deviceAuthorizationSummary(
+        const AsyncLoading<List<ImDeviceAuthorization>>(),
+        currentDeviceId: 'android-device',
+        syncUnavailable: true,
+      ),
+      '暂时无法同步',
+    );
+  });
+
+  testWidgets('login devices replaces the offline spinner with retry', (
+    tester,
+  ) async {
+    final never = Completer<List<ImDeviceAuthorization>>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_TestAuthController.new),
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.unavailable,
+          ),
+          imDeviceAuthorizationsProvider.overrideWith((ref) => never.future),
+        ],
+        child: const MaterialApp(home: LoginDevicesPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('暂时无法同步设备'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+}
+
+final class _TestAuthController extends AuthController {
+  @override
+  Future<MobileSession?> build() async => const MobileSession(
+    accessToken: 'test-token',
+    deviceId: 'android-device',
+    userId: 'test-user',
+    displayName: '测试用户',
+    username: 'test.account',
+    policySignatureKey: '',
+    imApiUrl: '',
+    oaApiUrl: '',
+  );
 }
 
 ImDeviceAuthorization _device({

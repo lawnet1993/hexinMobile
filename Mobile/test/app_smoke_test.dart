@@ -15,6 +15,51 @@ import 'package:hexing_terminal_mobile/features/workbench/presentation/all_apps_
 import 'package:hexing_terminal_mobile/features/workbench/presentation/workbench_page.dart';
 
 void main() {
+  test('existing direct conversation is reused only when unambiguous', () {
+    const peer = ImMember(
+      id: 'peer-1',
+      username: 'peer.account',
+      displayName: '测试成员',
+      isOnline: false,
+    );
+    final source = PreviewData.imBootstrap;
+    final conversation = ImConversation(
+      id: 'direct-peer-1',
+      type: 'direct',
+      title: '${source.currentMember.displayName}、测试成员',
+      preview: '',
+      updatedAt: DateTime(2026, 9, 1),
+      unreadCount: 0,
+    );
+    final bootstrap = ImBootstrap(
+      currentMember: source.currentMember,
+      conversations: [conversation],
+      contacts: const [peer],
+    );
+
+    expect(
+      existingDirectConversationForMember(bootstrap, peer)?.id,
+      conversation.id,
+    );
+
+    final ambiguous = ImBootstrap(
+      currentMember: source.currentMember,
+      conversations: [
+        conversation,
+        ImConversation(
+          id: 'direct-peer-duplicate',
+          type: 'direct',
+          title: '测试成员',
+          preview: '',
+          updatedAt: DateTime(2026, 9, 1),
+          unreadCount: 0,
+        ),
+      ],
+      contacts: const [peer],
+    );
+    expect(existingDirectConversationForMember(ambiguous, peer), isNull);
+  });
+
   test('security shortcuts keep desktop-aligned destinations distinct', () {
     final loginDevices = MobileAppCatalog.entries.singleWhere(
       (item) => item.title == '登录设备',
@@ -313,8 +358,30 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.text('林晨'), findsNothing);
+      expect(
+        find.byKey(const Key('department-group-department-hq')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('department-group-department-shanghai')),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(const Key('department-group-department-hq')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('department-group-department-shanghai')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const Key('department-group-department-shanghai')),
+      );
+      await tester.pumpAndSettle();
+
       expect(find.text('林晨'), findsOneWidget);
       expect(find.text('我'), findsOneWidget);
+      expect(find.text('term.sh01'), findsNothing);
+      expect(find.text('企业通讯录'), findsNothing);
       final flatContent = tester.widget<Material>(
         find.byKey(const Key('contacts-flat-content')),
       );
@@ -325,7 +392,7 @@ void main() {
         scaffold.backgroundColor,
         Theme.of(pageContext).colorScheme.surface,
       );
-      expect(find.byTooltip('发送消息'), findsNWidgets(3));
+      expect(find.byTooltip('发送消息'), findsNothing);
       expect(find.byTooltip('联系人操作'), findsNothing);
       expect(find.byIcon(Icons.wifi_off_rounded), findsNothing);
 
@@ -338,6 +405,12 @@ void main() {
       expect(find.byKey(const Key('department-picker-close')), findsOneWidget);
 
       await tester.tap(find.text('深圳运营部').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('冯逸'), findsNothing);
+      await tester.tap(
+        find.byKey(const Key('department-group-department-shenzhen')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('冯逸'), findsOneWidget);
@@ -400,6 +473,14 @@ void main() {
 
     expect(find.text('通讯录成员 64'), findsNothing);
     expect(find.textContaining('加载更多'), findsNothing);
+    await tester.tap(find.byKey(const Key('department-group-department-hq')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('department-group-$departmentId')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(Key('department-page-footer-$departmentId')),
+      findsOneWidget,
+    );
     await tester.drag(
       find.byKey(const Key('contacts-page-scroll')),
       const Offset(0, -2400),
@@ -412,7 +493,99 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('通讯录成员 64'), findsOneWidget);
-    expect(find.byKey(const Key('contacts-page-footer')), findsNothing);
+    expect(
+      find.byKey(Key('department-page-footer-$departmentId')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('large organization builds departments before member rows', (
+    tester,
+  ) async {
+    const root = ImDepartment(
+      id: 'large-root',
+      name: '集团总部',
+      code: 'ROOT',
+      parentId: '',
+      sortOrder: 0,
+    );
+    final departments = <ImDepartment>[
+      root,
+      for (var index = 0; index < 100; index += 1)
+        ImDepartment(
+          id: 'large-department-$index',
+          name: '业务部门 $index',
+          code: 'D$index',
+          parentId: root.id,
+          sortOrder: index,
+        ),
+    ];
+    final contacts = <ImMember>[
+      for (var index = 0; index < 2000; index += 1)
+        ImMember(
+          id: 'large-member-$index',
+          username: 'large.$index',
+          displayName: '大组织成员 $index',
+          isOnline: index.isEven,
+          departmentId: 'large-department-${index ~/ 20}',
+          departmentName: '业务部门 ${index ~/ 20}',
+          canStartDirect: true,
+        ),
+    ];
+    const currentMember = ImMember(
+      id: 'large-current',
+      username: 'large.current',
+      displayName: '当前成员',
+      isOnline: true,
+      departmentId: 'large-department-0',
+      departmentName: '业务部门 0',
+    );
+    final bootstrap = ImBootstrap(
+      currentMember: currentMember,
+      conversations: const [],
+      contacts: contacts,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          contactPresenceRefresherProvider.overrideWithValue(() async {}),
+          imBootstrapProvider.overrideWith((ref) async => bootstrap),
+          imDepartmentsProvider.overrideWith((ref) async => departments),
+          pendingFriendApplicationsProvider.overrideWith(
+            (ref) async => const [],
+          ),
+        ],
+        child: const MaterialApp(home: ContactsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('department-group-large-root')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('department-group-large-department-0')),
+      findsNothing,
+    );
+    expect(find.text('大组织成员 0'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('department-group-large-root')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('department-group-large-department-0')),
+      findsOneWidget,
+    );
+    expect(find.text('大组织成员 0'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('department-group-large-department-0')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('大组织成员 0'), findsOneWidget);
+    expect(find.text('大组织成员 20'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -453,6 +626,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const Key('department-group-department-hq')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('department-group-department-shanghai')),
+    );
+    await tester.pumpAndSettle();
+
     final avatars = tester.widgetList<CircleAvatar>(find.byType(CircleAvatar));
     expect(
       avatars.where((avatar) => avatar.foregroundImage is MemoryImage),
@@ -469,6 +649,9 @@ void main() {
         overrides: [
           imBootstrapProvider.overrideWith(
             (ref) async => PreviewData.imBootstrap,
+          ),
+          imDepartmentsProvider.overrideWith(
+            (ref) async => PreviewData.imDepartments,
           ),
           pendingFriendApplicationsProvider.overrideWith(
             (ref) async => const [],
@@ -527,12 +710,22 @@ void main() {
           imBootstrapProvider.overrideWith(
             (ref) async => PreviewData.imBootstrap,
           ),
+          imDepartmentsProvider.overrideWith(
+            (ref) async => PreviewData.imDepartments,
+          ),
           pendingFriendApplicationsProvider.overrideWith(
             (ref) async => const [],
           ),
         ],
         child: const MaterialApp(home: ContactsPage()),
       ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('department-group-department-hq')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('department-group-department-east-data')),
     );
     await tester.pumpAndSettle();
 
@@ -574,6 +767,40 @@ void main() {
 
     expect(refreshCount, 2);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('通讯录实时通道断开时不冒充在线状态', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.unavailable,
+          ),
+          contactPresenceRefresherProvider.overrideWithValue(() async {}),
+          imBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.imBootstrap,
+          ),
+          imDepartmentsProvider.overrideWith(
+            (ref) async => PreviewData.imDepartments,
+          ),
+          pendingFriendApplicationsProvider.overrideWith(
+            (ref) async => const [],
+          ),
+        ],
+        child: const MaterialApp(home: ContactsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('department-group-department-hq')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('department-group-department-shenzhen')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('状态未知'), findsOneWidget);
+    expect(find.text('在线'), findsNothing);
   });
 
   testWidgets(

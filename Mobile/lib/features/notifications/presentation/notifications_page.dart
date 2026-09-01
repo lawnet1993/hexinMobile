@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -239,7 +240,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
               error: (error, _) => EmptyState(
                 icon: Icons.cloud_off_outlined,
                 title: '好友申请加载失败',
-                description: error.toString(),
+                description: mobileErrorText(error),
                 onRetry: () =>
                     ref.invalidate(pendingFriendApplicationsProvider),
               ),
@@ -317,7 +318,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
               error: (error, _) => EmptyState(
                 icon: Icons.cloud_off_outlined,
                 title: '公告加载失败',
-                description: error.toString(),
+                description: mobileErrorText(error),
                 onRetry: () => ref.invalidate(oaBootstrapProvider),
               ),
               data: (data) => data.announcements.isEmpty
@@ -389,7 +390,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                     error: (error, _) => EmptyState(
                       icon: Icons.cloud_off_outlined,
                       title: '通知加载失败',
-                      description: error.toString(),
+                      description: mobileErrorText(error),
                       onRetry: () => ref.invalidate(
                         oaNotificationPageProvider(notificationKey),
                       ),

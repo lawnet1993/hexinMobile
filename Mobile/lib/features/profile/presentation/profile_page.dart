@@ -20,6 +20,9 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(authControllerProvider).value;
     final member = ref.watch(imBootstrapProvider).value?.currentMember;
+    final realtimeAvailability = ref.watch(imRealtimeAvailabilityProvider);
+    final presenceAvailable =
+        realtimeAvailability == ImRealtimeAvailability.available;
     final tunnel = ref.watch(tunnelControllerProvider).value?.status;
     final devices = ref.watch(imDeviceAuthorizationsProvider);
     final currentDevice = ref.watch(currentMobileDeviceAuthorizationProvider);
@@ -51,7 +54,7 @@ class ProfilePage extends ConsumerWidget {
                       InitialAvatar(
                         name: name,
                         radius: 21,
-                        online: member?.isOnline,
+                        online: presenceAvailable ? member?.isOnline : null,
                         avatarKey: member?.avatarKey ?? '',
                         avatarDataUrl: member?.avatarDataUrl ?? '',
                       ),
@@ -98,16 +101,18 @@ class ProfilePage extends ConsumerWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: member?.isOnline == true
+                          color: presenceAvailable && member?.isOnline == true
                               ? const Color(0xFFE8F8F0)
                               : const Color(0xFFF0F1F3),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          member?.isOnline == true ? '在线' : '离线',
+                          presenceAvailable
+                              ? (member?.isOnline == true ? '在线' : '离线')
+                              : '状态未知',
                           style: TextStyle(
                             fontSize: 11,
-                            color: member?.isOnline == true
+                            color: presenceAvailable && member?.isOnline == true
                                 ? AppColors.success
                                 : AppColors.secondaryText,
                             fontWeight: FontWeight.w600,
@@ -151,6 +156,9 @@ class ProfilePage extends ConsumerWidget {
                     devices,
                     currentDeviceId: session?.deviceId ?? '',
                     currentDevice: currentDevice,
+                    syncUnavailable:
+                        realtimeAvailability !=
+                        ImRealtimeAvailability.available,
                   ),
                   onTap: () => context.push('/login-devices'),
                 ),
@@ -236,10 +244,15 @@ String deviceAuthorizationSummary(
   AsyncValue<List<ImDeviceAuthorization>> value, {
   required String currentDeviceId,
   ImDeviceAuthorization? currentDevice,
+  bool syncUnavailable = false,
 }) {
   if (currentDevice != null) return _deviceAuthorizationLabel(currentDevice);
-  if (value.isLoading) return '正在同步设备';
-  if (value.hasError) return '设备状态同步失败';
+  if (value.isLoading) {
+    return syncUnavailable ? '暂时无法同步' : '正在同步设备';
+  }
+  if (value.hasError) {
+    return syncUnavailable ? '暂时无法同步' : '设备状态同步失败';
+  }
   final devices = value.value ?? const <ImDeviceAuthorization>[];
   final normalizedCurrentDeviceId = currentDeviceId.trim().toLowerCase();
   ImDeviceAuthorization? current;

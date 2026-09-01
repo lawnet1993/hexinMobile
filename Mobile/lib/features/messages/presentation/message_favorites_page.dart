@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -136,7 +137,7 @@ class _MessageFavoritesPageState extends ConsumerState<MessageFavoritesPage> {
         error: (error, _) => EmptyState(
           icon: Icons.cloud_off_outlined,
           title: '收藏加载失败',
-          description: error.toString(),
+          description: mobileErrorText(error),
           onRetry: _resetPages,
         ),
         data: (page) {

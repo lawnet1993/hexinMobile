@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -279,12 +280,13 @@ void main() {
     expect(
       tester.getRect(find.text('我发起的')).left -
           tester.getRect(find.text('待我处理')).left,
-      closeTo(56, 2),
+      greaterThan(64),
     );
     final tabStrip = tester.widget<SingleChildScrollView>(
       find.byKey(const Key('todo-tab-strip')),
     );
-    expect(tabStrip.controller!.position.maxScrollExtent, 0);
+    expect(tabStrip.controller!.position.maxScrollExtent, greaterThan(0));
+    expect(find.byKey(const Key('todo-tabs-right-fade')), findsOneWidget);
     expect(find.text('搜索事项或申请编号'), findsOneWidget);
     expect(
       tester.getSize(find.widgetWithText(TextField, '搜索事项或申请编号')).height,
@@ -626,18 +628,17 @@ void main() {
       ],
     );
 
-    expect(find.byKey(const Key('todo-tabs-right-fade')), findsNothing);
+    expect(find.byKey(const Key('todo-tabs-right-fade')), findsOneWidget);
     expect(find.byKey(const Key('todo-tabs-left-fade')), findsNothing);
     final tabStrip = tester.widget<SingleChildScrollView>(
       find.byKey(const Key('todo-tab-strip')),
     );
-    expect(tabStrip.controller!.position.maxScrollExtent, 0);
+    expect(tabStrip.controller!.position.maxScrollExtent, greaterThan(0));
     final label = tester.getRect(find.text('待同步'));
     final badge = tester.getRect(
       find.byKey(const ValueKey('todo-tab-badge-待同步')),
     );
     expect((label.center.dy - badge.center.dy).abs(), lessThan(1));
-    expect(label.right, lessThan(390));
     expect(find.bySemanticsLabel('待同步，1 条'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -1805,6 +1806,100 @@ void main() {
     expect(find.text('人事复核'), findsOneWidget);
     expect(find.text('审批 · 叶青、周宁 · 人事部 · 或签'), findsOneWidget);
     expect(find.byType(BottomSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('workflow preview exposes a compact offline state and retry', (
+    tester,
+  ) async {
+    var retried = false;
+    await _pump(
+      tester,
+      ApprovalWorkflowInline(
+        preview: null,
+        loading: false,
+        error: DioException(
+          requestOptions: RequestOptions(path: '/api/oa/workflow/preview'),
+          type: DioExceptionType.connectionError,
+        ),
+        templateVersion: 1,
+        onRetry: () => retried = true,
+      ),
+      overrides: const [],
+    );
+
+    expect(find.text('网络不可用，表单与草稿已保留'), findsOneWidget);
+    expect(find.textContaining('/api/oa/workflow/preview'), findsNothing);
+    await tester.tap(find.byTooltip('重新解析审批流程'));
+    expect(retried, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('workflow preview maps request timeout to the offline state', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      ApprovalWorkflowInline(
+        preview: null,
+        loading: false,
+        error: TimeoutException('workflow preview timed out'),
+        templateVersion: 1,
+        onRetry: () {},
+      ),
+      overrides: const [],
+    );
+
+    expect(find.text('网络不可用，表单与草稿已保留'), findsOneWidget);
+    expect(find.byTooltip('重新解析审批流程'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('workflow preview deduplicates an unchanged pending request', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    var previewCalls = 0;
+    final pendingPreview = Completer<OaWorkflowPreview>();
+    await _pump(
+      tester,
+      const ApprovalRequestPage(
+        applicationKey: 'attendance.leave',
+        templateId: '1',
+      ),
+      overrides: [
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+        oaWorkflowPreviewLoaderProvider.overrideWithValue(({
+          required String applicationKey,
+          required OaApprovalTemplate template,
+          required Map<String, Object?> formData,
+        }) {
+          previewCalls += 1;
+          return pendingPreview.future;
+        }),
+      ],
+    );
+
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(previewCalls, 1);
+    pendingPreview.complete(
+      PreviewData.workflowPreview(PreviewData.oaBootstrap.templates.first),
+    );
+    await tester.pumpAndSettle();
+    expect(previewCalls, 1);
     expect(tester.takeException(), isNull);
   });
 

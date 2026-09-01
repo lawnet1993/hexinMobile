@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
@@ -360,7 +361,9 @@ class _ConversationDetailPageState
           .read(imRepositoryProvider)
           .createGroup(draft.title, draft.memberIds);
       ref.invalidate(imBootstrapProvider);
-      if (mounted) context.pushReplacement('/chat/${group.id}');
+      if (mounted) {
+        context.pushReplacement('/chat/${group.id}', extra: group);
+      }
     });
   }
 
@@ -449,7 +452,7 @@ class _ConversationDetailPageState
             error: (error, _) => EmptyState(
               icon: Icons.cloud_off_outlined,
               title: '详情加载失败',
-              description: error.toString(),
+              description: mobileErrorText(error),
               onRetry: () => conversation.isGroup
                   ? ref.invalidate(
                       conversationMemberPageProvider(_memberPageKey),
@@ -607,12 +610,18 @@ class _DirectDetail extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 15, 16, 14),
           child: Row(
             children: [
-              InitialAvatar(
-                name: displayName,
-                radius: 24,
-                online: member?.isOnline == true,
-                avatarKey: member?.avatarKey ?? '',
-                avatarDataUrl: member?.avatarDataUrl ?? '',
+              Consumer(
+                builder: (context, ref, _) => InitialAvatar(
+                  name: displayName,
+                  radius: 24,
+                  online:
+                      ref.watch(imRealtimeAvailabilityProvider) ==
+                          ImRealtimeAvailability.available
+                      ? member?.isOnline
+                      : null,
+                  avatarKey: member?.avatarKey ?? '',
+                  avatarDataUrl: member?.avatarDataUrl ?? '',
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -640,15 +649,24 @@ class _DirectDetail extends StatelessWidget {
                     ),
                     if (member != null) ...[
                       const SizedBox(height: 4),
-                      Text(
-                        _memberPresenceLabel(member!),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: member!.isOnline
-                              ? const Color(0xFF0A9F64)
-                              : AppColors.secondaryText,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final presenceAvailable =
+                              ref.watch(imRealtimeAvailabilityProvider) ==
+                              ImRealtimeAvailability.available;
+                          return Text(
+                            presenceAvailable
+                                ? _memberPresenceLabel(member!)
+                                : '状态未知',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: presenceAvailable && member!.isOnline
+                                  ? const Color(0xFF0A9F64)
+                                  : AppColors.secondaryText,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ],
@@ -812,11 +830,16 @@ class _GroupDetail extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
-                  Text(
-                    '$memberCount 位成员 · $onlineMemberCount 人在线',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.secondaryText,
+                  Consumer(
+                    builder: (context, ref, _) => Text(
+                      ref.watch(imRealtimeAvailabilityProvider) ==
+                              ImRealtimeAvailability.available
+                          ? '$memberCount 位成员 · $onlineMemberCount 人在线'
+                          : '$memberCount 位成员',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.secondaryText,
+                      ),
                     ),
                   ),
                 ],
@@ -886,12 +909,18 @@ class _GroupDetail extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                   child: Column(
                     children: [
-                      InitialAvatar(
-                        name: member.displayName,
-                        radius: 20,
-                        online: member.isOnline,
-                        avatarKey: member.avatarKey,
-                        avatarDataUrl: member.avatarDataUrl,
+                      Consumer(
+                        builder: (context, ref, _) => InitialAvatar(
+                          name: member.displayName,
+                          radius: 20,
+                          online:
+                              ref.watch(imRealtimeAvailabilityProvider) ==
+                                  ImRealtimeAvailability.available
+                              ? member.isOnline
+                              : null,
+                          avatarKey: member.avatarKey,
+                          avatarDataUrl: member.avatarDataUrl,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       Text(
@@ -1275,6 +1304,9 @@ class _GroupMemberDirectorySheetState
   @override
   Widget build(BuildContext context) {
     final value = ref.watch(conversationMemberPageProvider(_key));
+    final presenceAvailable =
+        ref.watch(imRealtimeAvailabilityProvider) ==
+        ImRealtimeAvailability.available;
     return SizedBox(
       key: const Key('group-member-directory-sheet'),
       height: MediaQuery.sizeOf(context).height * .88,
@@ -1344,7 +1376,7 @@ class _GroupMemberDirectorySheetState
               error: (error, _) => EmptyState(
                 icon: Icons.cloud_off_outlined,
                 title: '群成员加载失败',
-                description: error.toString(),
+                description: mobileErrorText(error),
                 onRetry: () =>
                     ref.invalidate(conversationMemberPageProvider(_key)),
               ),
@@ -1424,12 +1456,14 @@ class _GroupMemberDirectorySheetState
                                 ),
                                 const SizedBox(height: 1),
                                 Text(
-                                  _memberPresenceLabel(member),
+                                  presenceAvailable
+                                      ? _memberPresenceLabel(member)
+                                      : '状态未知',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 10.5,
-                                    color: member.isOnline
+                                    color: presenceAvailable && member.isOnline
                                         ? const Color(0xFF0A9F64)
                                         : AppColors.secondaryText,
                                   ),
@@ -1599,12 +1633,18 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
                               horizontal: 14,
                             ),
                             value: _selected.contains(member.id),
-                            secondary: InitialAvatar(
-                              name: member.displayName,
-                              radius: 17,
-                              online: member.isOnline,
-                              avatarKey: member.avatarKey,
-                              avatarDataUrl: member.avatarDataUrl,
+                            secondary: Consumer(
+                              builder: (context, ref, _) => InitialAvatar(
+                                name: member.displayName,
+                                radius: 17,
+                                online:
+                                    ref.watch(imRealtimeAvailabilityProvider) ==
+                                        ImRealtimeAvailability.available
+                                    ? member.isOnline
+                                    : null,
+                                avatarKey: member.avatarKey,
+                                avatarDataUrl: member.avatarDataUrl,
+                              ),
                             ),
                             title: Text(
                               member.displayName,
@@ -1797,12 +1837,18 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                 dense: true,
                 visualDensity: VisualDensity.compact,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14),
-                leading: InitialAvatar(
-                  name: widget.fixedMember.displayName,
-                  radius: 17,
-                  online: widget.fixedMember.isOnline,
-                  avatarKey: widget.fixedMember.avatarKey,
-                  avatarDataUrl: widget.fixedMember.avatarDataUrl,
+                leading: Consumer(
+                  builder: (context, ref, _) => InitialAvatar(
+                    name: widget.fixedMember.displayName,
+                    radius: 17,
+                    online:
+                        ref.watch(imRealtimeAvailabilityProvider) ==
+                            ImRealtimeAvailability.available
+                        ? widget.fixedMember.isOnline
+                        : null,
+                    avatarKey: widget.fixedMember.avatarKey,
+                    avatarDataUrl: widget.fixedMember.avatarDataUrl,
+                  ),
                 ),
                 title: Text(
                   widget.fixedMember.displayName,
@@ -1842,12 +1888,18 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                         horizontal: 14,
                       ),
                       value: _selected.contains(member.id),
-                      secondary: InitialAvatar(
-                        name: member.displayName,
-                        radius: 17,
-                        online: member.isOnline,
-                        avatarKey: member.avatarKey,
-                        avatarDataUrl: member.avatarDataUrl,
+                      secondary: Consumer(
+                        builder: (context, ref, _) => InitialAvatar(
+                          name: member.displayName,
+                          radius: 17,
+                          online:
+                              ref.watch(imRealtimeAvailabilityProvider) ==
+                                  ImRealtimeAvailability.available
+                              ? member.isOnline
+                              : null,
+                          avatarKey: member.avatarKey,
+                          avatarDataUrl: member.avatarDataUrl,
+                        ),
                       ),
                       title: Text(
                         member.displayName,

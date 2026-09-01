@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
@@ -112,7 +113,7 @@ class _TodosPageState extends ConsumerState<TodosPage> {
         error: (error, _) => EmptyState(
           icon: Icons.cloud_off_outlined,
           title: '待办加载失败',
-          description: error.toString(),
+          description: mobileErrorText(error),
           onRetry: () => ref.invalidate(oaBootstrapProvider),
         ),
         data: (data) {
@@ -307,12 +308,7 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                                 key: const Key('approval-page-scroll'),
                                 controller: _approvalScrollController,
                                 physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.fromLTRB(
-                                  18,
-                                  8,
-                                  18,
-                                  20,
-                                ),
+                                padding: const EdgeInsets.fromLTRB(4, 8, 4, 20),
                                 itemCount:
                                     todoItems.length +
                                     items.length +
@@ -1267,8 +1263,8 @@ class _Tab extends StatelessWidget {
       button: true,
       selected: selected,
       label: visibleBadge ? '$label，$badge 条' : label,
-      child: SizedBox(
-        width: 56,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 64),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: onTap,
@@ -1277,54 +1273,51 @@ class _Tab extends StatelessWidget {
             children: [
               ExcludeSemantics(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 12.5,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: selected
+                              ? AppColors.primary
+                              : AppColors.secondaryText,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
+                      if (visibleBadge) ...[
+                        const SizedBox(width: 2),
+                        Container(
+                          key: ValueKey('todo-tab-badge-$label'),
+                          constraints: const BoxConstraints(minWidth: 13),
+                          height: 13,
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
                             color: selected
                                 ? AppColors.primary
-                                : AppColors.secondaryText,
-                            fontWeight: selected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+                                : const Color(0xFFE9EEF6),
+                            borderRadius: BorderRadius.circular(6.5),
+                          ),
+                          child: Text(
+                            badge! > 99 ? '99+' : '$badge',
+                            textScaler: TextScaler.noScaling,
+                            style: TextStyle(
+                              color: selected
+                                  ? Colors.white
+                                  : AppColors.secondaryText,
+                              fontSize: 8.5,
+                              height: 1,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                        if (visibleBadge) ...[
-                          const SizedBox(width: 1.5),
-                          Container(
-                            key: ValueKey('todo-tab-badge-$label'),
-                            constraints: const BoxConstraints(minWidth: 13),
-                            height: 13,
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? AppColors.primary
-                                  : const Color(0xFFE9EEF6),
-                              borderRadius: BorderRadius.circular(6.5),
-                            ),
-                            child: Text(
-                              badge! > 99 ? '99+' : '$badge',
-                              textScaler: TextScaler.noScaling,
-                              style: TextStyle(
-                                color: selected
-                                    ? Colors.white
-                                    : AppColors.secondaryText,
-                                fontSize: 8.5,
-                                height: 1,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -1943,7 +1936,7 @@ class _ApprovalItem extends ConsumerWidget {
         if (context.mounted) context.push('/approval/${item.id}');
       },
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(
           children: [
             Container(
@@ -2004,35 +1997,39 @@ class _ApprovalItem extends ConsumerWidget {
                           ),
                         ),
                       ],
+                      if (updatedAt != null) ...[
+                        const SizedBox(width: 7),
+                        Text(
+                          DateFormat('MM-dd HH:mm').format(updatedAt),
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: AppColors.weakText,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: status.color.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          status.label,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: status.color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  updatedAt == null
-                      ? '-'
-                      : DateFormat('MM-dd HH:mm').format(updatedAt),
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: AppColors.secondaryText,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  status.label,
-                  style: TextStyle(fontSize: 12, color: status.color),
-                ),
-              ],
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              size: 18,
-              color: AppColors.secondaryText,
             ),
           ],
         ),
