@@ -1187,6 +1187,7 @@ final class ImConversation {
   final bool isPinned;
   final bool isMuted;
   final List<int> unreadMentionSequences;
+
   /// Derived from this account's durable Outbox, never from a server payload.
   final ImLocalMessageStatus? localPreviewStatus;
   bool get hasUnreadMention => unreadMentionSequences.isNotEmpty;
@@ -1718,6 +1719,9 @@ final class ImMessageAttachment {
     this.width,
     this.height,
     this.coverObjectId = '',
+    this.coverContentType = '',
+    this.coverSize,
+    this.coverSha256 = '',
     this.coverWidth,
     this.coverHeight,
     this.durationSeconds,
@@ -1734,6 +1738,9 @@ final class ImMessageAttachment {
         width: _nullableInteger(_value(json, 'width')),
         height: _nullableInteger(_value(json, 'height')),
         coverObjectId: _text(json, 'coverObjectId'),
+        coverContentType: _text(json, 'coverContentType'),
+        coverSize: _nullableInteger(_value(json, 'coverSize')),
+        coverSha256: _text(json, 'coverSha256'),
         coverWidth: _nullableInteger(_value(json, 'coverWidth')),
         coverHeight: _nullableInteger(_value(json, 'coverHeight')),
         durationSeconds: _nullableDouble(_value(json, 'durationSeconds')),
@@ -1748,6 +1755,9 @@ final class ImMessageAttachment {
   final int? width;
   final int? height;
   final String coverObjectId;
+  final String coverContentType;
+  final int? coverSize;
+  final String coverSha256;
   final int? coverWidth;
   final int? coverHeight;
   final double? durationSeconds;
@@ -1762,6 +1772,9 @@ final class ImMessageAttachment {
     'width': width,
     'height': height,
     'coverObjectId': coverObjectId,
+    'coverContentType': coverContentType,
+    'coverSize': coverSize,
+    'coverSha256': coverSha256,
     'coverWidth': coverWidth,
     'coverHeight': coverHeight,
     'durationSeconds': durationSeconds,
@@ -2071,7 +2084,9 @@ final class ImConversationPresence {
         onlineMemberCount: _integer(_value(json, 'onlineMemberCount')),
         peerOnline: _boolean(_value(json, 'peerOnline')),
         peerPresenceKnown: _knownBoolean(_value(json, 'peerOnline')),
-        peerLastSeenAt: validPresenceTime(_date(_value(json, 'peerLastSeenAt'))),
+        peerLastSeenAt: validPresenceTime(
+          _date(_value(json, 'peerLastSeenAt')),
+        ),
         serverTime: _date(_value(json, 'serverTime')),
       );
 
@@ -2156,9 +2171,11 @@ ImMessageReply? _replyTo(Object? value) {
   return json == null ? null : ImMessageReply.fromJson(json);
 }
 
-bool _knownBoolean(Object? value) => value is bool ||
+bool _knownBoolean(Object? value) =>
+    value is bool ||
     (value is num && (value == 0 || value == 1)) ||
-    (value is String && const ['true', 'false', '0', '1'].contains(value.toLowerCase()));
+    (value is String &&
+        const ['true', 'false', '0', '1'].contains(value.toLowerCase()));
 
 bool _boolean(Object? value) => switch (value) {
   bool result => result,

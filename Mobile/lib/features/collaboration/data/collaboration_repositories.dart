@@ -31,6 +31,7 @@ import 'im_presence_projection.dart';
 import 'im_presence_diagnostics.dart';
 import 'im_member_presence.dart';
 import 'im_video_thumbnail.dart';
+import 'oa_attachment_file_store.dart';
 import 'oa_local_store.dart';
 import 'oa_sync_timing.dart';
 
@@ -899,7 +900,7 @@ typedef ImVideoPreviewKey = ({
   String attachmentId,
   String fileName,
   String coverObjectId,
-  String sha256,
+  String coverSha256,
   int size,
 });
 
@@ -924,14 +925,6 @@ final imQueuedMediaPreviewLoaderProvider =
     Provider<Future<Uint8List?> Function(String)>(
       (ref) => ref.read(imRepositoryProvider).readQueuedMediaPreview,
     );
-final imVideoThumbnailBuilderProvider =
-    Provider<
-      Future<ImVideoThumbnail?> Function({
-        required Uint8List videoBytes,
-        required String fileName,
-      })
-    >((ref) => createImVideoThumbnail);
-
 final imVideoPreviewProvider = FutureProvider.autoDispose
     .family<ImVideoPreviewSource?, ImVideoPreviewKey>((ref, key) async {
       _retainForHotReopen(ref);
@@ -946,7 +939,7 @@ final imVideoPreviewProvider = FutureProvider.autoDispose
       }
       final mediaKey = imVideoPreviewCacheKey(
         attachmentId: key.attachmentId,
-        sha256Value: key.sha256,
+        sha256Value: key.coverSha256,
         coverObjectId: key.coverObjectId,
       );
       final cacheKey = '${load.accountId}:$mediaKey';
@@ -969,20 +962,9 @@ final imVideoPreviewProvider = FutureProvider.autoDispose
         }
         await load.check();
       }
-      if ((preview == null || preview.isEmpty) &&
-          !AppEnvironment.demoMode &&
-          key.size <= 32 * 1024 * 1024) {
-        final videoBytes = await ref.read(imMediaAttachmentBytesLoaderProvider)(
-          key.attachmentId,
-          cover: false,
-        );
-        await load.check();
-        preview = (await ref.read(imVideoThumbnailBuilderProvider)(
-          videoBytes: videoBytes,
-          fileName: key.fileName,
-        ))?.bytes;
-        await load.check();
-      }
+      // A missing/failed cover is a placeholder state. Never download the
+      // original video merely to build a list thumbnail; the original is only
+      // allowed after an explicit play or download action.
       if (preview == null || preview.isEmpty) return null;
       final filePath = await ref.read(imVideoPreviewCacheWriterProvider)(
         cacheKey,
@@ -1328,11 +1310,21 @@ final class OaSyncPullResult {
 }
 
 final class OaRepository {
-  OaRepository(this._client, this._sessionStore, this._store);
+  OaRepository(
+    this._client,
+    this._sessionStore,
+    this._store, {
+    OaAttachmentFileStore? attachmentFileStore,
+  }) : _attachmentFiles =
+           attachmentFileStore ??
+           OaAttachmentFileStore(
+             keyLoader: _sessionStore.readOrCreateImCacheKey,
+           );
 
   final CollaborationClient _client;
   final SecureSessionStore _sessionStore;
   final OaLocalStore _store;
+  final OaAttachmentFileStore _attachmentFiles;
   final _notificationReadFlushes = <(String, String, String), Future<int>>{};
 
   Future<MobileSession> _session() async {
@@ -1991,6 +1983,11 @@ final class OaRepository {
     );
     final clientRequestId = const Uuid().v4();
     final outboxId = const Uuid().v4();
+    final persistedPending = await _persistLocalAttachments(
+      session: session,
+      ownerId: outboxId,
+      attachments: pendingAttachments,
+    );
     final payload = <String, Object?>{
       'applicationKey': applicationKey,
       'templateId': template.id,
@@ -2001,7 +1998,7 @@ final class OaRepository {
       'attachmentIds': attachmentIds,
       if (attachmentBindings.isNotEmpty)
         'attachmentBindings': attachmentBindings,
-      'pendingAttachments': pendingAttachments
+      'pendingAttachments': persistedPending
           .map(
             (item) => {
               ...item.toJson(),
@@ -2012,20 +2009,30 @@ final class OaRepository {
           )
           .toList(),
     };
-    var outboxItem = await _sessionStore.withCurrentSession(
-      session,
-      () => _store.enqueue(
-        session.userId,
-        id: outboxId,
-        idempotencyKey: clientRequestId,
-        commandType: 'submit-approval',
-        payload: payload,
-      ),
-    );
+    late OaOutboxItem outboxItem;
+    try {
+      outboxItem = await _sessionStore.withCurrentSession(
+        session,
+        () => _store.enqueue(
+          session.userId,
+          id: outboxId,
+          idempotencyKey: clientRequestId,
+          commandType: 'submit-approval',
+          payload: payload,
+        ),
+      );
+    } catch (_) {
+      await _deleteStoredAttachments(session.userId, persistedPending);
+      rethrow;
+    }
     try {
       final response = await _deliverApprovalOutbox(session, outboxItem);
       return await _sessionStore.withCurrentSession(session, () async {
         await _store.removeOutbox(session.userId, outboxId);
+        await _deleteStoredAttachments(
+          session.userId,
+          _localAttachments(outboxItem.payload['pendingAttachments']),
+        );
         await _store.invalidate(session.userId, [
           OaLocalStore.bootstrapCacheKey,
           OaLocalStore.notificationsCacheKey,
@@ -2050,7 +2057,13 @@ final class OaRepository {
               .firstWhere((item) => item.id == outboxId);
           throw OaSubmissionQueuedException(outboxItem);
         }
-        if (!permanent) await _store.removeOutbox(session.userId, outboxId);
+        if (!permanent) {
+          await _store.removeOutbox(session.userId, outboxId);
+          await _deleteStoredAttachments(
+            session.userId,
+            _localAttachments(outboxItem.payload['pendingAttachments']),
+          );
+        }
       });
       rethrow;
     }
@@ -2070,6 +2083,46 @@ final class OaRepository {
           bytes,
           filename: fileName,
           contentType: DioMediaType.parse(contentType),
+        ),
+      }),
+    );
+    return OaApprovalAttachment.fromJson(response.data ?? <String, Object?>{});
+  }
+
+  Future<OaApprovalAttachment> _uploadStoredAttachment({
+    required MobileSession session,
+    required OaLocalAttachment attachment,
+  }) async {
+    final stored = attachment.storedFile;
+    if (stored == null || attachment.storageOwnerId.isEmpty) {
+      if (attachment.bytes.isEmpty) {
+        throw StateError('本地附件文件已不存在');
+      }
+      return uploadAttachment(
+        fileName: attachment.fileName,
+        bytes: attachment.bytes,
+        contentType: attachment.contentType,
+        forSession: session,
+      );
+    }
+    await _attachmentFiles.verify(
+      accountId: session.userId,
+      ownerId: attachment.storageOwnerId,
+      file: stored,
+    );
+    final dio = await _client.forOa(forSession: session);
+    final response = await dio.post<Map<String, Object?>>(
+      '/api/oa/attachments',
+      data: FormData.fromMap({
+        'file': MultipartFile.fromStream(
+          () => _attachmentFiles.openRead(
+            accountId: session.userId,
+            ownerId: attachment.storageOwnerId,
+            file: stored,
+          ),
+          stored.length,
+          filename: attachment.fileName,
+          contentType: DioMediaType.parse(attachment.contentType),
         ),
       }),
     );
@@ -2780,22 +2833,101 @@ final class OaRepository {
     List<OaLocalAttachment> attachments = const [],
   }) async {
     final session = await _session();
+    final draftId = id ?? const Uuid().v4();
+    final previous = await _store.readDraft(session.userId, draftId);
+    final persistedAttachments = await _persistLocalAttachments(
+      session: session,
+      ownerId: draftId,
+      attachments: attachments,
+    );
     final draft = OaApprovalDraft(
-      id: id ?? const Uuid().v4(),
+      id: draftId,
       applicationKey: applicationKey,
       templateId: template.id,
       workflowKey: template.workflowKey,
       title: title,
       formData: Map<String, Object?>.from(formData),
-      attachments: List<OaLocalAttachment>.from(attachments),
+      attachments: persistedAttachments,
       updatedAt: DateTime.now().toUtc(),
     );
-    return _store.saveDraft(session.userId, draft);
+    try {
+      final saved = await _store.saveDraft(session.userId, draft);
+      final retainedTokens = <String>{
+        for (final item in persistedAttachments)
+          if (item.storedFile case final file?) file.token,
+        for (final item in persistedAttachments)
+          if (item.storedPreviewFile case final preview?) preview.token,
+      };
+      await _deleteStoredFiles(session.userId, [
+        for (final item in previous?.attachments ?? const <OaLocalAttachment>[])
+          for (final file in [item.storedFile, item.storedPreviewFile])
+            if (file != null && !retainedTokens.contains(file.token)) file,
+      ]);
+      return saved;
+    } catch (_) {
+      final previousTokens = <String>{
+        for (final item in previous?.attachments ?? const <OaLocalAttachment>[])
+          if (item.storedFile case final file?) file.token,
+        for (final item in previous?.attachments ?? const <OaLocalAttachment>[])
+          if (item.storedPreviewFile case final preview?) preview.token,
+      };
+      await _deleteStoredFiles(session.userId, [
+        for (final item in persistedAttachments)
+          for (final file in [item.storedFile, item.storedPreviewFile])
+            if (file != null && !previousTokens.contains(file.token)) file,
+      ]);
+      rethrow;
+    }
   }
 
   Future<void> deleteDraft(String draftId) async {
     final session = await _session();
+    final draft = await _store.readDraft(session.userId, draftId);
     await _store.deleteDraft(session.userId, draftId);
+    await _deleteStoredAttachments(
+      session.userId,
+      draft?.attachments ?? const <OaLocalAttachment>[],
+    );
+  }
+
+  Future<Uint8List> readLocalAttachmentBytes(
+    OaLocalAttachment attachment,
+  ) async {
+    if (attachment.bytes.isNotEmpty) {
+      return Uint8List.fromList(attachment.bytes);
+    }
+    final stored = attachment.storedFile;
+    if (stored == null || attachment.storageOwnerId.isEmpty) {
+      throw StateError('本地附件文件已不存在');
+    }
+    final session = await _session();
+    return _sessionStore.withCurrentSession(
+      session,
+      () => _attachmentFiles.readBytes(
+        accountId: session.userId,
+        ownerId: attachment.storageOwnerId,
+        file: stored,
+      ),
+    );
+  }
+
+  Future<Uint8List?> readLocalAttachmentPreviewBytes(
+    OaLocalAttachment attachment,
+  ) async {
+    if (attachment.previewBytes.isNotEmpty) {
+      return Uint8List.fromList(attachment.previewBytes);
+    }
+    final stored = attachment.storedPreviewFile;
+    if (stored == null || attachment.storageOwnerId.isEmpty) return null;
+    final session = await _session();
+    return _sessionStore.withCurrentSession(
+      session,
+      () => _attachmentFiles.readBytes(
+        accountId: session.userId,
+        ownerId: attachment.storageOwnerId,
+        file: stored,
+      ),
+    );
   }
 
   Future<List<OaOutboxItem>> outbox() async {
@@ -2811,7 +2943,15 @@ final class OaRepository {
 
   Future<void> discardOutbox(String itemId) async {
     final session = await _session();
+    final matches = (await _store.readOutbox(session.userId))
+        .where((item) => item.id == itemId);
     await _store.removeOutbox(session.userId, itemId);
+    if (matches.isNotEmpty) {
+      await _deleteStoredAttachments(
+        session.userId,
+        _localAttachments(matches.first.payload['pendingAttachments']),
+      );
+    }
   }
 
   Future<int> flushOutbox() async {
@@ -2823,10 +2963,13 @@ final class OaRepository {
       if (item.commandType != 'submit-approval') continue;
       try {
         await _deliverApprovalOutbox(session, item);
-        await _sessionStore.withCurrentSession(
-          session,
-          () => _store.removeOutbox(session.userId, item.id),
-        );
+        await _sessionStore.withCurrentSession(session, () async {
+          await _store.removeOutbox(session.userId, item.id);
+          await _deleteStoredAttachments(
+            session.userId,
+            _localAttachments(item.payload['pendingAttachments']),
+          );
+        });
         delivered++;
       } on SessionChangedException {
         // Keep the original account's stable request id retryable. An already
@@ -3052,6 +3195,117 @@ final class OaRepository {
     return response.data ?? <String, Object?>{};
   }
 
+  Future<List<OaLocalAttachment>> _persistLocalAttachments({
+    required MobileSession session,
+    required String ownerId,
+    required List<OaLocalAttachment> attachments,
+  }) async {
+    if (attachments.isEmpty) return const [];
+    final persisted = <OaLocalAttachment>[];
+    final created = <OaStoredAttachment>[];
+    try {
+      for (final attachment in attachments) {
+        final existing = attachment.storedFile;
+        late final OaStoredAttachment stored;
+        if (existing != null && attachment.storageOwnerId == ownerId) {
+          stored = existing;
+        } else if (existing != null && attachment.storageOwnerId.isNotEmpty) {
+          stored = await _attachmentFiles.writeStream(
+            accountId: session.userId,
+            ownerId: ownerId,
+            fileName: attachment.fileName,
+            contentType: attachment.contentType,
+            clearLength: existing.length,
+            source: _attachmentFiles.openRead(
+              accountId: session.userId,
+              ownerId: attachment.storageOwnerId,
+              file: existing,
+            ),
+          );
+        } else {
+          if (attachment.bytes.isEmpty) {
+            throw StateError('本地附件文件已不存在');
+          }
+          stored = await _attachmentFiles.writeBytes(
+            accountId: session.userId,
+            ownerId: ownerId,
+            fileName: attachment.fileName,
+            contentType: attachment.contentType,
+            bytes: Uint8List.fromList(attachment.bytes),
+          );
+        }
+        if (stored.token != existing?.token) created.add(stored);
+
+        final existingPreview = attachment.storedPreviewFile;
+        OaStoredAttachment? storedPreview;
+        if (existingPreview != null && attachment.storageOwnerId == ownerId) {
+          storedPreview = existingPreview;
+        } else if (existingPreview != null &&
+            attachment.storageOwnerId.isNotEmpty) {
+          storedPreview = await _attachmentFiles.writeStream(
+            accountId: session.userId,
+            ownerId: ownerId,
+            fileName: '${attachment.fileName}.preview',
+            contentType: existingPreview.contentType,
+            clearLength: existingPreview.length,
+            source: _attachmentFiles.openRead(
+              accountId: session.userId,
+              ownerId: attachment.storageOwnerId,
+              file: existingPreview,
+            ),
+          );
+        } else if (attachment.previewBytes.isNotEmpty) {
+          storedPreview = await _attachmentFiles.writeBytes(
+            accountId: session.userId,
+            ownerId: ownerId,
+            fileName: '${attachment.fileName}.preview',
+            contentType: 'image/webp',
+            bytes: Uint8List.fromList(attachment.previewBytes),
+          );
+        }
+        if (storedPreview != null &&
+            storedPreview.token != existingPreview?.token) {
+          created.add(storedPreview);
+        }
+        persisted.add(
+          attachment.copyWith(
+            bytes: const [],
+            storedFile: stored,
+            storedPreviewFile: storedPreview,
+            storageOwnerId: ownerId,
+          ),
+        );
+      }
+      return List.unmodifiable(persisted);
+    } catch (_) {
+      await _attachmentFiles.deleteAll(session.userId, created);
+      rethrow;
+    }
+  }
+
+  Future<void> _deleteStoredAttachments(
+    String accountId,
+    Iterable<OaLocalAttachment> attachments,
+  ) async {
+    await _deleteStoredFiles(accountId, [
+      for (final attachment in attachments)
+        for (final file in [
+          ?attachment.storedFile,
+          ?attachment.storedPreviewFile,
+        ])
+          file,
+    ]);
+  }
+
+  Future<void> _deleteStoredFiles(
+    String accountId,
+    Iterable<OaStoredAttachment> candidates,
+  ) async {
+    final seen = <String>{};
+    final files = candidates.where((file) => seen.add(file.token)).toList();
+    if (files.isNotEmpty) await _attachmentFiles.deleteAll(accountId, files);
+  }
+
   Future<Map<String, Object?>> _deliverApprovalOutbox(
     MobileSession session,
     OaOutboxItem item,
@@ -3081,11 +3335,9 @@ final class OaRepository {
     while (pending.isNotEmpty) {
       await _sessionStore.withCurrentSession(session, () async {});
       final local = pending.first;
-      final uploaded = await uploadAttachment(
-        fileName: local.fileName,
-        bytes: local.bytes,
-        contentType: local.contentType,
-        forSession: session,
+      final uploaded = await _uploadStoredAttachment(
+        session: session,
+        attachment: local,
       );
       attachmentIds.add(uploaded.id);
       final fieldId = local.formFieldId.trim();
@@ -3113,6 +3365,7 @@ final class OaRepository {
         session,
         () => _store.updateOutboxPayload(accountId, item.id, payload),
       );
+      await _deleteStoredAttachments(accountId, [local]);
     }
 
     await _sessionStore.withCurrentSession(session, () async {});
@@ -4611,17 +4864,21 @@ final class ImRepository {
   Future<Uint8List> downloadMediaAttachment(
     String attachmentId, {
     bool cover = false,
+    void Function(int received, int total)? onReceiveProgress,
   }) async {
     if (attachmentId.trim().isEmpty) throw StateError('媒体附件无效');
     final local = parseImOutboxSyntheticFileId(attachmentId);
     if (local != null) {
-      return _readQueuedFile(local.clientMessageId, local.token);
+      final bytes = await _readQueuedFile(local.clientMessageId, local.token);
+      onReceiveProgress?.call(bytes.length, bytes.length);
+      return bytes;
     }
     final dio = await _client.forIm();
     final response = await dio.get<List<int>>(
       '/api/im/media-attachments/$attachmentId',
       queryParameters: {'cover': cover},
       options: Options(responseType: ResponseType.bytes),
+      onReceiveProgress: onReceiveProgress,
     );
     return Uint8List.fromList(response.data ?? const <int>[]);
   }
@@ -5546,6 +5803,40 @@ final class ImRepository {
       }
     }
 
+    final attachment = <String, Object?>{
+      'objectId': objectId,
+      'fileName': uploaded['fileName']?.toString() ?? mediaFile.fileName,
+      'contentType':
+          uploaded['contentType']?.toString() ?? mediaFile.contentType,
+      'size': uploaded['size'] ?? mediaFile.length,
+      'sha256': uploaded['sha256']?.toString() ?? '',
+      'width': uploaded['width'],
+      'height': uploaded['height'],
+      'durationSeconds': uploaded['durationSeconds'],
+    };
+    final coverObjectId = cover['objectId']?.toString().trim() ?? '';
+    final coverContentType = cover['contentType']?.toString().trim() ?? '';
+    final coverSha256 = cover['sha256']?.toString().trim() ?? '';
+    final coverSize = cover['size'];
+    if (coverObjectId.isNotEmpty &&
+        coverContentType.startsWith('image/') &&
+        coverSha256.isNotEmpty &&
+        coverSize is num &&
+        coverSize.toInt() > 0) {
+      attachment.addAll({
+        'coverObjectId': coverObjectId,
+        'coverContentType': coverContentType,
+        'coverSize': coverSize.toInt(),
+        'coverSha256': coverSha256,
+        'coverWidth': covers.isEmpty
+            ? cover['width']
+            : covers.first.width ?? cover['width'],
+        'coverHeight': covers.isEmpty
+            ? cover['height']
+            : covers.first.height ?? cover['height'],
+      });
+    }
+
     await _requireOutboxSession(session);
     final response = await dio.post<Map<String, Object?>>(
       '/api/im/conversations/${item.conversationId}/media-messages',
@@ -5553,26 +5844,7 @@ final class ImRepository {
         'clientMessageId': item.clientMessageId,
         'kind': item.kind,
         'caption': item.content.trim(),
-        'attachments': [
-          {
-            'objectId': objectId,
-            'fileName': uploaded['fileName']?.toString() ?? mediaFile.fileName,
-            'contentType':
-                uploaded['contentType']?.toString() ?? mediaFile.contentType,
-            'size': uploaded['size'] ?? mediaFile.length,
-            'sha256': uploaded['sha256']?.toString() ?? '',
-            'width': uploaded['width'],
-            'height': uploaded['height'],
-            'coverObjectId': cover['objectId']?.toString() ?? '',
-            'coverWidth': covers.isEmpty
-                ? cover['width']
-                : covers.first.width ?? cover['width'],
-            'coverHeight': covers.isEmpty
-                ? cover['height']
-                : covers.first.height ?? cover['height'],
-            'durationSeconds': uploaded['durationSeconds'],
-          },
-        ],
+        'attachments': [attachment],
       },
       options: Options(contentType: Headers.jsonContentType),
     );
@@ -6090,6 +6362,11 @@ bool _sameServerMessageSnapshot(ImMessage left, ImMessage right) {
         a.size != b.size ||
         a.sha256 != b.sha256 ||
         a.coverObjectId != b.coverObjectId ||
+        a.coverContentType != b.coverContentType ||
+        a.coverSize != b.coverSize ||
+        a.coverSha256 != b.coverSha256 ||
+        a.coverWidth != b.coverWidth ||
+        a.coverHeight != b.coverHeight ||
         a.durationSeconds != b.durationSeconds) {
       return false;
     }

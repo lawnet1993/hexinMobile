@@ -3,10 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../network/application/tunnel_controller.dart';
 import '../../attendance/presentation/inspection_response_sheet.dart';
 import '../../../core/theme/tdesign_icons.dart';
-import '../../../core/artifacts/mobile_artifact_repository.dart';
 import '../../../core/notifications/mobile_push_registration.dart';
 import '../../../core/updates/client_update_repository.dart';
 import '../../../core/updates/client_update_sheet.dart';
@@ -63,8 +61,10 @@ class _MobileShellState extends ConsumerState<MobileShell>
     ref.listenManual(authControllerProvider, (previous, next) {
       if (previous?.value != null && next.value == null) {
         _stopSessionRuntime();
-      } else if (!_sessionRuntimeStopped && previous?.value != null &&
-          next.value != null && !previous!.value!.isSameSession(next.value!)) {
+      } else if (!_sessionRuntimeStopped &&
+          previous?.value != null &&
+          next.value != null &&
+          !previous!.value!.isSameSession(next.value!)) {
         // A refreshed login token must bind push registration to that session.
         _pushRegistration.synchronize().ignore();
       }
@@ -75,7 +75,6 @@ class _MobileShellState extends ConsumerState<MobileShell>
       ref
           .read(imRealtimeAvailabilityControllerProvider.notifier)
           .markConnecting();
-      _synchronizeRuntime();
       _synchronizeCollaboration();
       _checkClientUpdate();
       _checkActiveInspection();
@@ -161,7 +160,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
         onDownload: () => _openUpdatePackage(update.packageUrl),
       );
     } catch (_) {
-      // 更新检查不能影响 IM/OA、隧道和本地缓存启动。
+      // 更新检查不能影响 IM/OA 和本地缓存启动。
     }
   }
 
@@ -183,23 +182,6 @@ class _MobileShellState extends ConsumerState<MobileShell>
       return;
     }
     await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  Future<void> _synchronizeRuntime() async {
-    try {
-      await ref.read(tunnelControllerProvider.notifier).synchronize();
-    } catch (_) {
-      // A valid login session is not invalidated when tunnel synchronization
-      // is temporarily unavailable.
-    }
-    if (!mounted) return;
-    final tunnel = ref.read(tunnelControllerProvider).value;
-    final session = ref.read(authControllerProvider).value;
-    if (tunnel?.runtime != null && session != null) {
-      await ref
-          .read(managedBrowserSyncProvider.notifier)
-          .synchronize(deviceId: session.deviceId, runtime: tunnel!.runtime!);
-    }
   }
 
   @override

@@ -1455,6 +1455,9 @@ final class ImLocalStore {
       coverObjectId: coverFile == null
           ? ''
           : imOutboxSyntheticFileId(clientMessageId, coverFile.token),
+      coverContentType: coverFile?.contentType ?? '',
+      coverSize: coverFile?.length,
+      coverSha256: coverFile?.sha256 ?? '',
       coverWidth: coverFile?.width,
       coverHeight: coverFile?.height,
     );

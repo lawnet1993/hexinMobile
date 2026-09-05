@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hexing_terminal_mobile/core/storage/im_cache_cipher.dart';
+import 'package:hexing_terminal_mobile/features/collaboration/data/oa_attachment_file_store.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/oa_local_store.dart';
 import 'package:hexing_terminal_mobile/features/todos/domain/approval_form_calculation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -77,7 +78,15 @@ void main() {
             id: 'local-file-1',
             fileName: 'receipt.pdf',
             contentType: 'application/pdf',
-            bytes: [1, 2, 3, 4],
+            bytes: [],
+            storedFile: OaStoredAttachment(
+              token: 'opaque-token',
+              fileName: 'receipt.pdf',
+              contentType: 'application/pdf',
+              length: 4,
+              sha256: 'fixture-sha256',
+            ),
+            storageOwnerId: 'draft-1',
           ),
         ],
         updatedAt: updatedAt,
@@ -99,7 +108,9 @@ void main() {
     expect(restored?.title, '八月报销');
     expect(restored?.formData['amount'], 128.5);
     expect(restored?.attachments.single.fileName, 'receipt.pdf');
-    expect(restored?.attachments.single.bytes, [1, 2, 3, 4]);
+    expect(restored?.attachments.single.bytes, isEmpty);
+    expect(restored?.attachments.single.size, 4);
+    expect(restored?.attachments.single.storedFile?.token, 'opaque-token');
     expect(restored?.updatedAt, updatedAt);
   });
 
@@ -339,8 +350,7 @@ void main() {
         events: [event, event],
         refreshedCaches: const {
           OaLocalStore.notificationsCacheKey: '[{"id":"notice-1"}]',
-          OaLocalStore.notificationPageCacheKey:
-              '{"items":[{"id":"notice-1"}],"nextCursor":"cursor-2","hasMore":true}',
+          OaLocalStore.notificationPageCacheKey: '{"items":[{"id":"notice-1"}],"nextCursor":"cursor-2","hasMore":true}',
         },
       );
 

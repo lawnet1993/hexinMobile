@@ -470,51 +470,42 @@ class _NotificationSettingsPageState
         const SizedBox(height: 12),
         _SettingsSection(
           title: '系统推送',
-          child: syncConnecting
-              ? const _PushLoadingTile()
-              : syncUnavailable
-              ? _PushSyncUnavailableTile(
-                  onRetry: () => ref.invalidate(imPushDeviceProvider),
-                )
-              : pushDevice.when(
-                  loading: () => const _PushLoadingTile(),
-                  error: (error, _) => _PushErrorTile(
-                    errorText: mobileActionErrorText('推送状态加载失败', error),
-                    onRetry: () => ref.invalidate(imPushDeviceProvider),
-                  ),
-                  data: (device) => runtimeToken.when(
-                    loading: () => const Padding(
-                      padding: EdgeInsets.all(22),
-                      child: Center(child: CircularProgressIndicator()),
+          child: pushDevice.when(
+            loading: () => const _PushLoadingTile(),
+            error: (error, _) => _PushErrorTile(
+              errorText: mobileActionErrorText('推送状态加载失败', error),
+              onRetry: () => ref.invalidate(imPushDeviceProvider),
+            ),
+            data: (device) => runtimeToken.when(
+              loading: () => const _PushLoadingTile(),
+              error: (_, _) => const _PushChannelPendingTile(),
+              data: (token) => device == null || token == null
+                  ? const _PushChannelPendingTile()
+                  : Column(
+                      children: [
+                        _ValueRow(
+                          label: '推送状态',
+                          value: device.isEnabled ? '已启用' : '已停用',
+                        ),
+                        const Divider(height: 1, indent: 14),
+                        _ChoiceRow(
+                          label: '锁屏内容',
+                          value: _privacyLabel(device.privacyMode),
+                          values: const ['仅显示摘要', '显示消息详情', '不显示内容'],
+                          onSelected: _saving
+                              ? (_) {}
+                              : (value) =>
+                                    _updatePrivacy(_privacyMode(value)),
+                        ),
+                        const Divider(height: 1, indent: 14),
+                        _ValueRow(
+                          label: '推送通道',
+                          value: '${token.platform} · ${token.provider}',
+                        ),
+                      ],
                     ),
-                    error: (_, _) => const _PushUnavailableTile(),
-                    data: (token) => device == null || token == null
-                        ? const _PushUnavailableTile()
-                        : Column(
-                            children: [
-                              _ValueRow(
-                                label: '推送状态',
-                                value: device.isEnabled ? '已启用' : '已停用',
-                              ),
-                              const Divider(height: 1, indent: 14),
-                              _ChoiceRow(
-                                label: '锁屏内容',
-                                value: _privacyLabel(device.privacyMode),
-                                values: const ['仅显示摘要', '显示消息详情', '不显示内容'],
-                                onSelected: _saving
-                                    ? (_) {}
-                                    : (value) =>
-                                          _updatePrivacy(_privacyMode(value)),
-                              ),
-                              const Divider(height: 1, indent: 14),
-                              _ValueRow(
-                                label: '推送通道',
-                                value: '${token.platform} · ${token.provider}',
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
+            ),
+          ),
         ),
       ],
     );
@@ -535,30 +526,6 @@ class _PushLoadingTile extends StatelessWidget {
       child: CircularProgressIndicator(strokeWidth: 2),
     ),
     title: Text('正在同步推送设置', style: TextStyle(fontSize: 13.5)),
-  );
-}
-
-class _PushSyncUnavailableTile extends StatelessWidget {
-  const _PushSyncUnavailableTile({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    key: const Key('push-settings-sync-unavailable'),
-    dense: true,
-    minTileHeight: 52,
-    contentPadding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
-    leading: const Icon(
-      Icons.cloud_off_outlined,
-      size: 19,
-      color: AppColors.secondaryText,
-    ),
-    title: const Text(
-      '暂时无法同步推送设置',
-      style: TextStyle(fontSize: 13, color: AppColors.secondaryText),
-    ),
-    trailing: TextButton(onPressed: onRetry, child: const Text('重试')),
   );
 }
 
@@ -593,16 +560,16 @@ class _PushErrorTile extends StatelessWidget {
   );
 }
 
-class _PushUnavailableTile extends StatelessWidget {
-  const _PushUnavailableTile();
+class _PushChannelPendingTile extends StatelessWidget {
+  const _PushChannelPendingTile();
 
   @override
   Widget build(BuildContext context) => Semantics(
     container: true,
-    label: '离线推送未注册，应用内同步在打开应用后进行',
+    label: '服务端推送能力已接入，厂商推送通道待接入',
     child: ExcludeSemantics(
       child: ListTile(
-        key: const Key('push-unavailable-status'),
+        key: const Key('push-channel-pending'),
         dense: true,
         minTileHeight: 60,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
@@ -622,8 +589,11 @@ class _PushUnavailableTile extends StatelessWidget {
         ),
         title: const Row(
           children: [
-            Expanded(child: Text('离线推送', style: TextStyle(fontSize: 14))),
-            Text('未注册', style: TextStyle(fontSize: 13, color: AppColors.error)),
+            Expanded(child: Text('厂商推送通道', style: TextStyle(fontSize: 14))),
+            Text(
+              '待接入',
+              style: TextStyle(fontSize: 13, color: AppColors.secondaryText),
+            ),
           ],
         ),
         subtitle: const Padding(
@@ -632,7 +602,7 @@ class _PushUnavailableTile extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '应用内同步',
+                  '服务端注册接口',
                   style: TextStyle(
                     fontSize: 12.5,
                     color: AppColors.secondaryText,
@@ -640,10 +610,10 @@ class _PushUnavailableTile extends StatelessWidget {
                 ),
               ),
               Text(
-                '打开应用后同步',
+                '已接入',
                 style: TextStyle(
                   fontSize: 12.5,
-                  color: AppColors.secondaryText,
+                  color: AppColors.success,
                 ),
               ),
             ],

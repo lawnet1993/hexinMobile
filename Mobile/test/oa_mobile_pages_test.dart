@@ -2990,15 +2990,15 @@ void main() {
       ],
     );
 
-    expect(find.text('离线推送'), findsOneWidget);
-    expect(find.text('未注册'), findsOneWidget);
-    expect(find.text('应用内同步'), findsOneWidget);
-    expect(find.text('打开应用后同步'), findsOneWidget);
+    expect(find.text('厂商推送通道'), findsOneWidget);
+    expect(find.text('待接入'), findsOneWidget);
+    expect(find.text('服务端注册接口'), findsOneWidget);
+    expect(find.text('已接入'), findsOneWidget);
     expect(
-      tester.getSize(find.byKey(const Key('push-unavailable-status'))).height,
+      tester.getSize(find.byKey(const Key('push-channel-pending'))).height,
       lessThanOrEqualTo(64),
     );
-    expect(find.bySemanticsLabel('离线推送未注册，应用内同步在打开应用后进行'), findsOneWidget);
+    expect(find.bySemanticsLabel('服务端推送能力已接入，厂商推送通道待接入'), findsOneWidget);
     expect(find.text('已启用'), findsNothing);
     expect(find.text('android · fcm'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -3035,13 +3035,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('notification settings uses a compact offline sync state', (
+  testWidgets('notification settings keeps push capability separate from realtime sync', (
     tester,
   ) async {
-    final pendingDevice = Completer<ImPushDevice?>();
-    addTearDown(() {
-      if (!pendingDevice.isCompleted) pendingDevice.complete(null);
-    });
     await _pump(
       tester,
       const NotificationSettingsPage(),
@@ -3049,17 +3045,18 @@ void main() {
         imRealtimeAvailabilityProvider.overrideWithValue(
           ImRealtimeAvailability.unavailable,
         ),
-        imPushDeviceProvider.overrideWith((ref) => pendingDevice.future),
+        imPushDeviceProvider.overrideWith((ref) async => null),
         mobilePushRuntimeTokenProvider.overrideWith(
-          (ref) => const Stream<MobilePushToken?>.empty(),
+          (ref) => Stream<MobilePushToken?>.value(null),
         ),
       ],
     );
 
-    final state = find.byKey(const Key('push-settings-sync-unavailable'));
+    final state = find.byKey(const Key('push-channel-pending'));
     expect(state, findsOneWidget);
-    expect(tester.getSize(state).height, lessThanOrEqualTo(56));
-    expect(find.text('暂时无法同步推送设置'), findsOneWidget);
+    expect(tester.getSize(state).height, lessThanOrEqualTo(64));
+    expect(find.text('厂商推送通道'), findsOneWidget);
+    expect(find.text('服务端注册接口'), findsOneWidget);
     expect(find.text('连接恢复后同步'), findsOneWidget);
     expect(find.text('消息、审批与公告'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -3087,11 +3084,11 @@ void main() {
       ],
     );
 
-    final state = find.byKey(const Key('push-settings-sync-unavailable'));
+    final state = find.byKey(const Key('push-settings-error'));
     expect(state, findsOneWidget);
     expect(tester.getSize(state).height, lessThanOrEqualTo(56));
     expect(find.text('网络连接超时，请检查网络后重试'), findsNothing);
-    expect(find.text('暂时无法同步推送设置'), findsOneWidget);
+    expect(find.text('推送状态加载失败'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -3124,8 +3121,8 @@ void main() {
     runtimeTokens.add(null);
     await tester.pumpAndSettle();
 
-    expect(find.text('离线推送'), findsOneWidget);
-    expect(find.text('未注册'), findsOneWidget);
+    expect(find.text('厂商推送通道'), findsOneWidget);
+    expect(find.text('待接入'), findsOneWidget);
 
     runtimeTokens.add(
       const MobilePushToken(
@@ -3138,8 +3135,8 @@ void main() {
 
     expect(find.text('已启用'), findsOneWidget);
     expect(find.text('android · fcm'), findsOneWidget);
-    expect(find.text('离线推送'), findsNothing);
-    expect(find.text('未注册'), findsNothing);
+    expect(find.text('厂商推送通道'), findsNothing);
+    expect(find.text('待接入'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -59,6 +59,7 @@ dependencies:
   image_cropper: ^12.2.1
   open_filex: ^4.7.0
   just_audio: ^0.10.6
+  video_player: ^2.14.0
   url_launcher: ^6.3.2
   video_thumbnail_gdx_plus: ^0.5.9
 

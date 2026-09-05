@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-09-05T23:04:42.1453308+08:00",
+  "buildMode": "profile",
+  "deviceClass": "physical-android-14",
+  "playerVisibleAfterOneSecondPlusUiDump": true,
+  "samples": [
+    {
+      "label": "media-chat-idle",
+      "totalPssKiB": 285808,
+      "totalRssKiB": 408524
+    },
+    {
+      "label": "cached-video-playing",
+      "totalPssKiB": 268968,
+      "totalRssKiB": 391456
+    },
+    {
+      "label": "after-video-close-10s",
+      "totalPssKiB": 265471,
+      "totalRssKiB": 387868
+    }
+  ],
+  "criticalLogMatches": 0
+}

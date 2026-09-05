@@ -26,7 +26,12 @@ String imVideoPreviewCacheKey({
   required String sha256Value,
   required String coverObjectId,
 }) {
-  if (coverObjectId.trim().isNotEmpty) return 'cover:${coverObjectId.trim()}';
+  if (coverObjectId.trim().isNotEmpty) {
+    final coverDigest = sha256Value.trim();
+    return coverDigest.isEmpty
+        ? 'cover:${coverObjectId.trim()}'
+        : 'cover:${coverObjectId.trim()}:$coverDigest';
+  }
   if (sha256Value.trim().isNotEmpty) return 'video:${sha256Value.trim()}';
   return 'attachment:${attachmentId.trim()}';
 }
@@ -135,8 +140,8 @@ Future<ImVideoThumbnail?> createImVideoThumbnailFromPath(
       video: sourcePath,
       imageFormat: ImageFormat.JPEG,
       maxWidth: 960,
-      timeMs: 0,
-      quality: 86,
+      timeMs: 750,
+      quality: 82,
     );
     if (bytes == null || bytes.isEmpty) return null;
     final codec = await ui.instantiateImageCodec(bytes);

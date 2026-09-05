@@ -137,6 +137,13 @@ void main() {
       expect(calls, ['attachment:1']);
       expect(queued.payload['attachmentIds'], isEmpty);
       expect(queued.payload['pendingAttachments'], hasLength(1));
+      final queuedJson = jsonEncode(queued.payload);
+      expect(queuedJson, contains('storedFile'));
+      expect(queuedJson, isNot(contains('bytesBase64')));
+      expect(
+        queuedJson,
+        isNot(contains(base64Encode(utf8.encode('offline-receipt')))),
+      );
 
       expect(await repository.retryOutbox(queued.id), 1);
       expect(calls, ['attachment:1', 'attachment:2', 'approval']);

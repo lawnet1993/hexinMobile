@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,7 @@ import 'package:hexing_terminal_mobile/core/network/collaboration_client.dart';
 import 'package:hexing_terminal_mobile/core/storage/im_cache_cipher.dart';
 import 'package:hexing_terminal_mobile/core/storage/secure_session_store.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration_repositories.dart';
+import 'package:hexing_terminal_mobile/features/collaboration/data/oa_attachment_file_store.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/oa_local_store.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -139,10 +141,15 @@ void main() {
             oaApiUrl: 'http://127.0.0.1:${server.port}',
           );
           await sessions.saveSession(session('fixture-old', 'a'));
+          final attachmentFiles = OaAttachmentFileStore(
+            keyLoader: sessions.readOrCreateImCacheKey,
+            directoryLoader: () async => Directory('${directory.path}/files'),
+          );
           final repository = OaRepository(
             CollaborationClient(sessions),
             sessions,
             store,
+            attachmentFileStore: attachmentFiles,
           );
           var interrupt = true;
           final approvalAccounts = <String?>[];
@@ -209,6 +216,18 @@ void main() {
               throwsA(isA<SessionChangedException>()),
             );
           } else {
+            final stored = await attachmentFiles.writeBytes(
+              accountId: 'a',
+              ownerId: 'outbox-a',
+              fileName: attachment.fileName,
+              contentType: attachment.contentType,
+              bytes: Uint8List.fromList(attachment.bytes),
+            );
+            final queuedAttachment = attachment.copyWith(
+              bytes: const [],
+              storedFile: stored,
+              storageOwnerId: 'outbox-a',
+            );
             await store.enqueue(
               'a',
               id: 'outbox-a',
@@ -218,7 +237,7 @@ void main() {
                 'clientRequestId': 'client-a',
                 'title': 'AI-UAT-session',
                 'formDataJson': '{"amount":1}',
-                'pendingAttachments': [attachment.toJson()],
+                'pendingAttachments': [queuedAttachment.toJson()],
               },
             );
             expect(await repository.flushOutbox(), 0);

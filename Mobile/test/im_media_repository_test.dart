@@ -84,6 +84,9 @@ void main() {
                   'width': attachment['width'],
                   'height': attachment['height'],
                   'coverObjectId': attachment['coverObjectId'],
+                  'coverContentType': attachment['coverContentType'],
+                  'coverSize': attachment['coverSize'],
+                  'coverSha256': attachment['coverSha256'],
                   'coverWidth': attachment['coverWidth'],
                   'coverHeight': attachment['coverHeight'],
                   'durationSeconds': attachment['durationSeconds'],
@@ -185,10 +188,16 @@ void main() {
             ((mediaPayload!['attachments'] as List).single as Map)
                 .cast<String, Object?>();
         expect(sentAttachment['coverObjectId'], 'cover-object');
+        expect(sentAttachment['coverContentType'], 'image/jpeg');
+        expect(sentAttachment['coverSize'], 3);
+        expect(sentAttachment['coverSha256'], 'cover-sha256');
         expect(sentAttachment['durationSeconds'], 1.25);
         final cached = await store.readMessages('member-1', 'conversation-1');
         final attachment = cached.single.attachments.single;
         expect(attachment.coverObjectId, 'cover-object');
+        expect(attachment.coverContentType, 'image/jpeg');
+        expect(attachment.coverSize, 3);
+        expect(attachment.coverSha256, 'cover-sha256');
         expect(attachment.coverWidth, 320);
         expect(attachment.coverHeight, 180);
         expect(await store.dueOutbox('member-1'), isEmpty);

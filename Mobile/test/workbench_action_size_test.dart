@@ -50,7 +50,7 @@ void main() {
   });
 
   testWidgets(
-    'workbench action paints at 60 by 30 and padded tap opens request',
+    'workbench action stays compact while the whole row opens request',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -90,16 +90,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final button = find.widgetWithText(OutlinedButton, '去处理').first;
-      await tester.ensureVisible(button);
+      final action = find.byKey(const ValueKey('workbench-approval-action-1'));
+      await tester.ensureVisible(action);
       await tester.pumpAndSettle();
-      final material = find.descendant(
-        of: button,
-        matching: find.byType(Material),
-      );
-      expect(tester.getSize(material), const Size(60, 30));
-      expect(tester.getSize(button), const Size(60, 48));
-      await tester.tapAt(tester.getTopLeft(button) + const Offset(30, 2));
+      expect(tester.getSize(action), const Size(52, 28));
+      expect(find.text('去处理'), findsNothing);
+      final semanticsLabel = tester.getSemantics(action).label;
+      expect(semanticsLabel, contains('处理'));
+      expect(semanticsLabel, isNot(contains('去处理')));
+      await tester.tapAt(tester.getCenter(action));
       await tester.pumpAndSettle();
       expect(opened, '1');
       expect(find.text('详情测试页'), findsOneWidget);

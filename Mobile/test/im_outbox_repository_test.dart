@@ -189,10 +189,16 @@ void main() {
           (await repository.downloadAttachment(file)).bytes,
           Uint8List.fromList([1, 2, 3]),
         );
+        final mediaProgress = <(int, int)>[];
         expect(
-          await repository.downloadMediaAttachment(audio.attachments.single.id),
+          await repository.downloadMediaAttachment(
+            audio.attachments.single.id,
+            onReceiveProgress: (received, total) =>
+                mediaProgress.add((received, total)),
+          ),
           Uint8List.fromList([7, 8, 9]),
         );
+        expect(mediaProgress, [(3, 3)]);
         final due = await store.dueOutbox('member-1');
         expect(due, hasLength(5));
         final queuedFile = due.singleWhere((item) => item.kind == 'file');

@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-09-05T23:05:43.2547161+08:00",
+  "buildMode": "profile",
+  "deviceClass": "physical-android-14",
+  "loops": 10,
+  "samples": [
+    {
+      "round": 0,
+      "label": "before-loops",
+      "totalPssKiB": 258906,
+      "totalRssKiB": 381324
+    },
+    {
+      "round": 2,
+      "label": "after-close",
+      "totalPssKiB": 273052,
+      "totalRssKiB": 395568
+    },
+    {
+      "round": 5,
+      "label": "after-close",
+      "totalPssKiB": 272729,
+      "totalRssKiB": 395468
+    },
+    {
+      "round": 10,
+      "label": "after-close",
+      "totalPssKiB": 271707,
+      "totalRssKiB": 394588
+    },
+    {
+      "round": 10,
+      "label": "idle-10s",
+      "totalPssKiB": 259851,
+      "totalRssKiB": 382732
+    }
+  ],
+  "peakPssKiB": 273052.0,
+  "finalMinusInitialPssKiB": 945
+}

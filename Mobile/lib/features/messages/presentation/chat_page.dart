@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +17,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../core/media/mobile_image_compressor.dart';
 import '../../../core/media/mobile_upload_policy.dart';
@@ -191,6 +194,9 @@ class _ChatPageState extends ConsumerState<ChatPage>
   Duration? _audioDuration;
   bool _audioLoading = false;
   bool _audioPlaying = false;
+  String? _openingMediaAttachmentId;
+  double? _mediaDownloadProgress;
+  int _lastMediaDownloadPercent = -1;
   ChatOpenDiagnostics? _openTrace;
   bool _initialWindowCached = false;
   bool _traceWindowResolved = false;
@@ -1192,19 +1198,41 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Future<void> _openMediaAttachment(ImMessageAttachment attachment) async {
+    final type = attachment.contentType.toLowerCase();
+    final isAudio =
+        attachment.type.toLowerCase() == 'audio' || type.startsWith('audio/');
+    if (isAudio) {
+      await _toggleAudioAttachment(attachment);
+      return;
+    }
+    if (_openingMediaAttachmentId != null) return;
+    setState(() {
+      _openingMediaAttachmentId = attachment.id;
+      _mediaDownloadProgress = 0;
+      _lastMediaDownloadPercent = 0;
+    });
     try {
-      final bytes = await ref
-          .read(imRepositoryProvider)
-          .downloadMediaAttachment(attachment.id);
-      final directory = await getTemporaryDirectory();
-      final target = File(
-        path.join(directory.path, path.basename(attachment.fileName)),
+      final target = await _prepareMediaPlaybackFile(
+        attachment,
+        onProgress: (received, total) =>
+            _updateMediaDownloadProgress(attachment.id, received, total),
       );
-      await target.writeAsBytes(bytes, flush: true);
-      final result = await OpenFilex.open(target.path);
-      if (result.type != ResultType.done && mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(result.message)));
+      if (!mounted) return;
+      final isVideo =
+          attachment.type.toLowerCase() == 'video' || type.startsWith('video/');
+      if (isVideo) {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => _VideoPlaybackPage(file: target),
+          ),
+        );
+      } else {
+        final result = await OpenFilex.open(target.path);
+        if (result.type != ResultType.done && mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(result.message)));
+        }
       }
     } catch (error) {
       if (mounted) {
@@ -1212,7 +1240,79 @@ class _ChatPageState extends ConsumerState<ChatPage>
           SnackBar(content: Text(mobileActionErrorText('媒体打开失败', error))),
         );
       }
+    } finally {
+      if (mounted && _openingMediaAttachmentId == attachment.id) {
+        setState(() {
+          _openingMediaAttachmentId = null;
+          _mediaDownloadProgress = null;
+          _lastMediaDownloadPercent = -1;
+        });
+      }
     }
+  }
+
+  Future<File> _prepareMediaPlaybackFile(
+    ImMessageAttachment attachment, {
+    void Function(int received, int total)? onProgress,
+  }) async {
+    final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
+    final scope = sha256
+        .convert(
+          utf8.encode(
+            '${AppEnvironment.storageNamespace}\n$accountId\n${attachment.id}\n${attachment.sha256}',
+          ),
+        )
+        .toString();
+    final directory = Directory(
+      path.join(
+        (await getTemporaryDirectory()).path,
+        AppEnvironment.storageDirectoryName('im-media-playback'),
+      ),
+    );
+    await directory.create(recursive: true);
+    final sourceExtension = path.extension(attachment.fileName).toLowerCase();
+    final safeExtension =
+        RegExp(r'^\.[a-z0-9]{1,10}$').hasMatch(sourceExtension)
+        ? sourceExtension
+        : '';
+    final target = File(path.join(directory.path, '$scope$safeExtension'));
+    if (await target.exists()) {
+      final length = await target.length();
+      if (attachment.size <= 0 || length == attachment.size) {
+        onProgress?.call(length, length);
+        return target;
+      }
+      await target.delete();
+    }
+
+    final bytes = await ref
+        .read(imRepositoryProvider)
+        .downloadMediaAttachment(attachment.id, onReceiveProgress: onProgress);
+    if (attachment.size > 0 && bytes.length != attachment.size) {
+      throw StateError('媒体文件不完整');
+    }
+    final expectedDigest = attachment.sha256.trim().toLowerCase();
+    if (expectedDigest.isNotEmpty &&
+        sha256.convert(bytes).toString().toLowerCase() != expectedDigest) {
+      throw StateError('媒体文件校验失败');
+    }
+    final part = File('${target.path}.part');
+    await part.writeAsBytes(bytes, flush: true);
+    if (await target.exists()) await target.delete();
+    return part.rename(target.path);
+  }
+
+  void _updateMediaDownloadProgress(
+    String attachmentId,
+    int received,
+    int total,
+  ) {
+    if (!mounted || _openingMediaAttachmentId != attachmentId) return;
+    final progress = total <= 0 ? null : (received / total).clamp(0.0, 1.0);
+    final percent = progress == null ? -1 : (progress * 100).floor();
+    if (percent == _lastMediaDownloadPercent) return;
+    _lastMediaDownloadPercent = percent;
+    setState(() => _mediaDownloadProgress = progress);
   }
 
   Future<void> _toggleAudioAttachment(ImMessageAttachment attachment) async {
@@ -1242,35 +1342,55 @@ class _ChatPageState extends ConsumerState<ChatPage>
             );
       _audioLoading = true;
       _audioPlaying = false;
+      _openingMediaAttachmentId = attachment.id;
+      _mediaDownloadProgress = 0;
+      _lastMediaDownloadPercent = 0;
     });
     try {
-      final bytes = await ref
-          .read(imRepositoryProvider)
-          .downloadMediaAttachment(attachment.id);
-      final directory = await getTemporaryDirectory();
-      final target = File(
-        path.join(directory.path, path.basename(attachment.fileName)),
+      final target = await _prepareMediaPlaybackFile(
+        attachment,
+        onProgress: (received, total) =>
+            _updateMediaDownloadProgress(attachment.id, received, total),
       );
-      await target.writeAsBytes(bytes, flush: true);
-      await player.stop();
-      final duration = await player.setFilePath(target.path);
-      if (!mounted || _activeAudioAttachmentId != attachment.id) return;
-      setState(() {
-        _audioDuration = duration ?? _audioDuration;
-        _audioLoading = false;
-      });
-      unawaited(player.play());
+      await _playPreparedAudio(attachment, target);
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _activeAudioAttachmentId = null;
         _audioLoading = false;
         _audioPlaying = false;
+        _openingMediaAttachmentId = null;
+        _mediaDownloadProgress = null;
+        _lastMediaDownloadPercent = -1;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(mobileActionErrorText('音频播放失败', error))),
       );
+    } finally {
+      if (mounted && _openingMediaAttachmentId == attachment.id) {
+        setState(() {
+          _openingMediaAttachmentId = null;
+          _mediaDownloadProgress = null;
+          _lastMediaDownloadPercent = -1;
+        });
+      }
     }
+  }
+
+  Future<void> _playPreparedAudio(
+    ImMessageAttachment attachment,
+    File target,
+  ) async {
+    final player = _audioPlayer ??= AudioPlayer();
+    _bindAudioPlayer(player);
+    await player.stop();
+    final duration = await player.setFilePath(target.path);
+    if (!mounted || _activeAudioAttachmentId != attachment.id) return;
+    setState(() {
+      _audioDuration = duration ?? _audioDuration;
+      _audioLoading = false;
+    });
+    unawaited(player.play());
   }
 
   void _bindAudioPlayer(AudioPlayer player) {
@@ -2492,6 +2612,16 @@ class _ChatPageState extends ConsumerState<ChatPage>
                                               item.attachments.first.id ==
                                                   _activeAudioAttachmentId &&
                                               _audioPlaying,
+                                          mediaOpening:
+                                              item.attachments.isNotEmpty &&
+                                              item.attachments.first.id ==
+                                                  _openingMediaAttachmentId,
+                                          mediaDownloadProgress:
+                                              item.attachments.isNotEmpty &&
+                                                  item.attachments.first.id ==
+                                                      _openingMediaAttachmentId
+                                              ? _mediaDownloadProgress
+                                              : null,
                                           audioPosition: _audioPosition,
                                           audioDuration: _audioDuration,
                                           onRetry:
@@ -3610,6 +3740,8 @@ class _MessageBubble extends StatelessWidget {
     required this.audioActive,
     required this.audioLoading,
     required this.audioPlaying,
+    required this.mediaOpening,
+    required this.mediaDownloadProgress,
     required this.audioPosition,
     required this.audioDuration,
     required this.onRetry,
@@ -3632,6 +3764,8 @@ class _MessageBubble extends StatelessWidget {
   final bool audioActive;
   final bool audioLoading;
   final bool audioPlaying;
+  final bool mediaOpening;
+  final double? mediaDownloadProgress;
   final Duration audioPosition;
   final Duration? audioDuration;
   final VoidCallback? onRetry;
@@ -3642,6 +3776,7 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final emojiOnly = item.kind == 'text' && _isEmojiOnlyMessage(item.content);
+    final mediaCaption = _mediaMessageCaption(item);
     const outgoingBubble = Color(0xFFDCEAFF);
     final bubbleColor = mine ? outgoingBubble : Colors.white;
     final contentColor = AppColors.text;
@@ -3788,6 +3923,8 @@ class _MessageBubble extends StatelessWidget {
                                 audioPlaying: audioPlaying,
                                 audioPosition: audioPosition,
                                 audioDuration: audioDuration,
+                                mediaOpening: mediaOpening,
+                                mediaDownloadProgress: mediaDownloadProgress,
                               )
                             else if (item.kind == 'image' &&
                                 item.images.isNotEmpty)
@@ -3800,18 +3937,31 @@ class _MessageBubble extends StatelessWidget {
                                 item.content,
                                 style: TextStyle(color: contentColor),
                               ),
-                            const SizedBox(height: 3),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: _MessageMeta(
+                            if (mediaCaption.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              _MediaCaptionWithMeta(
                                 item: item,
                                 mine: mine,
-                                color: metaColor,
+                                color: contentColor,
+                                metaColor: metaColor,
                                 showReadReceiptAction: showReadReceiptAction,
                                 onOpenReadReceipt: onOpenReadReceipt,
                                 onRetry: onRetry,
                               ),
-                            ),
+                            ] else ...[
+                              const SizedBox(height: 3),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: _MessageMeta(
+                                  item: item,
+                                  mine: mine,
+                                  color: metaColor,
+                                  showReadReceiptAction: showReadReceiptAction,
+                                  onOpenReadReceipt: onOpenReadReceipt,
+                                  onRetry: onRetry,
+                                ),
+                              ),
+                            ],
                           ],
                         ],
                       ],
@@ -3842,6 +3992,70 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+String _mediaMessageCaption(ImMessage message) {
+  if (!const {'image', 'video'}.contains(message.kind)) return '';
+  final caption = message.content.trim();
+  if (caption.isEmpty) return '';
+  if (message.kind == 'image') {
+    if (caption == '[图片]' ||
+        message.images.any((image) => image.fileName.trim() == caption)) {
+      return '';
+    }
+  }
+  if (message.kind == 'video') {
+    if (caption == '[视频]' ||
+        message.attachments.any(
+          (attachment) => attachment.fileName.trim() == caption,
+        )) {
+      return '';
+    }
+  }
+  return caption;
+}
+
+class _MediaCaptionWithMeta extends StatelessWidget {
+  const _MediaCaptionWithMeta({
+    required this.item,
+    required this.mine,
+    required this.color,
+    required this.metaColor,
+    required this.showReadReceiptAction,
+    required this.onOpenReadReceipt,
+    required this.onRetry,
+  });
+
+  final ImMessage item;
+  final bool mine;
+  final Color color;
+  final Color metaColor;
+  final bool showReadReceiptAction;
+  final VoidCallback onOpenReadReceipt;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    key: ValueKey<String>('message-media-caption-${item.id}'),
+    alignment: WrapAlignment.end,
+    crossAxisAlignment: WrapCrossAlignment.end,
+    spacing: 7,
+    runSpacing: 1,
+    children: [
+      Text.rich(
+        TextSpan(children: _messageSpans(item, color)),
+        style: TextStyle(color: color, fontSize: 14, height: 1.3),
+      ),
+      _MessageMeta(
+        item: item,
+        mine: mine,
+        color: metaColor,
+        showReadReceiptAction: showReadReceiptAction,
+        onOpenReadReceipt: onOpenReadReceipt,
+        onRetry: onRetry,
+      ),
+    ],
+  );
 }
 
 class _MessageTextWithMeta extends StatelessWidget {
@@ -4111,6 +4325,8 @@ class _MediaMessageContent extends ConsumerWidget {
     required this.audioPlaying,
     required this.audioPosition,
     required this.audioDuration,
+    required this.mediaOpening,
+    required this.mediaDownloadProgress,
   });
 
   final ImMessage message;
@@ -4119,6 +4335,8 @@ class _MediaMessageContent extends ConsumerWidget {
   final bool audioPlaying;
   final Duration audioPosition;
   final Duration? audioDuration;
+  final bool mediaOpening;
+  final double? mediaDownloadProgress;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -4131,7 +4349,7 @@ class _MediaMessageContent extends ConsumerWidget {
               attachmentId: attachment.id,
               fileName: attachment.fileName,
               coverObjectId: attachment.coverObjectId,
-              sha256: attachment.sha256,
+              coverSha256: attachment.coverSha256,
               size: attachment.size,
             )),
           )
@@ -4163,6 +4381,8 @@ class _MediaMessageContent extends ConsumerWidget {
                       source: source,
                       fileName: attachment.fileName,
                       durationSeconds: attachment.durationSeconds,
+                      loading: mediaOpening,
+                      progress: mediaDownloadProgress,
                     ),
             ),
           if (!video)
@@ -4185,11 +4405,13 @@ class _MediaMessageContent extends ConsumerWidget {
                       ),
                       child: Center(
                         child: audioLoading
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                            ? _MediaDownloadProgress(
+                                key: ValueKey<String>(
+                                  'message-media-download-progress-${attachment.id}',
                                 ),
+                                value: mediaDownloadProgress,
+                                size: 22,
+                                textColor: color,
                               )
                             : Icon(
                                 audioPlaying
@@ -4253,7 +4475,16 @@ class _MediaMessageContent extends ConsumerWidget {
           else if (previewSource == null && preview?.isLoading != true)
             Row(
               children: [
-                Icon(Icons.play_circle_outline, color: color, size: 22),
+                mediaOpening
+                    ? _MediaDownloadProgress(
+                        key: ValueKey<String>(
+                          'message-media-download-progress-${attachment.id}',
+                        ),
+                        value: mediaDownloadProgress,
+                        size: 22,
+                        textColor: color,
+                      )
+                    : Icon(Icons.play_circle_outline, color: color, size: 22),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -4300,11 +4531,15 @@ class _VideoPreview extends StatelessWidget {
     required this.source,
     required this.fileName,
     required this.durationSeconds,
+    required this.loading,
+    required this.progress,
   });
 
   final ImVideoPreviewSource source;
   final String fileName;
   final double? durationSeconds;
+  final bool loading;
+  final double? progress;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -4345,11 +4580,18 @@ class _VideoPreview extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  color: AppColors.primary,
-                  size: 26,
-                ),
+                child: loading
+                    ? _MediaDownloadProgress(
+                        key: const ValueKey('message-video-download-progress'),
+                        value: progress,
+                        size: 28,
+                        textColor: AppColors.primary,
+                      )
+                    : const Icon(
+                        Icons.play_arrow_rounded,
+                        color: AppColors.primary,
+                        size: 26,
+                      ),
               ),
             ),
             if (durationSeconds != null)
@@ -4382,6 +4624,55 @@ class _VideoPreview extends StatelessWidget {
   );
 }
 
+class _MediaDownloadProgress extends StatelessWidget {
+  const _MediaDownloadProgress({
+    super.key,
+    required this.value,
+    required this.size,
+    required this.textColor,
+  });
+
+  final double? value;
+  final double size;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = value?.clamp(0.0, 1.0);
+    return Semantics(
+      excludeSemantics: true,
+      label: progress == null ? '正在下载' : '下载进度 ${(progress * 100).round()}%',
+      child: SizedBox.square(
+        dimension: size,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox.square(
+              dimension: size,
+              child: CircularProgressIndicator(
+                value: progress,
+                strokeWidth: 2.2,
+                color: textColor,
+                backgroundColor: textColor.withValues(alpha: 0.18),
+              ),
+            ),
+            if (progress != null)
+              Text(
+                '${(progress * 100).round()}%',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: size <= 22 ? 6.5 : 8,
+                  height: 1,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _VideoPreviewLoading extends StatelessWidget {
   const _VideoPreviewLoading();
 
@@ -4392,6 +4683,186 @@ class _VideoPreviewLoading extends StatelessWidget {
     child: ColoredBox(
       color: Color(0xFFE9EDF3),
       child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+    ),
+  );
+}
+
+class _VideoPlaybackPage extends StatefulWidget {
+  const _VideoPlaybackPage({required this.file});
+
+  final File file;
+
+  @override
+  State<_VideoPlaybackPage> createState() => _VideoPlaybackPageState();
+}
+
+class _VideoPlaybackPageState extends State<_VideoPlaybackPage> {
+  late final VideoPlayerController _controller;
+  late final Future<void> _initialize;
+  bool _controlsVisible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.file(widget.file);
+    _initialize = _controller.initialize().then((_) async {
+      await _controller.setLooping(false);
+      await _controller.play();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _togglePlayback() async {
+    if (!_controller.value.isInitialized) return;
+    if (_controller.value.isCompleted) {
+      await _controller.seekTo(Duration.zero);
+      await _controller.play();
+    } else if (_controller.value.isPlaying) {
+      await _controller.pause();
+    } else {
+      await _controller.play();
+    }
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.black,
+    appBar: AppBar(
+      backgroundColor: Colors.black,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      leading: IconButton(
+        tooltip: '关闭',
+        onPressed: () => Navigator.pop(context),
+        icon: const Icon(Icons.close_rounded),
+      ),
+    ),
+    body: FutureBuilder<void>(
+      future: _initialize,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 34,
+                  color: Colors.white70,
+                ),
+                SizedBox(height: 10),
+                Text(
+                  '当前视频暂无法播放',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              ],
+            ),
+          );
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          );
+        }
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _controlsVisible = !_controlsVisible),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Center(
+                child: AspectRatio(
+                  aspectRatio: _controller.value.aspectRatio <= 0
+                      ? 16 / 9
+                      : _controller.value.aspectRatio,
+                  child: VideoPlayer(_controller),
+                ),
+              ),
+              if (_controlsVisible) ...[
+                Center(
+                  child: IconButton.filled(
+                    key: const ValueKey('video-playback-toggle'),
+                    tooltip: _controller.value.isPlaying ? '暂停' : '播放',
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xB3000000),
+                      foregroundColor: Colors.white,
+                    ),
+                    iconSize: 34,
+                    onPressed: _togglePlayback,
+                    icon: Icon(
+                      _controller.value.isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 20,
+                  child: SafeArea(
+                    top: false,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0x99000000),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 7),
+                        child: ValueListenableBuilder<VideoPlayerValue>(
+                          valueListenable: _controller,
+                          builder: (context, value, _) => Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              VideoProgressIndicator(
+                                _controller,
+                                allowScrubbing: true,
+                                padding: EdgeInsets.zero,
+                                colors: const VideoProgressColors(
+                                  playedColor: AppColors.primary,
+                                  bufferedColor: Colors.white38,
+                                  backgroundColor: Colors.white24,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _durationLabel(value.position),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  Text(
+                                    _durationLabel(value.duration),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     ),
   );
 }

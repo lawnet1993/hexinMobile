@@ -1,0 +1,59 @@
+{
+  "checkedAt": "2026-09-05T23:08:42.3379367+08:00",
+  "buildMode": "profile",
+  "deviceClass": "physical-android-14",
+  "sample": {
+    "sampleId": 1,
+    "reason": "windowElapsed",
+    "elapsedMicros": 3001728,
+    "cacheHit": false,
+    "messageCount": 10,
+    "stagesMicros": {
+      "tap": 0,
+      "keyboardHidden": 9970,
+      "navigationRequested": 10314,
+      "routeMounted": 14493,
+      "routeFrame": 24745,
+      "messagesAvailable": 59625,
+      "latestMessageLaidOut": 107853
+    },
+    "frames": {
+      "sampleCount": 29,
+      "maxSamples": 240,
+      "invalidSamples": 0,
+      "refreshRateHz": 60.000003814697266,
+      "frameBudgetMicros": 16667,
+      "build": {
+        "p50Micros": 751,
+        "p95Micros": 10917,
+        "maxMicros": 16175,
+        "overBudgetCount": 0
+      },
+      "raster": {
+        "p50Micros": 4948,
+        "p95Micros": 13184,
+        "maxMicros": 13974,
+        "overBudgetCount": 0
+      },
+      "totalSpan": {
+        "p50Micros": 6838,
+        "p95Micros": 23560,
+        "maxMicros": 25244,
+        "overBudgetCount": 5
+      },
+      "vsyncOverhead": {
+        "p50Micros": 702,
+        "p95Micros": 3550,
+        "maxMicros": 6163,
+        "overBudgetCount": 0
+      },
+      "firstFrame": {
+        "buildMicros": 10917,
+        "rasterMicros": 6058,
+        "totalSpanMicros": 23560,
+        "vsyncOverheadMicros": 6163
+      }
+    }
+  },
+  "criticalLogMatches": 0
+}

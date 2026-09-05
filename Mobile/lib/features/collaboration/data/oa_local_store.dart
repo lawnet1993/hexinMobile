@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../../core/config/app_environment.dart';
 import '../../../core/storage/im_cache_cipher.dart';
+import 'oa_attachment_file_store.dart';
 
 final class OaApprovalDraft {
   const OaApprovalDraft({
@@ -35,33 +36,86 @@ final class OaLocalAttachment {
     required this.contentType,
     required this.bytes,
     this.formFieldId = '',
+    this.previewBytes = const [],
+    this.storedFile,
+    this.storedPreviewFile,
+    this.storageOwnerId = '',
   });
 
-  factory OaLocalAttachment.fromJson(Map<String, Object?> json) =>
-      OaLocalAttachment(
-        id: json['id']?.toString() ?? '',
-        fileName: json['fileName']?.toString() ?? '',
-        contentType:
-            json['contentType']?.toString() ?? 'application/octet-stream',
-        bytes: _decodeBytes(json['bytesBase64']),
-        formFieldId: json['formFieldId']?.toString() ?? '',
-      );
+  factory OaLocalAttachment.fromJson(Map<String, Object?> json) {
+    final storedJson = json['storedFile'];
+    return OaLocalAttachment(
+      id: json['id']?.toString() ?? '',
+      fileName: json['fileName']?.toString() ?? '',
+      contentType:
+          json['contentType']?.toString() ?? 'application/octet-stream',
+      bytes: _decodeBytes(json['bytesBase64']),
+      formFieldId: json['formFieldId']?.toString() ?? '',
+      previewBytes: _decodeBytes(json['previewBytesBase64']),
+      storedFile: storedJson is Map
+          ? OaStoredAttachment.fromJson(
+              storedJson.map((key, value) => MapEntry(key.toString(), value)),
+            )
+          : null,
+      storedPreviewFile: json['storedPreviewFile'] is Map
+          ? OaStoredAttachment.fromJson(
+              (json['storedPreviewFile'] as Map).map(
+                (key, value) => MapEntry(key.toString(), value),
+              ),
+            )
+          : null,
+      storageOwnerId: json['storageOwnerId']?.toString() ?? '',
+    );
+  }
 
   final String id;
   final String fileName;
   final String contentType;
   final List<int> bytes;
   final String formFieldId;
+  final List<int> previewBytes;
+  final OaStoredAttachment? storedFile;
+  final OaStoredAttachment? storedPreviewFile;
+  final String storageOwnerId;
 
-  int get size => bytes.length;
+  int get size => storedFile?.length ?? bytes.length;
 
-  Map<String, Object?> toJson() => {
-    'id': id,
-    'fileName': fileName,
-    'contentType': contentType,
-    'bytesBase64': base64Encode(bytes),
-    'formFieldId': formFieldId,
-  };
+  Map<String, Object?> toJson() {
+    if (storedFile == null && bytes.isNotEmpty) {
+      throw StateError(
+        'OA attachment bytes must be persisted before encoding.',
+      );
+    }
+    return {
+      'id': id,
+      'fileName': fileName,
+      'contentType': contentType,
+      if (storedFile case final file?) 'storedFile': file.toJson(),
+      'formFieldId': formFieldId,
+      if (storedPreviewFile case final preview?)
+        'storedPreviewFile': preview.toJson(),
+      if (storageOwnerId.isNotEmpty) 'storageOwnerId': storageOwnerId,
+    };
+  }
+
+  OaLocalAttachment copyWith({
+    List<int>? bytes,
+    List<int>? previewBytes,
+    OaStoredAttachment? storedFile,
+    OaStoredAttachment? storedPreviewFile,
+    String? storageOwnerId,
+    String? formFieldId,
+  }) => OaLocalAttachment(
+    id: id,
+    fileName: fileName,
+    contentType: contentType,
+    bytes: bytes ?? this.bytes,
+    formFieldId: formFieldId ?? this.formFieldId,
+    previewBytes: previewBytes ?? this.previewBytes,
+    storedFile: storedFile ?? this.storedFile,
+    storedPreviewFile: storedPreviewFile ?? this.storedPreviewFile,
+    storageOwnerId: storageOwnerId ?? this.storageOwnerId,
+  );
 }
 
 final class OaOutboxItem {
@@ -511,6 +565,17 @@ final class OaLocalStore {
       orderBy: 'updated_at DESC',
     );
     return Future.wait(rows.map((row) => _draftFromRow(accountId, row)));
+  }
+
+  Future<OaApprovalDraft?> readDraft(String accountId, String draftId) async {
+    final database = await _database;
+    final rows = await database.query(
+      'oa_approval_drafts',
+      where: 'account_id = ? AND id = ?',
+      whereArgs: [accountId, draftId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : _draftFromRow(accountId, rows.single);
   }
 
   Future<OaApprovalDraft> saveDraft(

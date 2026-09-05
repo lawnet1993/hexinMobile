@@ -1,0 +1,46 @@
+{
+  "checkedAt": "2026-09-05T23:13:05.2196577+08:00",
+  "buildMode": "profile",
+  "entrypoint": "lib/main.dart",
+  "tunnelAutoSync": "removed-from-mobile-shell",
+  "samples": [
+    {
+      "round": 1,
+      "attempt": 1,
+      "launchState": "COLD",
+      "totalTimeMs": 714,
+      "waitTimeMs": 720
+    },
+    {
+      "round": 2,
+      "attempt": 2,
+      "launchState": "COLD",
+      "totalTimeMs": 700,
+      "waitTimeMs": 707
+    },
+    {
+      "round": 3,
+      "attempt": 3,
+      "launchState": "COLD",
+      "totalTimeMs": 709,
+      "waitTimeMs": 714
+    },
+    {
+      "round": 4,
+      "attempt": 4,
+      "launchState": "COLD",
+      "totalTimeMs": 700,
+      "waitTimeMs": 714
+    },
+    {
+      "round": 5,
+      "attempt": 5,
+      "launchState": "COLD",
+      "totalTimeMs": 685,
+      "waitTimeMs": 706
+    }
+  ],
+  "minMs": 685,
+  "medianMs": 700,
+  "maxMs": 714
+}

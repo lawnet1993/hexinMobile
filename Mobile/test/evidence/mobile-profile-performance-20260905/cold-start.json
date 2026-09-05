@@ -1,0 +1,41 @@
+{
+  "checkedAt": "2026-09-05T22:59:41.3095995+08:00",
+  "buildMode": "profile",
+  "entrypoint": "lib/main.dart",
+  "deviceClass": "physical-android-14",
+  "samples": [
+    {
+      "round": 1,
+      "launchState": "COLD",
+      "totalTimeMs": 734,
+      "waitTimeMs": 740
+    },
+    {
+      "round": 2,
+      "launchState": "COLD",
+      "totalTimeMs": 761,
+      "waitTimeMs": 781
+    },
+    {
+      "round": 3,
+      "launchState": "COLD",
+      "totalTimeMs": 718,
+      "waitTimeMs": 753
+    },
+    {
+      "round": 4,
+      "launchState": "COLD",
+      "totalTimeMs": 724,
+      "waitTimeMs": 747
+    },
+    {
+      "round": 5,
+      "launchState": "COLD",
+      "totalTimeMs": 716,
+      "waitTimeMs": 726
+    }
+  ],
+  "minMs": 716,
+  "medianMs": 724,
+  "maxMs": 761
+}

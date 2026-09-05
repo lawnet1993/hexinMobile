@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hexing_terminal_mobile/core/storage/secure_session_store.dart';
 import 'package:hexing_terminal_mobile/features/auth/application/auth_controller.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration_repositories.dart';
-import 'package:hexing_terminal_mobile/features/collaboration/data/im_video_thumbnail.dart';
 
 MobileSession session({
   String user = 'a',
@@ -34,7 +33,7 @@ const videoKey = (
   attachmentId: 'video',
   fileName: 'fixture.mp4',
   coverObjectId: 'cover',
-  sha256: 'digest',
+  coverSha256: 'cover-digest',
   size: 100,
 );
 
@@ -210,17 +209,50 @@ void main() {
     expect(await open('b'), '/fixture/b.jpg');
     expect(await open('a'), '/fixture/a.jpg');
     expect(downloads, 2);
-    expect(files.keys, unorderedEquals(['a:cover:cover', 'b:cover:cover']));
+    expect(
+      files.keys,
+      unorderedEquals([
+        'a:cover:cover:cover-digest',
+        'b:cover:cover:cover-digest',
+      ]),
+    );
   });
 
-  for (final phase in [
-    'disk',
-    'cover',
-    'cover-error',
-    'video',
-    'thumbnail',
-    'write',
-  ]) {
+  test(
+    'video without a cover never downloads the original for a thumbnail',
+    () async {
+      var downloads = 0;
+      final container = ProviderContainer.test(
+        overrides: [
+          imMediaCacheAccountLoaderProvider.overrideWithValue(() async => 'a'),
+          imVideoPreviewCacheReaderProvider.overrideWithValue(
+            (_) async => null,
+          ),
+          imMediaAttachmentBytesLoaderProvider.overrideWithValue((
+            _, {
+            required cover,
+          }) async {
+            downloads++;
+            return Uint8List.fromList([1]);
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      final source = await container.read(
+        imVideoPreviewProvider((
+          attachmentId: 'video-without-cover',
+          fileName: 'fixture.mp4',
+          coverObjectId: '',
+          coverSha256: '',
+          size: 8 * 1024 * 1024,
+        )).future,
+      );
+      expect(source, isNull);
+      expect(downloads, 0);
+    },
+  );
+
+  for (final phase in ['disk', 'cover', 'cover-error', 'write']) {
     test(
       'video $phase boundary rejects a changed secure-store identity',
       () async {
@@ -263,24 +295,8 @@ void main() {
                 if (phase == 'cover-error') {
                   throw StateError('fixture network failure');
                 }
-                if (phase == 'video' || phase == 'thumbnail') {
-                  return Uint8List(0);
-                }
-              } else {
-                await gate('video');
               }
               return Uint8List.fromList([1]);
-            }),
-            imVideoThumbnailBuilderProvider.overrideWithValue(({
-              required videoBytes,
-              required fileName,
-            }) async {
-              await gate('thumbnail');
-              return ImVideoThumbnail(
-                bytes: Uint8List.fromList([1]),
-                width: 1,
-                height: 1,
-              );
             }),
           ],
         );
@@ -301,7 +317,10 @@ void main() {
         account = 'b';
         release.complete();
         await result;
-        expect(writes, phase == 'write' ? ['a:cover:cover'] : isEmpty);
+        expect(
+          writes,
+          phase == 'write' ? ['a:cover:cover:cover-digest'] : isEmpty,
+        );
         if (phase == 'disk') expect(requests, isEmpty);
         if (phase == 'cover-error') expect(requests, [true]);
       },

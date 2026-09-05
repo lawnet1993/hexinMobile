@@ -861,6 +861,16 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
             contentType: originalContentType,
             purpose: MobileImagePurpose.approval,
           );
+      final preview = originalContentType.startsWith('image/')
+          ? await ref
+                .read(mobileImageCompressorProvider)
+                .prepare(
+                  fileName: prepared.fileName,
+                  bytes: prepared.bytes,
+                  contentType: prepared.contentType,
+                  purpose: MobileImagePurpose.avatar,
+                )
+          : null;
       if (prepared.bytes.length > 20 * 1024 * 1024) {
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -874,6 +884,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
         contentType: prepared.contentType,
         bytes: prepared.bytes,
         formFieldId: field.id,
+        previewBytes: preview?.bytes ?? const [],
       );
       if (mounted) {
         setState(() {
@@ -921,18 +932,26 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     OaLocalAttachment attachment, {
     required bool allowImagePreview,
   }) async {
-    if (allowImagePreview &&
-        attachment.contentType.toLowerCase().startsWith('image/')) {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          fullscreenDialog: true,
-          builder: (context) =>
-              _LocalImageAttachmentPreview(attachment: attachment),
-        ),
-      );
-      return;
-    }
     try {
+      final bytes = attachment.bytes.isNotEmpty
+          ? Uint8List.fromList(attachment.bytes)
+          : await ref
+                .read(oaRepositoryProvider)
+                .readLocalAttachmentBytes(attachment);
+      if (!mounted) return;
+      if (allowImagePreview &&
+          attachment.contentType.toLowerCase().startsWith('image/')) {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            fullscreenDialog: true,
+            builder: (context) => _LocalImageAttachmentPreview(
+              attachment: attachment,
+              bytes: bytes,
+            ),
+          ),
+        );
+        return;
+      }
       final directory = await getTemporaryDirectory();
       final safeName = path.basename(attachment.fileName).trim().isEmpty
           ? 'attachment'
@@ -940,7 +959,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       final target = File(
         path.join(directory.path, 'oa-${attachment.id}-$safeName'),
       );
-      await target.writeAsBytes(attachment.bytes, flush: true);
+      await target.writeAsBytes(bytes, flush: true);
       final result = await OpenFilex.open(target.path);
       if (result.type != ResultType.done && mounted) {
         ScaffoldMessenger.of(context)
@@ -1022,6 +1041,13 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
         _draftTimer?.cancel();
         setState(() {
           _draft = draft;
+          final persistedById = {
+            for (final item in draft.attachments) item.id: item,
+          };
+          for (var index = 0; index < _attachments.length; index += 1) {
+            final persisted = persistedById[_attachments[index].id];
+            if (persisted != null) _attachments[index] = persisted;
+          }
           _draftSavedAt = draft.updatedAt;
           _draftWasRestored = false;
           _hasUnsavedChanges = revision != _draftRevision;
@@ -1331,7 +1357,7 @@ class _AttachmentEditor extends StatelessWidget {
   );
 }
 
-class _LocalAttachmentThumbnail extends StatelessWidget {
+class _LocalAttachmentThumbnail extends ConsumerStatefulWidget {
   const _LocalAttachmentThumbnail({
     required this.attachment,
     required this.imagePreview,
@@ -1341,22 +1367,75 @@ class _LocalAttachmentThumbnail extends StatelessWidget {
   final bool imagePreview;
 
   @override
-  Widget build(BuildContext context) {
-    final isImage = attachment.contentType.toLowerCase().startsWith('image/');
-    if (isImage && imagePreview) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Image.memory(
-          Uint8List.fromList(attachment.bytes),
-          width: 40,
-          height: 40,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          errorBuilder: (_, _, _) => const _AttachmentFileIcon(),
-        ),
-      );
+  ConsumerState<_LocalAttachmentThumbnail> createState() =>
+      _LocalAttachmentThumbnailState();
+}
+
+class _LocalAttachmentThumbnailState
+    extends ConsumerState<_LocalAttachmentThumbnail> {
+  Future<Uint8List?>? _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LocalAttachmentThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachment.id != widget.attachment.id ||
+        oldWidget.attachment.storedPreviewFile?.token !=
+            widget.attachment.storedPreviewFile?.token ||
+        oldWidget.attachment.previewBytes.length !=
+            widget.attachment.previewBytes.length) {
+      _load();
     }
-    return const _AttachmentFileIcon();
+  }
+
+  void _load() {
+    final attachment = widget.attachment;
+    if (attachment.previewBytes.isNotEmpty) {
+      _bytes = Future.value(Uint8List.fromList(attachment.previewBytes));
+    } else if (attachment.bytes.isNotEmpty) {
+      _bytes = Future.value(Uint8List.fromList(attachment.bytes));
+    } else if (attachment.storedPreviewFile != null) {
+      _bytes = ref
+          .read(oaRepositoryProvider)
+          .readLocalAttachmentPreviewBytes(attachment);
+    } else {
+      _bytes = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isImage = widget.attachment.contentType.toLowerCase().startsWith(
+      'image/',
+    );
+    if (!isImage || !widget.imagePreview || _bytes == null) {
+      return const _AttachmentFileIcon();
+    }
+    return FutureBuilder<Uint8List?>(
+      future: _bytes,
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) {
+          return const _AttachmentFileIcon();
+        }
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Image.memory(
+            bytes,
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => const _AttachmentFileIcon(),
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -1381,9 +1460,13 @@ class _AttachmentFileIcon extends StatelessWidget {
 }
 
 class _LocalImageAttachmentPreview extends StatelessWidget {
-  const _LocalImageAttachmentPreview({required this.attachment});
+  const _LocalImageAttachmentPreview({
+    required this.attachment,
+    required this.bytes,
+  });
 
   final OaLocalAttachment attachment;
+  final Uint8List bytes;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1433,7 +1516,7 @@ class _LocalImageAttachmentPreview extends StatelessWidget {
               maxScale: 4,
               child: Center(
                 child: Image.memory(
-                  Uint8List.fromList(attachment.bytes),
+                  bytes,
                   fit: BoxFit.contain,
                   gaplessPlayback: true,
                   errorBuilder: (_, _, _) => const Text(

@@ -911,7 +911,7 @@ class _ApprovalList extends StatelessWidget {
     return Column(
       children: [
         for (var index = 0; index < items.take(3).length; index++) ...[
-          if (index > 0) const Divider(height: 1, indent: 66, endIndent: 14),
+          if (index > 0) const Divider(height: 1, indent: 60, endIndent: 12),
           _ApprovalRow(request: items[index], actionable: actionable),
         ],
       ],
@@ -929,12 +929,12 @@ class _ApprovalRow extends StatelessWidget {
   Widget build(BuildContext context) => InkWell(
     onTap: () => context.push('/approval/${request.id}'),
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+      padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: const Color(0xFFEAF2FF),
               borderRadius: BorderRadius.circular(10),
@@ -942,11 +942,11 @@ class _ApprovalRow extends StatelessWidget {
             alignment: Alignment.center,
             child: Icon(
               _tdIcon(request.templateName),
-              size: 22,
+              size: 20,
               color: const Color(0xFF0052D9),
             ),
           ),
-          const SizedBox(width: 11),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -977,22 +977,43 @@ class _ApprovalRow extends StatelessWidget {
             ),
           ),
           if (actionable) ...[
-            const SizedBox(width: 8),
-            OutlinedButton(
-              onPressed: () => context.push('/approval/${request.id}'),
-              style: compactMobileActionStyle.copyWith(
-                minimumSize: const WidgetStatePropertyAll(Size(60, 30)),
-                padding: const WidgetStatePropertyAll(
-                  EdgeInsets.symmetric(horizontal: 8),
+            const SizedBox(width: 6),
+            Semantics(
+              button: true,
+              label: '处理',
+              excludeSemantics: true,
+              child: SizedBox(
+                key: ValueKey<String>(
+                  'workbench-approval-action-${request.id}',
                 ),
-                textStyle: const WidgetStatePropertyAll(
-                  TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-                side: const WidgetStatePropertyAll(
-                  BorderSide(color: Color(0xFFB7D0F5)),
+                width: 52,
+                height: 28,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF2FF),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '处理',
+                        style: TextStyle(
+                          color: Color(0xFF0052D9),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(width: 1),
+                      Icon(
+                        TDIcons.chevronRight,
+                        size: 14,
+                        color: Color(0xFF0052D9),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              child: const Text('去处理'),
             ),
           ] else
             const Icon(
