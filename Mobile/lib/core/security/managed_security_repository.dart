@@ -105,12 +105,20 @@ final class ManagedSecurityRepository {
     );
   }
 
-  Future<List<ManagedTerminalCommand>> fetchCommands() async {
-    final session = await _requiredSession();
+  Future<List<ManagedTerminalCommand>> fetchCommands({
+    MobileSession? forSession,
+  }) async {
+    final session = forSession ?? await _requiredSession();
     final response = await _dio
         .get<List<Object?>>(
           '/api/client/commands',
           queryParameters: {'deviceId': session.deviceId},
+          options: Options(
+            headers: {
+              'Authorization': 'Bearer ${session.accessToken}',
+              'X-Device-Id': session.deviceId,
+            },
+          ),
         )
         .timeout(const Duration(seconds: 12));
     return (response.data ?? const <Object?>[])
@@ -127,8 +135,9 @@ final class ManagedSecurityRepository {
     String commandId, {
     required bool succeeded,
     required String resultMessage,
+    MobileSession? forSession,
   }) async {
-    final session = await _requiredSession();
+    final session = forSession ?? await _requiredSession();
     await _dio.post<void>(
       '/api/client/commands/$commandId/complete',
       data: {
@@ -136,7 +145,13 @@ final class ManagedSecurityRepository {
         'succeeded': succeeded,
         'resultMessage': resultMessage,
       },
-      options: Options(contentType: Headers.jsonContentType),
+      options: Options(
+        contentType: Headers.jsonContentType,
+        headers: {
+          'Authorization': 'Bearer ${session.accessToken}',
+          'X-Device-Id': session.deviceId,
+        },
+      ),
     );
   }
 
@@ -157,10 +172,15 @@ final class ManagedTerminalCommandCoordinator {
   final Ref _ref;
   Timer? _timer;
   bool _checking = false;
+  bool _running = false;
+  int _generation = 0;
 
   Future<void> start() async {
-    if (_timer != null) return;
+    if (_running) return;
+    _running = true;
+    final generation = _generation;
     await synchronizeNow();
+    if (!_running || generation != _generation) return;
     _timer = Timer.periodic(
       const Duration(seconds: 25),
       (_) => synchronizeNow().ignore(),
@@ -168,6 +188,8 @@ final class ManagedTerminalCommandCoordinator {
   }
 
   void stop() {
+    _running = false;
+    _generation++;
     _timer?.cancel();
     _timer = null;
   }
@@ -175,36 +197,58 @@ final class ManagedTerminalCommandCoordinator {
   Future<void> synchronizeNow() async {
     if (_checking) return;
     _checking = true;
+    final generation = _generation;
     try {
+      final session = await _ref.read(secureSessionStoreProvider).readSession();
+      if (session == null) return;
       final repository = _ref.read(managedSecurityRepositoryProvider);
-      final commands = await repository.fetchCommands();
+      final commands = await repository.fetchCommands(forSession: session);
+      if (generation != _generation || !_ref.mounted) return;
       for (final command in commands) {
+        final current = await _ref
+            .read(secureSessionStoreProvider)
+            .readSession();
+        if (current == null || !current.isSameSession(session)) return;
         final expiresAt = command.expiresAt;
         if (expiresAt != null && expiresAt.isBefore(DateTime.now().toUtc())) {
-          await _report(repository, command.id, false, '终端指令已过期。');
+          await _report(repository, command.id, false, '终端指令已过期。', session);
           continue;
         }
         if (command.commandType == 3) {
-          await _report(repository, command.id, true, 'Android 终端已收到强制下线指令。');
+          await _report(
+            repository,
+            command.id,
+            true,
+            'Android 终端已收到强制下线指令。',
+            session,
+          );
+          if (generation != _generation || !_ref.mounted) return;
           await _ref
               .read(authControllerProvider.notifier)
-              .logout(clearCredential: true);
-          stop();
+              .logout(clearCredential: true, expectedSession: session);
+          // Logout includes an asynchronous push unregister; a newer login
+          // may finish meanwhile. Do not stop that session's command polling.
+          if (_ref.mounted &&
+              await _ref.read(secureSessionStoreProvider).readSession() ==
+                  null) {
+            stop();
+          }
           return;
         }
-        await _report(repository, command.id, false, 'Android 终端不支持桌面截屏或录屏指令。');
+        await _report(
+          repository,
+          command.id,
+          false,
+          'Android 终端不支持桌面截屏或录屏指令。',
+          session,
+        );
       }
     } on DioException catch (error) {
-      if (error.response?.statusCode == 401) {
-        final refreshed = await _ref
+      if (generation == _generation && _ref.mounted) {
+        final terminated = await _ref
             .read(authControllerProvider.notifier)
-            .refreshSession();
-        if (refreshed == null) {
-          await _ref
-              .read(authControllerProvider.notifier)
-              .terminateSession(message: '登录已失效或已到期，请重新登录');
-          stop();
-        }
+            .handleSessionFailure(error);
+        if (terminated) stop();
       }
     } catch (_) {
       // The next foreground synchronization or polling cycle retries safely.
@@ -218,6 +262,7 @@ final class ManagedTerminalCommandCoordinator {
     String commandId,
     bool succeeded,
     String message,
+    MobileSession session,
   ) async {
     Object? lastError;
     for (var attempt = 1; attempt <= 3; attempt++) {
@@ -226,6 +271,7 @@ final class ManagedTerminalCommandCoordinator {
           commandId,
           succeeded: succeeded,
           resultMessage: message,
+          forSession: session,
         );
         return;
       } catch (error) {

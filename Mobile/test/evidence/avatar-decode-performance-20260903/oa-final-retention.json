@@ -1,0 +1,17 @@
+[
+  {
+    "name": "drafts",
+    "unchanged": true,
+    "count": 2
+  },
+  {
+    "name": "readReceipts",
+    "unchanged": true,
+    "count": 10
+  },
+  {
+    "name": "outbox",
+    "unchanged": true,
+    "count": 0
+  }
+]

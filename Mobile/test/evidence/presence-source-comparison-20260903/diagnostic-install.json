@@ -1,0 +1,7 @@
+{
+  "at": "2026-09-03T05:43:25.8272597+08:00",
+  "hash": "5EEDA2ABC421A92676522D475CD78C1B129E05F10CA6C78E234A57A733FA7E28",
+  "diagnostic": true,
+  "installedHashMatches": true,
+  "activityStatus": "Starting: Intent { cmp=com.hexing.zhilian.hexing_terminal_mobile/.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity\nTotalTime: 2969\nWaitTime: 3008\nComplete"
+}

@@ -1,0 +1,7 @@
+{
+  "at": "2026-09-03T05:59:35.4001256+08:00",
+  "hash": "24A60B082004A4088E0BCF0F04D2D86455661143C191D754CA1325049ADD1157",
+  "installedHashMatches": true,
+  "target": "lib/main.dart",
+  "activityStatus": "Starting: Intent { cmp=com.hexing.zhilian.hexing_terminal_mobile/.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity\nTotalTime: 3361\nWaitTime: 3382\nComplete"
+}

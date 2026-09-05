@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-09-03T06:33:47.5515876+08:00",
+  "checks": {
+    "m3Identity": true,
+    "m4Identity": true,
+    "m3Ledger": true,
+    "m4Ledger": true,
+    "m3ConversationMetadata": true,
+    "m4ConversationMetadata": true,
+    "m3PendingIds": true,
+    "m4EmptyOutbox": true,
+    "oaDrafts": true,
+    "oaReceipts": true,
+    "oaNoNewSubmission": true,
+    "m3CursorAcknowledged": true,
+    "m4CursorAcknowledged": true,
+    "image-oneRetry": true,
+    "image-500Pending": true,
+    "video-oneRetry": true,
+    "video-500Pending": true
+  },
+  "passed": 17,
+  "total": 17
+}

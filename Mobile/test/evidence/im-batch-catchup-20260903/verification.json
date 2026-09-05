@@ -1,0 +1,66 @@
+{
+  "passed": 15,
+  "total": 15,
+  "checks": [
+    {
+      "name": "one-click-per-native-marker-and-network-finally",
+      "passed": true
+    },
+    {
+      "name": "receiver-had-no-test-message-or-advanced-cursor-while-offline",
+      "passed": true
+    },
+    {
+      "name": "actual-500-event-page-and-following-page-observed-after-commit",
+      "passed": true
+    },
+    {
+      "name": "recovery-kept-persistent-unread-before-opening-chat",
+      "passed": true
+    },
+    {
+      "name": "m3-complete-unique-ordered-ledger",
+      "passed": true
+    },
+    {
+      "name": "m3-original-conversations-and-outbox-retained",
+      "passed": true
+    },
+    {
+      "name": "m3-final-read-cursor-persisted",
+      "passed": true
+    },
+    {
+      "name": "m4-complete-unique-ordered-ledger",
+      "passed": true
+    },
+    {
+      "name": "m4-original-conversations-and-outbox-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-final-read-cursor-persisted",
+      "passed": true
+    },
+    {
+      "name": "sender-and-receiver-have-identical-confirmed-message-identities",
+      "passed": true
+    },
+    {
+      "name": "sender-receipt-changes-only-after-peer-reads",
+      "passed": true
+    },
+    {
+      "name": "original-oa-drafts-receipts-and-outbox-retained",
+      "passed": true
+    },
+    {
+      "name": "emulator-5556-normal-package-restored-no-observer",
+      "passed": true
+    },
+    {
+      "name": "emulator-5558-normal-package-restored-no-observer",
+      "passed": true
+    }
+  ]
+}

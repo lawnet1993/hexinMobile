@@ -138,11 +138,14 @@ ApprovalFormCalculationResult evaluateApprovalFormCalculations({
         if (raw == null || raw.toString().trim().isEmpty) {
           throw FormatException('请填写“${referencedField.label}”');
         }
-        final number = num.tryParse(raw.toString());
-        if (number == null || !number.isFinite) {
-          throw FormatException('“${referencedField.label}”必须是数字');
+        try {
+          return _ExactNumber.parse(raw.toString());
+        } on FormatException catch (error) {
+          if (error.message == '数字格式不正确') {
+            throw FormatException('“${referencedField.label}”必须是数字');
+          }
+          rethrow;
         }
-        return number.toDouble();
       });
       values[field.id] = _round(
         value,
@@ -156,29 +159,60 @@ ApprovalFormCalculationResult evaluateApprovalFormCalculations({
   return ApprovalFormCalculationResult(values: values, errors: errors);
 }
 
-double _round(double value, int scale, String roundingMode) {
-  const numberEpsilon = 2.220446049250313e-16;
-  var factor = 1.0;
-  for (var index = 0; index < scale; index += 1) {
-    factor *= 10;
-  }
-  final scaled = value * factor;
-  if (!scaled.isFinite) throw const FormatException('结果超出 decimal 精度');
-  final rounded = switch (roundingMode) {
-    'floor' => scaled.floorToDouble(),
-    'ceiling' => scaled.ceilToDouble(),
-    'truncate' => scaled.truncateToDouble(),
-    _ =>
-      scaled.isNegative
-          ? -((-scaled + numberEpsilon).roundToDouble())
-          : (scaled + numberEpsilon).roundToDouble(),
+Object _round(_ExactNumber value, int scale, String roundingMode) {
+  if (scale < 0 || scale > 8) throw const FormatException('计算精度必须在 0 到 8 位之间');
+  final factor = BigInt.from(10).pow(scale);
+  final scaled = value.numerator.abs() * factor;
+  var rounded = scaled ~/ value.denominator;
+  final remainder = scaled.remainder(value.denominator);
+  final increment = switch (roundingMode) {
+    'floor' => value.numerator.isNegative && remainder != BigInt.zero,
+    'ceiling' => !value.numerator.isNegative && remainder != BigInt.zero,
+    'truncate' => false,
+    _ => remainder * BigInt.two >= value.denominator,
   };
-  return rounded / factor;
+  if (increment) rounded += BigInt.one;
+  if (value.numerator.isNegative) rounded = -rounded;
+  var coefficient = rounded.abs();
+  var coefficientScale = scale;
+  final ten = BigInt.from(10);
+  while (coefficientScale > 0 && coefficient.remainder(ten) == BigInt.zero) {
+    coefficient ~/= ten;
+    coefficientScale -= 1;
+  }
+  if (coefficient > _ExactNumber._maxDecimal) {
+    throw const FormatException('结果超出 decimal 精度');
+  }
+  final result = _ExactNumber(rounded, factor);
+  final digits = rounded.abs().toString().padLeft(scale + 1, '0');
+  final magnitude = scale == 0
+      ? digits
+      : '${digits.substring(0, digits.length - scale)}.${digits.substring(digits.length - scale)}';
+  final text = '${rounded.isNegative ? '-' : ''}$magnitude';
+
+  // Keep ordinary numeric JSON values compatible. When converting to double would
+  // alter the decimal digits, use the same decimal-text representation as user
+  // entered amount fields. Never leak BigInt into JSON or round a large amount.
+  // JSON consumers such as the desktop JavaScript UI use binary doubles, even
+  // when native Dart could hold the value as an exact 64-bit integer.
+  final number = double.tryParse(text);
+  if (number != null && number.isFinite) {
+    try {
+      final serialized = _ExactNumber.parse(number.toString());
+      if (serialized.numerator == result.numerator &&
+          serialized.denominator == result.denominator) {
+        return number;
+      }
+    } on FormatException catch (_) {
+      // A rounded double may itself exceed the decimal bound.
+    }
+  }
+  return text;
 }
 
-double _evaluateExpression(
+_ExactNumber _evaluateExpression(
   _ExpressionNode node,
-  double Function(String fieldId) readReference,
+  _ExactNumber Function(String fieldId) readReference,
 ) {
   return switch (node) {
     _ConstantNode(:final value) => value,
@@ -190,21 +224,83 @@ double _evaluateExpression(
     _BinaryNode(:final operation, :final left, :final right) => () {
       final leftValue = _evaluateExpression(left, readReference);
       final rightValue = _evaluateExpression(right, readReference);
-      if (operation == '/' && rightValue == 0) {
-        throw const FormatException('不能除以零');
-      }
       final result = switch (operation) {
         '+' => leftValue + rightValue,
         '-' => leftValue - rightValue,
         '*' => leftValue * rightValue,
         _ => leftValue / rightValue,
       };
-      if (!result.isFinite || result.abs() > 7.922816251426433e28) {
-        throw const FormatException('结果超出 decimal 精度');
-      }
       return result;
     }(),
   };
+}
+
+// Decimal input is parsed directly into a reduced fraction, without passing
+// through binary floating point. Quantize only at each calculated field's
+// configured scale, so dependent formulas consume the visible rounded result.
+final class _ExactNumber {
+  factory _ExactNumber(BigInt numerator, BigInt denominator) {
+    if (denominator == BigInt.zero) throw const FormatException('不能除以零');
+    if (numerator.bitLength > 8192 || denominator.bitLength > 8192) {
+      throw const FormatException('公式数值过于复杂');
+    }
+    if (denominator.isNegative) {
+      numerator = -numerator;
+      denominator = -denominator;
+    }
+    if (numerator.abs() > _maxDecimal * denominator) {
+      throw const FormatException('结果超出 decimal 精度');
+    }
+    final divisor = numerator.abs().gcd(denominator);
+    return _ExactNumber._(numerator ~/ divisor, denominator ~/ divisor);
+  }
+
+  const _ExactNumber._(this.numerator, this.denominator);
+
+  factory _ExactNumber.parse(String raw) {
+    final text = raw.trim();
+    if (text.length > 512) throw const FormatException('数字超出支持精度');
+    final match = _decimalPattern.firstMatch(text);
+    if (match == null) throw const FormatException('数字格式不正确');
+    final whole = match.group(2) ?? '0';
+    final fractional = match.group(3) ?? match.group(4) ?? '';
+    final exponentText = match.group(5) ?? '0';
+    final exponent = int.tryParse(exponentText);
+    if (exponent == null || exponent.abs() > 512) {
+      throw const FormatException('数字超出支持精度');
+    }
+    final scale = fractional.length - exponent;
+    if (scale.abs() > 512) throw const FormatException('数字超出支持精度');
+    var numerator = BigInt.parse('$whole$fractional');
+    if (match.group(1) == '-') numerator = -numerator;
+    final factor = BigInt.from(10).pow(scale.abs());
+    return scale < 0
+        ? _ExactNumber(numerator * factor, BigInt.one)
+        : _ExactNumber(numerator, factor);
+  }
+
+  static final _maxDecimal = BigInt.parse('79228162514264337593543950335');
+  static final _decimalPattern = RegExp(
+    r'^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:[eE]([+-]?\d+))?$',
+  );
+
+  final BigInt numerator;
+  final BigInt denominator;
+
+  _ExactNumber operator -() => _ExactNumber(-numerator, denominator);
+  _ExactNumber operator +(_ExactNumber other) => _ExactNumber(
+    numerator * other.denominator + other.numerator * denominator,
+    denominator * other.denominator,
+  );
+  _ExactNumber operator -(_ExactNumber other) => this + -other;
+  _ExactNumber operator *(_ExactNumber other) => _ExactNumber(
+    numerator * other.numerator,
+    denominator * other.denominator,
+  );
+  _ExactNumber operator /(_ExactNumber other) => _ExactNumber(
+    numerator * other.denominator,
+    denominator * other.numerator,
+  );
 }
 
 sealed class _ExpressionNode {
@@ -213,7 +309,7 @@ sealed class _ExpressionNode {
 
 final class _ConstantNode extends _ExpressionNode {
   const _ConstantNode(this.value);
-  final double value;
+  final _ExactNumber value;
 }
 
 final class _ReferenceNode extends _ExpressionNode {
@@ -312,8 +408,7 @@ final class _ExpressionParser {
       if (!_isDigit(character)) break;
       _index += 1;
     }
-    final value = double.tryParse(source.substring(start, _index));
-    if (value == null || !value.isFinite) _syntax('数字格式不正确');
+    final value = _ExactNumber.parse(source.substring(start, _index));
     return _count(_ConstantNode(value));
   }
 

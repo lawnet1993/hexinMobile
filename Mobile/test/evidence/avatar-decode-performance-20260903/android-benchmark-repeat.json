@@ -1,0 +1,125 @@
+{
+  "scope": "Bundled/synthetic ImageProvider resolution only, not page raster or GPU allocation",
+  "results": [
+    {
+      "fixture": "bundled-preset",
+      "targetDiameterPixels": 96,
+      "original": {
+        "width": 256,
+        "height": 256,
+        "decodedRgbaBytes": 262144,
+        "coldResolveMicros": [
+          21038,
+          9937,
+          15266,
+          16803,
+          16742
+        ],
+        "medianColdResolveMicros": 16742
+      },
+      "sized": {
+        "width": 96,
+        "height": 96,
+        "decodedRgbaBytes": 36864,
+        "coldResolveMicros": [
+          15524,
+          15992,
+          29319,
+          2461,
+          14416
+        ],
+        "medianColdResolveMicros": 15524
+      }
+    },
+    {
+      "fixture": "synthetic-square",
+      "targetDiameterPixels": 96,
+      "original": {
+        "width": 2048,
+        "height": 2048,
+        "decodedRgbaBytes": 16777216,
+        "coldResolveMicros": [
+          45199,
+          32161,
+          30207,
+          30675,
+          31229
+        ],
+        "medianColdResolveMicros": 31229
+      },
+      "sized": {
+        "width": 96,
+        "height": 96,
+        "decodedRgbaBytes": 36864,
+        "coldResolveMicros": [
+          50934,
+          49759,
+          63074,
+          54300,
+          53401
+        ],
+        "medianColdResolveMicros": 53401
+      }
+    },
+    {
+      "fixture": "synthetic-landscape",
+      "targetDiameterPixels": 96,
+      "original": {
+        "width": 4096,
+        "height": 2048,
+        "decodedRgbaBytes": 33554432,
+        "coldResolveMicros": [
+          60915,
+          63466,
+          62761,
+          62483,
+          62065
+        ],
+        "medianColdResolveMicros": 62483
+      },
+      "sized": {
+        "width": 192,
+        "height": 96,
+        "decodedRgbaBytes": 73728,
+        "coldResolveMicros": [
+          109040,
+          96515,
+          94900,
+          92476,
+          92753
+        ],
+        "medianColdResolveMicros": 94900
+      }
+    },
+    {
+      "fixture": "synthetic-portrait",
+      "targetDiameterPixels": 96,
+      "original": {
+        "width": 2048,
+        "height": 4096,
+        "decodedRgbaBytes": 33554432,
+        "coldResolveMicros": [
+          61560,
+          61556,
+          76879,
+          62683,
+          60743
+        ],
+        "medianColdResolveMicros": 61560
+      },
+      "sized": {
+        "width": 96,
+        "height": 192,
+        "decodedRgbaBytes": 73728,
+        "coldResolveMicros": [
+          94908,
+          93003,
+          92056,
+          78107,
+          77811
+        ],
+        "medianColdResolveMicros": 92056
+      }
+    }
+  ]
+}

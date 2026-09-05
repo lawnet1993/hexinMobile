@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:secure_tunnel/secure_tunnel.dart';
 
+import '../../../core/config/app_environment.dart';
+
 import '../data/mobile_tunnel_repository.dart';
 import 'tunnel_profile_verifier.dart';
 
@@ -197,7 +199,8 @@ class TunnelController extends AsyncNotifier<TunnelConnectionState> {
 
   Future<File> _writeConfig(String version, List<int> bytes) async {
     final root = Directory(
-      '${(await getApplicationSupportDirectory()).path}/managed-tunnel',
+      '${(await getApplicationSupportDirectory()).path}/'
+      '${AppEnvironment.storageDirectoryName('managed-tunnel')}',
     );
     await root.create(recursive: true);
     final safeVersion = version.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');

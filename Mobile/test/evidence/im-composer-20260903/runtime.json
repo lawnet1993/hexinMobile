@@ -1,0 +1,263 @@
+[
+  {
+    "at": "2026-09-03T10:24:05.6022208+08:00",
+    "serial": "emulator-5556",
+    "pid": "19790",
+    "sha256": "2D32FC79E7635723DB2E4236C59648207C31EAD0E0C8C36E6066EB946731110E",
+    "fatalCount": 0,
+    "unhandledCount": 0,
+    "overflowCount": 0,
+    "decodedWindows": [
+      {
+        "cacheHits": 0,
+        "rows": 80,
+        "durationMicros": 34937
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 3315
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 5208
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 11689
+      },
+      {
+        "cacheHits": 80,
+        "rows": 80,
+        "durationMicros": 13420
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 4244
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 12350
+      },
+      {
+        "cacheHits": 80,
+        "rows": 80,
+        "durationMicros": 11387
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 15511
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 4846
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 3962
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 3606
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 4404
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 14330
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 14387
+      },
+      {
+        "cacheHits": 80,
+        "rows": 80,
+        "durationMicros": 14443
+      },
+      {
+        "cacheHits": 80,
+        "rows": 80,
+        "durationMicros": 5428
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 3645
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 3566
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 5542
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 4233
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 6034
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 3787
+      }
+    ],
+    "wifiOn": "1",
+    "mobileDataOn": "1"
+  },
+  {
+    "at": "2026-09-03T10:24:07.1783510+08:00",
+    "serial": "emulator-5558",
+    "pid": "15775",
+    "sha256": "2D32FC79E7635723DB2E4236C59648207C31EAD0E0C8C36E6066EB946731110E",
+    "fatalCount": 0,
+    "unhandledCount": 0,
+    "overflowCount": 0,
+    "decodedWindows": [
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 102303
+      },
+      {
+        "cacheHits": 49,
+        "rows": 50,
+        "durationMicros": 69078
+      },
+      {
+        "cacheHits": 80,
+        "rows": 80,
+        "durationMicros": 85523
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 24386
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 46925
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 28339
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 19845
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 17135
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 18191
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 7817
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 18238
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 19571
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 94459
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 21365
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 26110
+      },
+      {
+        "cacheHits": 78,
+        "rows": 80,
+        "durationMicros": 21962
+      },
+      {
+        "cacheHits": 78,
+        "rows": 80,
+        "durationMicros": 16759
+      },
+      {
+        "cacheHits": 79,
+        "rows": 80,
+        "durationMicros": 33298
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 5214
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 15583
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 5568
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 14063
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 9734
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 6894
+      }
+    ],
+    "wifiOn": "1",
+    "mobileDataOn": "1"
+  }
+]

@@ -1,0 +1,425 @@
+{
+  "checkedAt": "2026-09-05T01:49:39.1266897+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260902-165500-LEAVE",
+  "bootstrapStatus": 200,
+  "requestId": "b36e6d9a-397e-4587-b6c1-801832750a4a",
+  "templates": [
+    {
+      "id": "33d74b10-6a74-46dd-8b4d-f1a95f655b89",
+      "name": "出差审批",
+      "version": 1,
+      "schemaParsed": true,
+      "fields": [
+        {
+          "id": "destination",
+          "label": "出差地点",
+          "type": "text",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "startAt",
+          "label": "开始时间",
+          "type": "datetime",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "endAt",
+          "label": "结束时间",
+          "type": "datetime",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "reason",
+          "label": "出差事由",
+          "type": "textarea",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "attachments",
+          "label": "行程附件",
+          "type": "attachment",
+          "readOnly": false,
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "2cbde5bd-6357-4462-b437-7e8517362d7e",
+      "name": "加班审批",
+      "version": 1,
+      "schemaParsed": true,
+      "fields": [
+        {
+          "id": "startAt",
+          "label": "开始时间",
+          "type": "datetime",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "endAt",
+          "label": "结束时间",
+          "type": "datetime",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "hours",
+          "label": "加班时长（小时）",
+          "type": "number",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "reason",
+          "label": "加班事由",
+          "type": "textarea",
+          "readOnly": false,
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "080d14f7-b33d-4ce2-94a7-ba2d1e71a51c",
+      "name": "补卡审批",
+      "version": 1,
+      "schemaParsed": true,
+      "fields": [
+        {
+          "id": "exceptionId",
+          "label": "考勤异常",
+          "type": "text",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "correctionAt",
+          "label": "补卡时间",
+          "type": "datetime",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "reason",
+          "label": "补卡原因",
+          "type": "textarea",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "attachments",
+          "label": "证明附件",
+          "type": "attachment",
+          "readOnly": false,
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "87adcda2-a096-465b-a572-5c49eb6ab68c",
+      "name": "请假审批",
+      "version": 1,
+      "schemaParsed": true,
+      "fields": [
+        {
+          "id": "leaveType",
+          "label": "请假类型",
+          "type": "select",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "startAt",
+          "label": "开始时间",
+          "type": "datetime",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "endAt",
+          "label": "结束时间",
+          "type": "datetime",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "days",
+          "label": "请假天数",
+          "type": "number",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "reason",
+          "label": "请假事由",
+          "type": "textarea",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "attachments",
+          "label": "证明附件",
+          "type": "attachment",
+          "readOnly": false,
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "e000b729-2630-47fd-aec1-ab6d4263b75e",
+      "name": "用印申请",
+      "version": 1,
+      "schemaParsed": true,
+      "fields": [
+        {
+          "id": "sealType",
+          "label": "印章类型",
+          "type": "select",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "documentName",
+          "label": "文件名称",
+          "type": "text",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "copyCount",
+          "label": "用印份数",
+          "type": "number",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "usedAt",
+          "label": "计划用印日期",
+          "type": "date",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "reason",
+          "label": "用印事由",
+          "type": "textarea",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "attachments",
+          "label": "待用印文件",
+          "type": "attachment",
+          "readOnly": false,
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "48a4f4e4-b12f-46fd-8633-e941620f62b6",
+      "name": "借支审批",
+      "version": 1,
+      "schemaParsed": true,
+      "fields": [
+        {
+          "id": "amount",
+          "label": "借支金额",
+          "type": "amount",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "currency",
+          "label": "币种",
+          "type": "select",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "purpose",
+          "label": "借支用途",
+          "type": "select",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "repaymentAt",
+          "label": "预计归还日期",
+          "type": "date",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "reason",
+          "label": "借支说明",
+          "type": "textarea",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "attachments",
+          "label": "相关附件",
+          "type": "attachment",
+          "readOnly": false,
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "5d8b964d-37f5-4cdd-8516-96faa4d8a516",
+      "name": "请款审批",
+      "version": 1,
+      "schemaParsed": true,
+      "fields": [
+        {
+          "id": "amount",
+          "label": "请款金额",
+          "type": "amount",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "paymentType",
+          "label": "请款类型",
+          "type": "select",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "requestedAt",
+          "label": "期望付款日期",
+          "type": "date",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "reason",
+          "label": "请款说明",
+          "type": "textarea",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "attachments",
+          "label": "合同或凭证",
+          "type": "attachment",
+          "readOnly": false,
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "fc40f1fc-3aed-4734-824e-d2c53694eb7b",
+      "name": "报销审批",
+      "version": 1,
+      "schemaParsed": true,
+      "fields": [
+        {
+          "id": "amount",
+          "label": "报销金额",
+          "type": "amount",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "currency",
+          "label": "币种",
+          "type": "select",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "expenseType",
+          "label": "费用类型",
+          "type": "select",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "costCenter",
+          "label": "成本中心",
+          "type": "text",
+          "readOnly": false,
+          "required": false
+        },
+        {
+          "id": "reason",
+          "label": "费用说明",
+          "type": "textarea",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "attachments",
+          "label": "报销凭证",
+          "type": "attachment",
+          "readOnly": false,
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "94350a1b-ce39-47d1-90b4-f93f401fe55e",
+      "name": "采购申请",
+      "version": 1,
+      "schemaParsed": true,
+      "fields": [
+        {
+          "id": "itemName",
+          "label": "采购内容",
+          "type": "text",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "quantity",
+          "label": "数量",
+          "type": "number",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "estimatedAmount",
+          "label": "预计金额",
+          "type": "amount",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "requiredAt",
+          "label": "期望到货日期",
+          "type": "date",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "supplier",
+          "label": "建议供应商",
+          "type": "text",
+          "readOnly": false,
+          "required": false
+        },
+        {
+          "id": "reason",
+          "label": "采购用途",
+          "type": "textarea",
+          "readOnly": false,
+          "required": true
+        },
+        {
+          "id": "attachments",
+          "label": "询价或规格附件",
+          "type": "attachment",
+          "readOnly": false,
+          "required": false
+        }
+      ]
+    }
+  ]
+}

@@ -132,13 +132,15 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    final restored = await container.read(
-      imMessageImageProvider((
-        messageId: 'message-1',
-        imageId: 'image-1',
-        sha256: digest,
-      )).future,
-    );
+    final provider = imMessageImageProvider((
+      messageId: 'message-1',
+      imageId: 'image-1',
+      sha256: digest,
+    ));
+    // Model a mounted image while real filesystem IO spans event-loop turns.
+    final listener = container.listen(provider, (_, _) {});
+    addTearDown(listener.close);
+    final restored = await container.read(provider.future);
 
     expect(restored, orderedEquals(bytes));
     expect(downloads, 0);

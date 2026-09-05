@@ -15,6 +15,47 @@ void main() {
   sqfliteFfiInit();
 
   test(
+    'approval detail returns its cached snapshot without a network wait',
+    () async {
+      HttpOverrides.global = _RealHttpOverrides();
+      final directory = await Directory.systemTemp.createTemp(
+        'oa-detail-cache-first-',
+      );
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      var requestCount = 0;
+      server.listen((request) async {
+        requestCount += 1;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode(_requestJson(status: 'approved')));
+        await request.response.close();
+      });
+      final fixture = await _fixture(
+        directory,
+        oaApiUrl: 'http://${server.address.address}:${server.port}',
+      );
+      await fixture.store.writeObject(
+        'member-1',
+        'approval:approval-1',
+        _requestJson(status: 'pending'),
+      );
+
+      try {
+        final request = await fixture.repository.approvalRequestCacheFirst(
+          'approval-1',
+        );
+        expect(request.status, 'pending');
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        expect(requestCount, 0);
+      } finally {
+        await fixture.store.close();
+        await server.close(force: true);
+        await directory.delete(recursive: true);
+        HttpOverrides.global = null;
+      }
+    },
+  );
+
+  test(
     'approval detail replaces stale cache with the current server state',
     () async {
       HttpOverrides.global = _RealHttpOverrides();

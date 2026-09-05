@@ -1,0 +1,8 @@
+{
+  "scripts\\capture-device-uat.ps1.parseErrors": 0,
+  "scripts\\inspect-desktop-session-health.ps1.parseErrors": 0,
+  "duplicateRejected": true,
+  "outsideRootRejected": true,
+  "missingDeviceRejected": true,
+  "noStaleCapture": true
+}

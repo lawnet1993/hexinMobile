@@ -1,0 +1,10 @@
+{
+  "CheckedAt": "2026-09-03T01:16:19.6140628+08:00",
+  "AppRunning": true,
+  "DeviceApkSha256": "ad0b64e93a90ea378959043026943d011264ebd5439359fa98c279e51cbcea86",
+  "Matches674": true,
+  "Wifi": "1",
+  "MobileData": "1",
+  "FatalCount": 0,
+  "FlutterErrorCount": 0
+}

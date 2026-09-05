@@ -77,8 +77,9 @@ class _MessageFavoritesPageState extends ConsumerState<MessageFavoritesPage> {
       _autoLoadRetryBlocked = true;
       ref.invalidate(imFavoritesPageProvider(pageNumber));
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('加载更多失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('加载更多失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _loadingMore = false);
@@ -267,7 +268,12 @@ class _MessageFavoritesPageState extends ConsumerState<MessageFavoritesPage> {
                                       ScaffoldMessenger.of(context)
                                           .showSnackBar(
                                             SnackBar(
-                                              content: Text('取消收藏失败：$error'),
+                                              content: Text(
+                                                mobileActionErrorText(
+                                                  '取消收藏失败',
+                                                  error,
+                                                ),
+                                              ),
                                             ),
                                           );
                                     }

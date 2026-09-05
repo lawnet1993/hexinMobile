@@ -1,0 +1,308 @@
+{
+  "scope": "Synthetic SQLite + platform channel + model decoding; not touch-to-frame latency",
+  "sqliteVersion": "3.44.3",
+  "schemaVersion": 15,
+  "pageBytes": 4096,
+  "results": [
+    {
+      "confirmedFixtureRows": 1000,
+      "pendingRows": 3,
+      "visibleWindowRows": 80,
+      "sameRowsAndReceipts": true,
+      "encryptedDecodedContentMatches": true,
+      "beforePlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_conversation_sequence (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ],
+      "afterPlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_visible_window (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)"
+      ],
+      "oldSql": {
+        "samplesMicros": [
+          36313,
+          8983,
+          8217,
+          8152,
+          12421,
+          5607,
+          5614,
+          17478,
+          9954
+        ],
+        "medianMicros": 8983,
+        "maxMicros": 36313
+      },
+      "newSql": {
+        "samplesMicros": [
+          1993,
+          2852,
+          2521,
+          2710,
+          3164,
+          3651,
+          2624,
+          3653,
+          2865
+        ],
+        "medianMicros": 2852,
+        "maxMicros": 3653
+      },
+      "oldSqlAgain": {
+        "samplesMicros": [
+          4662,
+          5164,
+          6119,
+          4392,
+          5086,
+          5619,
+          4474,
+          4576,
+          4291
+        ],
+        "medianMicros": 4662,
+        "maxMicros": 6119
+      },
+      "oldReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          11903,
+          10336,
+          7630,
+          7080,
+          8654,
+          7760,
+          9302,
+          9507,
+          7533
+        ],
+        "medianMicros": 8654,
+        "maxMicros": 11903
+      },
+      "newReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          6389,
+          5174,
+          7424,
+          5788,
+          6854,
+          5603,
+          4846,
+          4822,
+          7202
+        ],
+        "medianMicros": 5788,
+        "maxMicros": 7424
+      },
+      "indexCreationMicros": 16973,
+      "databasePagesBefore": 164,
+      "databasePagesAfter": 185
+    },
+    {
+      "confirmedFixtureRows": 10000,
+      "pendingRows": 3,
+      "visibleWindowRows": 80,
+      "sameRowsAndReceipts": true,
+      "encryptedDecodedContentMatches": true,
+      "beforePlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_conversation_sequence (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ],
+      "afterPlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_visible_window (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)"
+      ],
+      "oldSql": {
+        "samplesMicros": [
+          22679,
+          33091,
+          31281,
+          31997,
+          30374,
+          30879,
+          31462,
+          30914,
+          30699
+        ],
+        "medianMicros": 30914,
+        "maxMicros": 33091
+      },
+      "newSql": {
+        "samplesMicros": [
+          13597,
+          2456,
+          12084,
+          16025,
+          16209,
+          15369,
+          15622,
+          16009,
+          14742
+        ],
+        "medianMicros": 15369,
+        "maxMicros": 16209
+      },
+      "oldSqlAgain": {
+        "samplesMicros": [
+          31039,
+          30778,
+          30534,
+          31189,
+          30007,
+          31443,
+          30769,
+          30663,
+          31643
+        ],
+        "medianMicros": 30778,
+        "maxMicros": 31643
+      },
+      "oldReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          31626,
+          45134,
+          32639,
+          29348,
+          32740,
+          29239,
+          33292,
+          29794,
+          33260
+        ],
+        "medianMicros": 32639,
+        "maxMicros": 45134
+      },
+      "newReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          16595,
+          10218,
+          4211,
+          16861,
+          14941,
+          15986,
+          15950,
+          15233,
+          16267
+        ],
+        "medianMicros": 15950,
+        "maxMicros": 16861
+      },
+      "indexCreationMicros": 46382,
+      "databasePagesBefore": 1405,
+      "databasePagesAfter": 1601
+    },
+    {
+      "confirmedFixtureRows": 50000,
+      "pendingRows": 3,
+      "visibleWindowRows": 80,
+      "sameRowsAndReceipts": true,
+      "encryptedDecodedContentMatches": true,
+      "beforePlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_conversation_sequence (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ],
+      "afterPlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_visible_window (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)"
+      ],
+      "oldSql": {
+        "samplesMicros": [
+          109741,
+          108253,
+          110816,
+          108100,
+          100669,
+          119642,
+          120875,
+          106577,
+          110048
+        ],
+        "medianMicros": 109741,
+        "maxMicros": 120875
+      },
+      "newSql": {
+        "samplesMicros": [
+          17341,
+          3387,
+          9961,
+          7165,
+          3062,
+          3735,
+          3143,
+          14541,
+          2653
+        ],
+        "medianMicros": 3735,
+        "maxMicros": 17341
+      },
+      "oldSqlAgain": {
+        "samplesMicros": [
+          110185,
+          124640,
+          125966,
+          109944,
+          129712,
+          117677,
+          108750,
+          108025,
+          110272
+        ],
+        "medianMicros": 110272,
+        "maxMicros": 129712
+      },
+      "oldReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          101255,
+          110560,
+          111461,
+          108578,
+          122125,
+          125509,
+          124067,
+          109211,
+          123969
+        ],
+        "medianMicros": 111461,
+        "maxMicros": 125509
+      },
+      "newReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          7024,
+          6668,
+          16609,
+          14718,
+          16444,
+          15503,
+          15046,
+          15360,
+          16054
+        ],
+        "medianMicros": 15360,
+        "maxMicros": 16609
+      },
+      "indexCreationMicros": 83450,
+      "databasePagesBefore": 6943,
+      "databasePagesAfter": 7924
+    }
+  ]
+}

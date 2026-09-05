@@ -1,0 +1,30 @@
+{
+  "checkedAt": "2026-09-03T06:23:31.6234789+08:00",
+  "scope": "Metadata checks only; native evidence linked separately",
+  "checks": {
+    "m3IdentityPreserved": true,
+    "m4IdentityPreserved": true,
+    "m3OriginalFourPreserved": true,
+    "m4OriginalFourPreserved": true,
+    "bothLedgersMatch": true,
+    "exactlyFiveUniqueMessages": true,
+    "nativeMessageIdentity": true,
+    "m4HomePreservedUnread": true,
+    "bothReadPersisted": true,
+    "m3TwoOriginalOutboxIds": true,
+    "m4OutboxEmpty": true,
+    "oaDraftsUnchanged": true,
+    "oaReadReceiptsUnchanged": true,
+    "oaNoPendingSubmission": true,
+    "m3OtherConversationsUnchanged": true,
+    "m4OtherConversationsUnchanged": true,
+    "image-retryIncrementedOnce": true,
+    "image-remains500Pending": true,
+    "video-retryIncrementedOnce": true,
+    "video-remains500Pending": true,
+    "m3CursorAcknowledged": true,
+    "m4CursorAcknowledged": true
+  },
+  "passed": 22,
+  "total": 22
+}

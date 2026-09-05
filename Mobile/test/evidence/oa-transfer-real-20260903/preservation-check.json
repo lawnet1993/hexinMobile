@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-09-03T02:33:45.7152658+08:00",
+  "oaBaseline": "oa-before.json",
+  "oaFinal": "oa-final.json",
+  "imBaseline": "../oa-sync-latency-20260903/im-final.json",
+  "imFinal": "im-final.json",
+  "accountUnchanged": true,
+  "originalDraftCount": 2,
+  "finalDraftCount": 2,
+  "draftMetadataUnchanged": true,
+  "originalReadReceiptCount": 9,
+  "finalReadReceiptCount": 9,
+  "readReceiptsUnchanged": true,
+  "oaOutboxEmpty": true,
+  "oaCursorBefore": "411",
+  "oaCursorAfter": "449",
+  "imLedgerUnchanged": true,
+  "imConversationsUnchanged": true,
+  "imCursorsUnchanged": true,
+  "imOutboxEmpty": true,
+  "note": "OA draft metadata and read receipts compared; IM group ledger and all conversation metadata compared. Not a full decrypted database equality check."
+}

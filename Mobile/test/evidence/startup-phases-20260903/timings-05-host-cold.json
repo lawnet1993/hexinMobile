@@ -1,0 +1,133 @@
+{
+  "checkedAt": "2026-09-03T03:23:08.0861730+08:00",
+  "serial": "emulator-5556",
+  "pid": "4246",
+  "rejectedTimingRecords": 0,
+  "events": [
+    {
+      "deviceLogTime": "09-02 19:22:42.841",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "onCreateEnter",
+        "elapsedMs": 0
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:43.597",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "configureEngineEnter",
+        "elapsedMs": 756
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:43.776",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "pluginsRegistered",
+        "elapsedMs": 936
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:43.780",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "configureEngineReturn",
+        "elapsedMs": 940
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:43.917",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "onCreateReturn",
+        "elapsedMs": 1077
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:44.068",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "dartMain",
+        "elapsedMicros": 25
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:44.073",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "tunnelRegistered",
+        "elapsedMicros": 6357
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:44.075",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "runAppReturned",
+        "elapsedMicros": 7933
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:45.065",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "firstFrameworkFrame",
+        "elapsedMicros": 998175
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:45.186",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "firstFlutterUiDisplayed",
+        "elapsedMs": 2345
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:59.074",
+      "kind": "MOBILE_STARTUP_FRAMES",
+      "data": {
+        "reason": "window_elapsed",
+        "elapsedMicros": 15007019,
+        "sampleCount": 39,
+        "maxSamples": 240,
+        "invalidSamples": 0,
+        "refreshRateHz": 60.000003814697266,
+        "frameBudgetMicros": 16667,
+        "build": {
+          "p50Micros": 1340,
+          "p95Micros": 32120,
+          "maxMicros": 44395,
+          "overBudgetCount": 3
+        },
+        "raster": {
+          "p50Micros": 4533,
+          "p95Micros": 25998,
+          "maxMicros": 59362,
+          "overBudgetCount": 6
+        },
+        "totalSpan": {
+          "p50Micros": 27496,
+          "p95Micros": 132615,
+          "maxMicros": 171718,
+          "overBudgetCount": 32
+        },
+        "vsyncOverhead": {
+          "p50Micros": 11964,
+          "p95Micros": 126513,
+          "maxMicros": 131861,
+          "overBudgetCount": 13
+        },
+        "firstFrame": {
+          "buildMicros": 61,
+          "rasterMicros": 59362,
+          "totalSpanMicros": 61834,
+          "vsyncOverheadMicros": 0
+        }
+      }
+    }
+  ],
+  "hasNativeFirstUi": true,
+  "hasFrameSummary": true
+}

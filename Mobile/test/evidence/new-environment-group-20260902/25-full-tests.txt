@@ -1,0 +1,323 @@
+00:00 +0: loading E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart
+00:00 +0: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +1: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +2: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +3: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +4: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +5: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +6: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +7: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +8: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +9: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +10: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: account status keeps connecting distinct from interrupted
+00:00 +11: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/approval_cc_read_test.dart: opening an unread copied approval synchronizes cc read
+00:00 +12: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/approval_cc_read_test.dart: opening an unread copied approval synchronizes cc read
+00:00 +13: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/account_security_page_test.dart: password form keeps compact independent visibility controls
+00:01 +14: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +15: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +16: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +17: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +18: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +19: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +20: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +21: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +22: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +23: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +24: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +25: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +26: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: contact search dismisses the keyboard before opening chat
+00:01 +27: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: history 405 is actionable and retry can recover
+00:01 +28: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: history 405 is actionable and retry can recover
+00:01 +29: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: history 405 is actionable and retry can recover
+00:02 +30: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: history 405 is actionable and retry can recover
+00:02 +31: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: history 405 is actionable and retry can recover
+00:02 +32: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: history 405 is actionable and retry can recover
+00:02 +33: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: friend-request route opens the new-friends mode directly
+00:02 +34: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: friend-request route opens the new-friends mode directly
+00:02 +35: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: friend-request route opens the new-friends mode directly
+00:02 +36: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: friend-request route opens the new-friends mode directly
+00:02 +37: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: friend-request route opens the new-friends mode directly
+00:02 +38: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: friend-request route opens the new-friends mode directly
+00:02 +39: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: friend-request route opens the new-friends mode directly
+00:02 +40: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:02 +41: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:02 +42: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:02 +43: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:02 +44: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:03 +45: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:03 +46: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:03 +47: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:03 +48: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:03 +49: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:03 +50: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/design_golden_test.dart: 01-login matches the approved mobile composition
+00:03 +51: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat uses real members and group profile
+00:03 +52: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat uses real members and group profile
+00:03 +53: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat uses real members and group profile
+00:03 +54: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat uses real members and group profile
+00:03 +55: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat uses real members and group profile
+00:03 +56: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat uses real members and group profile
+00:03 +57: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat uses real members and group profile
+00:03 +58: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat uses real members and group profile
+00:03 +59: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +60: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +61: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +62: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +63: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +64: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +65: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +66: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +67: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +68: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +69: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +70: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +71: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +72: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +73: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +74: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: muted members load the next page while scrolling
+00:03 +75: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +76: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +77: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +78: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +79: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +80: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +81: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +82: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +83: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +84: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +85: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:03 +86: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: organization directory expands contacts while scrolling
+00:04 +87: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: paging failure keeps content and exposes explicit retry
+00:04 +88: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: paging failure keeps content and exposes explicit retry
+00:04 +89: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: paging failure keeps content and exposes explicit retry
+00:04 +90: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: paging failure keeps content and exposes explicit retry
+00:04 +91: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: paging failure keeps content and exposes explicit retry
+00:04 +92: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: paging failure keeps content and exposes explicit retry
+00:04 +93: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: paging failure keeps content and exposes explicit retry
+00:04 +94: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: paging failure keeps content and exposes explicit retry
+00:04 +95: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: paging failure keeps content and exposes explicit retry
+00:04 +96: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/group_management_page_test.dart: paging failure keeps content and exposes explicit retry
+00:04 +97: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_outbox_repository_test.dart: outbox-backed sends return local pending messages before network
+00:04 +98: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_outbox_repository_test.dart: outbox-backed sends return local pending messages before network
+00:04 +99: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_outbox_repository_test.dart: outbox-backed sends return local pending messages before network
+00:04 +100: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +101: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +102: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +103: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +104: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +105: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +106: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +107: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +108: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +109: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +110: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +111: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +112: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +113: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +114: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +115: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +116: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +117: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +118: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +119: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +120: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +121: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +122: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +123: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +124: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:04 +125: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/app_smoke_test.dart: large organization builds departments before member rows
+00:05 +126: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/initial_avatar_test.dart: preset avatar keys render the desktop-compatible portrait
+00:05 +127: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/initial_avatar_test.dart: preset avatar keys render the desktop-compatible portrait
+00:05 +128: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +129: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +130: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +131: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +132: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +133: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +134: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +135: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +136: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +137: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +138: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +139: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +140: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +141: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +142: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +143: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +144: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +145: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +146: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +147: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +148: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/inspection_response_sheet_test.dart: 在岗确认使用移动端底部抽屉
+00:05 +149: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:05 +150: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:05 +151: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:05 +152: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:05 +153: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:05 +154: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:05 +155: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:05 +156: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:05 +157: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:05 +158: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:05 +159: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:06 +160: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:06 +161: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:06 +162: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +163: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +164: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +165: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +166: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +167: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +168: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +169: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +170: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +171: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +172: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +173: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +174: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +175: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +176: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +177: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +178: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +179: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +180: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +181: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +182: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +183: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +184: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +185: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +186: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +187: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +188: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +189: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +190: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +191: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +192: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +193: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +194: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +195: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 顶部搜索会展示终端账号对应的单聊
+00:06 +196: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/message_auxiliary_pages_test.dart: 群发助手支持搜索、全选和紧凑提交按钮
+00:06 +197: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/message_auxiliary_pages_test.dart: 群发助手支持搜索、全选和紧凑提交按钮
+00:06 +198: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/message_auxiliary_pages_test.dart: 群发助手支持搜索、全选和紧凑提交按钮
+00:06 +199: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/message_auxiliary_pages_test.dart: 群发助手支持搜索、全选和紧凑提交按钮
+00:06 +200: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/message_auxiliary_pages_test.dart: 群发助手支持搜索、全选和紧凑提交按钮
+00:06 +201: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/message_auxiliary_pages_test.dart: 群发助手支持搜索、全选和紧凑提交按钮
+00:06 +202: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 发起会话弹层保持紧凑并隔离单聊群聊流程
+00:07 +203: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 发起会话弹层保持紧凑并隔离单聊群聊流程
+00:07 +204: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/messages_page_type_test.dart: 发起会话弹层保持紧凑并隔离单聊群聊流程
+00:07 +205: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: attachment actions stay compact and isolate direct-only tasks
+00:07 +206: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: attachment actions stay compact and isolate direct-only tasks
+00:07 +207: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: attachment actions stay compact and isolate direct-only tasks
+00:07 +208: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/module_loading_states_test.dart: primary modules announce their own loading state
+00:07 +209: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/module_loading_states_test.dart: primary modules announce their own loading state
+00:07 +210: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/module_loading_states_test.dart: primary modules announce their own loading state
+00:07 +211: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/module_loading_states_test.dart: primary modules announce their own loading state
+00:07 +212: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/module_loading_states_test.dart: primary modules announce their own loading state
+00:07 +213: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/module_loading_states_test.dart: primary modules announce their own loading state
+00:07 +214: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/module_loading_states_test.dart: primary modules announce their own loading state
+00:07 +215: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/module_loading_states_test.dart: primary modules announce their own loading state
+00:07 +216: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/module_loading_states_test.dart: primary modules announce their own loading state
+00:07 +217: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/module_loading_states_test.dart: primary modules announce their own loading state
+00:07 +218: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/network_security_page_test.dart: unavailable tunnel uses compact user-facing diagnostics
+00:07 +219: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/network_security_page_test.dart: unavailable tunnel uses compact user-facing diagnostics
+00:07 +220: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/network_security_page_test.dart: unavailable tunnel uses compact user-facing diagnostics
+00:07 +221: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/network_security_page_test.dart: unavailable tunnel uses compact user-facing diagnostics
+00:08 +222: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/notification_open_navigation_test.dart: notification opens its target before read sync completes
+00:08 +223: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/notification_open_navigation_test.dart: notification opens its target before read sync completes
+00:08 +224: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/notification_open_navigation_test.dart: notification opens its target before read sync completes
+00:08 +225: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/notification_open_navigation_test.dart: notification opens its target before read sync completes
+00:08 +226: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/notification_open_navigation_test.dart: notification opens its target before read sync completes
+00:08 +227: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/notification_open_navigation_test.dart: notification opens its target before read sync completes
+00:08 +228: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/notification_open_navigation_test.dart: notification opens its target before read sync completes
+00:08 +229: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +230: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +231: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +232: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +233: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +234: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +235: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +236: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +237: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +238: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +239: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +240: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +241: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +242: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +243: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +244: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +245: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:08 +246: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +247: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +248: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +249: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +250: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +251: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +252: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +253: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +254: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +255: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +256: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +257: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +258: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +259: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +260: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +261: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +262: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +263: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +264: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:09 +265: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:10 +266: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_approval_detail_freshness_test.dart: approval detail keeps the last server state while offline
+00:10 +267: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/workbench_sites_page_test.dart: 移动工作台不暴露站点入口，独立页仍可安全打开
+00:10 +268: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/workbench_sites_page_test.dart: 移动工作台不暴露站点入口，独立页仍可安全打开
+00:10 +269: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: todos distinguishes an offline cache from a true empty list
+00:10 +270: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: todos keeps an empty cache provisional while syncing
+00:10 +271: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: approval list loads the next page while scrolling
+00:10 +272: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: empty approval result fills the next page automatically
+00:10 +273: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: validation-failed outbox asks for editing instead of retry
+00:10 +274: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: todo counts stay inline with compact tab labels
+00:10 +275: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: approval filters use compact rows and apply item type
+00:11 +276: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: initiated approvals keep the desktop withdrawn state
+00:11 +277: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: terminal approval can be started again with safe prefill
+00:11 +278: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: terminal approval resubmit stays owner-only
+00:11 +279: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: approval detail formats server dates and compact action rows
+00:11 +280: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: approval detail keeps long continuous values on one row
+00:11 +281: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: approval detail never exposes visual-form configuration as business data
+00:11 +282: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: approval list keeps number, delegation and terminal status
+00:11 +283: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: about page exposes a real manual update check
+00:11 +284: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: dynamic approval request renders server schema fields
+00:11 +285: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: duration field uses backend schema without synthetic value
+00:11 +286: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: schema configuration objects never render as field values
+00:12 +287: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: serialized schema description never fills readonly input
+00:12 +288: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: calculation fields use backend formula readonly unit and precision
+00:12 +289: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: new request shows preset and uploaded requester portraits
+00:12 +290: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: new request resolves backend schema defaults from requester
+00:12 +291: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: text validation and attachment behavior follow backend schema
+00:12 +292: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: workflow preview stays expanded with compact desktop metadata
+00:12 +293: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: workflow preview exposes a compact offline state and retry
+00:12 +294: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: workflow preview maps request timeout to the offline state
+00:12 +295: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: workflow preview deduplicates an unchanged pending request
+00:12 +296: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: workflow preview leaves loading state after mobile timeout
+00:12 +297: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: restored draft shows a compact image row and real preview
+00:12 +298: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: rapid back saves the latest local draft before leaving
+00:13 +299: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification center shows unread approval notification
+00:13 +300: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification center loads the next page while scrolling
+00:13 +301: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification center fills a short first page automatically
+00:13 +302: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification paging retries after a new upward gesture
+00:13 +303: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: account language exposes the desktop-aligned choices
+00:13 +304: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification privacy uses a compact full-row action sheet
+00:13 +305: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification settings exposes a missing native push channel
+00:13 +306: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification settings keeps connecting distinct from offline
+00:13 +307: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification settings uses a compact offline sync state
+00:13 +308: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification settings keeps offline errors compact
+00:13 +309: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification settings updates when native push token arrives
+00:13 +310: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification center projects pending friend applications
+00:13 +311: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: friend request entry opens a compact dedicated list
+00:13 +312: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: notification center projects real OA announcements
+00:13 +313: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: announcement entry opens the announcement section directly
+00:13 +314: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: approval detail exposes every server-allowed advanced action
+00:14 +315: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: approval detail marks an offline snapshot and hides actions
+00:14 +316: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: single approval secondary action uses a compact choice sheet
+00:14 +317: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: approval review success copy distinguishes node and process completion
+00:14 +318: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: approval task keeps desktop timeout metadata
+00:14 +319: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: attendance pages render punch policy and correction limit
+00:14 +320: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/oa_mobile_pages_test.dart: schedule uses one compact list and closes its editor safely
+00:14 +321: All tests passed!

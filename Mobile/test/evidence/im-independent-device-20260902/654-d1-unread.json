@@ -1,0 +1,94 @@
+{
+  "checkedAt": "2026-09-02T20:13:10.5046950+08:00",
+  "account": "test01",
+  "probes": [
+    {
+      "path": "/api/im/conversations?take=50",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "requestId": null,
+      "allow": [],
+      "responseType": "Object[]",
+      "fields": [
+        "Length",
+        "LongLength",
+        "Rank",
+        "SyncRoot",
+        "IsReadOnly",
+        "IsFixedSize",
+        "IsSynchronized",
+        "Count"
+      ],
+      "itemCount": 5,
+      "itemFields": [
+        "id",
+        "type",
+        "title",
+        "lastMessageSequence",
+        "lastMessagePreview",
+        "updatedAt",
+        "unreadCount",
+        "isPinned",
+        "isMuted",
+        "clearedBeforeSequence",
+        "lastReadSequence",
+        "unreadMentionSequences",
+        "onlineMemberCount",
+        "peerLastSeenAt"
+      ],
+      "items": [
+        {
+          "id": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+          "type": "direct",
+          "lastMessageSequence": 1,
+          "lastReadSequence": 0,
+          "unreadCount": 1
+        },
+        {
+          "id": "c4906953-10bd-4671-b984-c50ed3951349",
+          "type": "group",
+          "lastMessageSequence": 85,
+          "lastReadSequence": 85,
+          "unreadCount": 0
+        },
+        {
+          "id": "ce4a77c2-7acb-41f9-aa7e-d07937a4d2fa",
+          "type": "group",
+          "lastMessageSequence": 0,
+          "lastReadSequence": 0,
+          "unreadCount": 0
+        },
+        {
+          "id": "b0c895f2-3336-45f2-a52a-44e1e8500a2b",
+          "type": "direct",
+          "lastMessageSequence": 1,
+          "lastReadSequence": 0,
+          "unreadCount": 1
+        },
+        {
+          "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+          "type": "direct",
+          "lastMessageSequence": 6,
+          "lastReadSequence": 6,
+          "unreadCount": 0
+        }
+      ]
+    },
+    {
+      "path": "/api/im/conversations/page?page=1&pageSize=50",
+      "status": 405,
+      "contentType": "",
+      "requestId": null,
+      "allow": [
+        "DELETE"
+      ],
+      "responseType": "null",
+      "fields": [
+        null
+      ],
+      "itemCount": 0,
+      "itemFields": [],
+      "items": []
+    }
+  ]
+}

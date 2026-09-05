@@ -1,0 +1,117 @@
+{
+  "checkedAt": "2026-09-03T02:27:20.5635504+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260903-022400-BACKSIGN",
+  "bootstrapStatus": 200,
+  "requestId": null,
+  "pageStatus": 200,
+  "pageRequestId": null,
+  "hasMore": false,
+  "requests": [
+    {
+      "id": "5303a348-ddea-40e0-938a-3ed2b7fd3486",
+      "detailStatus": 200,
+      "requestId": null,
+      "markerMatched": true,
+      "status": "submitted",
+      "title": "Test Terminal 03的借支审批",
+      "requesterName": "Test Terminal 03",
+      "requesterDepartmentName": "财顺",
+      "createdAt": "2026-09-02T18:25:27.604471Z",
+      "updatedAt": "2026-09-02T18:27:18.396058Z",
+      "allowedActions": [],
+      "templateVersion": 1,
+      "requestVersion": 2,
+      "workflowKey": "system.default.finance.advance-request",
+      "clientRequestId": "58725c23-076c-4f9e-9a82-526d32a5abdf",
+      "completedAt": null,
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "e812f16f-a2d8-4d04-986f-335dcc51e1c9",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+          "assigneeName": "Test Terminal 03",
+          "assigneeDepartmentName": "财顺",
+          "status": "pending",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "5b7c27f8-3b00-44b5-bf44-9dcf8ab6f6e5",
+          "nodeName": "部门负责人审批（加签）",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "waiting",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "0a3e7995-79f8-4a94-a24d-29e234ba3f4c",
+          "action": "submitted",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:25:27.604471Z"
+        },
+        {
+          "id": "7f2cbbe6-7661-4143-a841-0538a747f88d",
+          "action": "add_signed",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:27:18.396058Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": []
+    }
+  ],
+  "matchCount": 1,
+  "sync": {
+    "status": 200,
+    "requestId": null,
+    "latestSequence": 437,
+    "afterSequence": 431,
+    "totalReturned": 2,
+    "events": []
+  }
+}

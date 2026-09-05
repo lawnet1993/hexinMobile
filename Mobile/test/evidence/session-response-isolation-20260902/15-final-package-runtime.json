@@ -1,0 +1,24 @@
+[
+  {
+    "device": "dd00d66d",
+    "checkedAt": "2026-09-02T19:19:06.8587845+08:00",
+    "pid": "24061",
+    "installedSha256": "96c54582eb09ead2d98c3cd88a5d4aeaf62c20ca5804e9584644bf907aa4edc5",
+    "wifi": "0",
+    "data": "1",
+    "defaultNetwork": "Active default network: 107",
+    "targetedErrorCount": 0,
+    "sessionFailureLogCount": 0
+  },
+  {
+    "device": "emulator-5554",
+    "checkedAt": "2026-09-02T19:19:08.0604132+08:00",
+    "pid": "16794",
+    "installedSha256": "96c54582eb09ead2d98c3cd88a5d4aeaf62c20ca5804e9584644bf907aa4edc5",
+    "wifi": "1",
+    "data": "1",
+    "defaultNetwork": "Active default network: 109",
+    "targetedErrorCount": 0,
+    "sessionFailureLogCount": 0
+  }
+]

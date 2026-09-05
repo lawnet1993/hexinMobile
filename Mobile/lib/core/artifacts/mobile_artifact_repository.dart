@@ -15,7 +15,9 @@ final mobileArtifactStoreProvider = FutureProvider<MobileArtifactStore>((
   ref,
 ) async {
   final support = await getApplicationSupportDirectory();
-  final root = Directory('${support.path}/mobile-artifacts');
+  final root = Directory(
+    '${support.path}/${AppEnvironment.storageDirectoryName('mobile-artifacts')}',
+  );
   return MobileArtifactStore(
     downloadClient: Dio(),
     signatureVerifier: Ed25519ArtifactSignatureVerifier(

@@ -1,0 +1,62 @@
+[
+  {
+    "file": "04-empty-form.xml",
+    "field": "开始时间 *",
+    "bounds": "[63,389][1017,488]"
+  },
+  {
+    "file": "04-empty-form.xml",
+    "field": "结束时间 *",
+    "bounds": "[63,515][1017,614]"
+  },
+  {
+    "file": "04-empty-form.xml",
+    "field": "reason",
+    "bounds": "[63,819][1017,982]"
+  },
+  {
+    "file": "05-autosaved-keyboard.xml",
+    "field": "开始时间 *",
+    "bounds": "[63,389][1017,488]"
+  },
+  {
+    "file": "05-autosaved-keyboard.xml",
+    "field": "结束时间 *",
+    "bounds": "[63,515][1017,614]"
+  },
+  {
+    "file": "05-autosaved-keyboard.xml",
+    "field": "reason",
+    "bounds": "[63,819][1017,982]"
+  },
+  {
+    "file": "10-after-confirm.xml",
+    "field": "开始时间 *",
+    "bounds": "[63,389][1017,488]"
+  },
+  {
+    "file": "10-after-confirm.xml",
+    "field": "结束时间 *",
+    "bounds": "[63,515][1017,614]"
+  },
+  {
+    "file": "10-after-confirm.xml",
+    "field": "reason",
+    "bounds": "[63,819][1017,982]"
+  },
+  {
+    "file": "13-offline-restored.xml",
+    "field": "开始时间 *",
+    "bounds": "[63,389][1017,488]"
+  },
+  {
+    "file": "13-offline-restored.xml",
+    "field": "结束时间 *",
+    "bounds": "[63,515][1017,614]"
+  },
+  {
+    "file": "13-offline-restored.xml",
+    "field": "reason",
+    "bounds": "[63,819][1017,982]"
+  }
+]

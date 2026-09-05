@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-09-03T02:56:44.9185263+08:00",
+  "serial": "emulator-5556",
+  "pid": "3113",
+  "wifi": "1",
+  "mobileData": "1",
+  "network": "Active default network: 148",
+  "installedHash": "87e8abde54535cfd3261f0ef21d174b5ca3b7fb367341cb9a02a3b0bd3cd2901",
+  "localHash": "87E8ABDE54535CFD3261F0EF21D174B5CA3B7FB367341CB9A02A3B0BD3CD2901",
+  "hashMatches": true,
+  "fatalExceptions": 0,
+  "flutterErrors": 0
+}

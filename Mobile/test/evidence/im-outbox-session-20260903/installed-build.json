@@ -1,0 +1,18 @@
+[
+  {
+    "serial": "emulator-5556",
+    "installedAt": "2026-09-03T06:18:45.2595136+08:00",
+    "normalEntryPoint": "lib/main.dart",
+    "sha256": "B9C67ACBA57785CFB643B62A9579CFF518B3305B0EB62FE27E78427F5DC49376",
+    "install": "Success",
+    "launch": "Success"
+  },
+  {
+    "serial": "emulator-5558",
+    "installedAt": "2026-09-03T06:18:57.7697896+08:00",
+    "normalEntryPoint": "lib/main.dart",
+    "sha256": "B9C67ACBA57785CFB643B62A9579CFF518B3305B0EB62FE27E78427F5DC49376",
+    "install": "Success",
+    "launch": "Success"
+  }
+]

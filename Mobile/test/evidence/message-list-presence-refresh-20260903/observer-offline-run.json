@@ -1,0 +1,31 @@
+[
+  {
+    "status": "online",
+    "step": "observer-before",
+    "at": "2026-09-03T05:35:53.2162278+08:00"
+  },
+  {
+    "at": "2026-09-03T05:35:54.2687075+08:00",
+    "step": "observer-network-off"
+  },
+  {
+    "status": "unknown",
+    "step": "observer-offline-40",
+    "at": "2026-09-03T05:36:36.8383181+08:00"
+  },
+  {
+    "mobileData": "1",
+    "wifi": "1",
+    "step": "observer-network-restored",
+    "at": "2026-09-03T05:36:36.9835058+08:00"
+  },
+  {
+    "status": "online",
+    "step": "observer-reconnected-35",
+    "at": "2026-09-03T05:37:16.9746099+08:00"
+  },
+  {
+    "at": "2026-09-03T05:37:16.9771584+08:00",
+    "step": "finished"
+  }
+]

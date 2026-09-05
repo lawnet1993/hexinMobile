@@ -1,0 +1,33 @@
+{
+  "checkedAt": "2026-09-03T09:10:17.3565492+08:00",
+  "serial": "emulator-5558",
+  "pid": "26400",
+  "rejected": 0,
+  "events": [
+    {
+      "rows": 80,
+      "cacheHits": 0,
+      "durationMicros": 105186
+    },
+    {
+      "rows": 50,
+      "cacheHits": 50,
+      "durationMicros": 46403
+    },
+    {
+      "rows": 50,
+      "cacheHits": 50,
+      "durationMicros": 6949
+    },
+    {
+      "rows": 50,
+      "cacheHits": 50,
+      "durationMicros": 33488
+    },
+    {
+      "rows": 50,
+      "cacheHits": 50,
+      "durationMicros": 16065
+    }
+  ]
+}

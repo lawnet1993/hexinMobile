@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-09-05T00:09:08.0523441+08:00",
+  "checks": {
+    "integrity": true,
+    "singlePersistedMessage": true,
+    "serverIdMatches": true,
+    "clientIdMatches": true,
+    "statusSent": true,
+    "outboxEmpty": true,
+    "ownUnreadZero": true,
+    "historyIdsAndOrderPreserved": true
+  },
+  "allPassed": true
+}

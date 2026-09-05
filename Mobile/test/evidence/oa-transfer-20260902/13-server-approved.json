@@ -1,0 +1,175 @@
+{
+  "checkedAt": "2026-09-02T18:11:10.6976452+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260902-181000-TRANSFER",
+  "bootstrapStatus": 200,
+  "requestId": null,
+  "pageStatus": 200,
+  "pageRequestId": null,
+  "hasMore": false,
+  "matchCount": 1,
+  "requests": [
+    {
+      "id": "66d1b63a-795e-4e6f-aa64-a6d65011814c",
+      "detailStatus": 200,
+      "requestId": null,
+      "status": "submitted",
+      "title": "Test Terminal 01的请假审批",
+      "requesterName": "Test Terminal 01",
+      "requesterDepartmentName": "公司总部",
+      "createdAt": "2026-09-02T10:08:12.786705Z",
+      "updatedAt": "2026-09-02T10:11:10.472211Z",
+      "allowedActions": [
+        "withdraw",
+        "remind"
+      ],
+      "templateVersion": 1,
+      "requestVersion": 3,
+      "workflowKey": "system.default.attendance.leave",
+      "clientRequestId": "e821ad85-b57d-4712-80b1-51003b7ffe76",
+      "completedAt": null,
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "41b73573-bdbc-4e77-8b00-5239a29bddb4",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "8e0b6fdd-4490-435a-9be5-5a345e3b3ebc",
+          "assigneeName": "宋扬",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "a556154a-046d-4e4e-ab9b-fb03a614c801",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "3a23732d-35f5-8845-7860-d12b3a4844cf",
+          "assigneeName": "陆炳",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "5d1b2d25-e547-4761-938c-da2b77156912",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "transferred",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-02T10:09:23.979119Z"
+        },
+        {
+          "id": "60d8fd5c-1856-4517-b9ba-4fed3d558796",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+          "assigneeName": "Test Terminal 02",
+          "assigneeDepartmentName": "公司总部",
+          "status": "approved",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-02T10:11:10.472211Z"
+        }
+      ],
+      "actions": [
+        {
+          "id": "47b0fcef-108e-4796-8572-2c92ff43d15b",
+          "action": "submitted",
+          "actorName": "Test Terminal 01",
+          "occurredAt": "2026-09-02T10:08:12.786705Z"
+        },
+        {
+          "id": "4e6ec194-c095-45b1-9b37-469a0fb408af",
+          "action": "transferred",
+          "actorName": "Test Terminal 01",
+          "occurredAt": "2026-09-02T10:09:23.979119Z"
+        },
+        {
+          "id": "b11c3966-f2a8-4b26-a3ce-334b2c050e90",
+          "action": "approved",
+          "actorName": "Test Terminal 02",
+          "occurredAt": "2026-09-02T10:11:10.472211Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": [
+        {
+          "id": "30c9f1cc-9cc4-4789-bcba-7a960f4b6368",
+          "type": "approval.updated",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:11:10.472211Z"
+        },
+        {
+          "id": "61f767ae-778d-43b8-9776-332f5689043e",
+          "type": "approval.task.transferred",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:09:23.979119Z"
+        },
+        {
+          "id": "17f976f2-53fa-49ae-b46c-366493bfe6fd",
+          "type": "approval.updated",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:09:23.979119Z"
+        },
+        {
+          "id": "ea602b62-1920-41db-808f-436302ceecf6",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:08:12.786705Z"
+        },
+        {
+          "id": "af66c78e-87da-447e-8404-f90ce26f9846",
+          "type": "approval.submitted",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:08:12.786705Z"
+        }
+      ]
+    }
+  ]
+}

@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
+import '../../../core/config/app_environment.dart';
+
 typedef ImMessageImageCacheDirectoryLoader = Future<Directory> Function();
 
 final class ImMessageImageDiskCache {
@@ -138,7 +140,7 @@ final class ImMessageImageDiskCache {
   static Future<Directory> _defaultDirectory() async => Directory(
     path.join(
       (await getApplicationSupportDirectory()).path,
-      'im-message-images',
+      AppEnvironment.storageDirectoryName('im-message-images'),
     ),
   );
 }

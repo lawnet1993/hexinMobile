@@ -1,0 +1,82 @@
+{
+  "checkedAt": "2026-09-03T02:56:11.1337261+08:00",
+  "oaDraftCount": 2,
+  "oaDraftsUnchanged": true,
+  "oaReadReceiptCount": 9,
+  "oaReadReceiptsUnchanged": true,
+  "oaOutboxUnchanged": true,
+  "oaCursorUnchanged": true,
+  "outboxIds": [
+    "13dc7539-f758-450e-a45d-ae151c846e14",
+    "4bd94d7a-d990-44d8-9b72-4edc3fc4925c"
+  ],
+  "exactlyTwoOriginalQueueRecords": true,
+  "eventCursorsBefore": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 207
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 207
+    }
+  ],
+  "eventCursorsAfter": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 226
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 226
+    }
+  ],
+  "newEventTypes": [
+    {
+      "sequence": 226,
+      "type": "presence.changed"
+    },
+    {
+      "sequence": 217,
+      "type": "presence.changed"
+    }
+  ],
+  "currentFailures": [
+    {
+      "kind": "image",
+      "httpStatus": "500"
+    },
+    {
+      "kind": "video",
+      "httpStatus": "500"
+    }
+  ],
+  "conversations": [
+    {
+      "kind": "direct",
+      "confirmedCount": 6,
+      "confirmedLedgerUnchanged": true,
+      "pendingRows": 1,
+      "targetUnique": true,
+      "serverReadFieldsUnchanged": true,
+      "desktopGetStatus": 200,
+      "desktopMessageCount": 6,
+      "desktopConfirmedLedgerUnchanged": true
+    },
+    {
+      "kind": "group",
+      "confirmedCount": 11,
+      "confirmedLedgerUnchanged": true,
+      "pendingRows": 1,
+      "targetUnique": true,
+      "serverReadFieldsUnchanged": true,
+      "desktopGetStatus": 200,
+      "desktopMessageCount": 11,
+      "desktopConfirmedLedgerUnchanged": true
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-09-03T02:09:00.0754475+08:00",
+  "originalDraftsUnchanged": true,
+  "originalReadReceiptsUnchanged": true,
+  "readReceiptCount": 9,
+  "pendingReadReceipts": 0,
+  "oaCursor": "411",
+  "oaOutboxCount": 0,
+  "imCursorsUnchanged": true,
+  "imMessageLedgerUnchanged": true,
+  "imOutboxCount": 0,
+  "newOaEvents": [
+    {
+      "sequence": 411,
+      "event_id": "8aed51eb-35ba-4290-8166-7b15c54096a9",
+      "type": "oa.notification.read"
+    },
+    {
+      "sequence": 410,
+      "event_id": "88e27107-7008-4eba-b21b-22e855e0acf1",
+      "type": "oa.notification.read"
+    },
+    {
+      "sequence": 409,
+      "event_id": "530dc901-215f-4d7b-9ebc-f33173b0bc66",
+      "type": "oa.notification.read"
+    },
+    {
+      "sequence": 408,
+      "event_id": "79cde143-fcfe-4a21-8b3f-096bdf82499d",
+      "type": "oa.notification.read"
+    },
+    {
+      "sequence": 407,
+      "event_id": "e4daa812-cdde-429f-9178-4a7d320e82f8",
+      "type": "oa.notification.read"
+    }
+  ]
+}

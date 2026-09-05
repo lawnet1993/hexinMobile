@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-09-03T02:14:00.4987028+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260903-021200-TRANSFER",
+  "bootstrapStatus": 200,
+  "requestId": null,
+  "pageStatus": 200,
+  "pageRequestId": null,
+  "hasMore": false,
+  "requests": [
+    {
+      "id": "e5f0977a-c8c0-46a0-baff-aeecea59094c",
+      "detailStatus": 404,
+      "requestId": null,
+      "markerMatched": false
+    }
+  ],
+  "matchCount": 0,
+  "sync": {
+    "status": 200,
+    "requestId": null,
+    "latestSequence": 343,
+    "afterSequence": 343,
+    "totalReturned": 0,
+    "events": []
+  }
+}

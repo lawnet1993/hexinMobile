@@ -42,4 +42,41 @@ void main() {
       );
     },
   );
+
+  test('keeps the action while hiding raw request details', () {
+    expect(
+      mobileActionErrorText(
+        '发送失败',
+        Exception('https://example.test/api/messages?token=secret failed'),
+      ),
+      '发送失败：请稍后重试',
+    );
+    expect(
+      mobileActionErrorText(
+        '加载失败',
+        Exception('connection failed at /api/im/sync/events'),
+      ),
+      '加载失败：请稍后重试',
+    );
+  });
+
+  test(
+    '405 exposes protocol incompatibility, not an offline or empty state',
+    () {
+      final request = RequestOptions(
+        path: '/api/im/conversations/test/messages',
+      );
+      final error = DioException.badResponse(
+        statusCode: 405,
+        requestOptions: request,
+        response: Response<Object?>(
+          requestOptions: request,
+          statusCode: 405,
+          data: {'debug': 'private transport details'},
+        ),
+      );
+      expect(mobileErrorText(error), '服务接口不兼容，请联系管理员');
+      expect(mobileErrorText(error), isNot(contains('private')));
+    },
+  );
 }

@@ -150,13 +150,14 @@ final class OaLocalStore {
   Future<Database> _open() async => _factory.openDatabase(
     await _pathResolver(),
     options: OpenDatabaseOptions(
-      version: 2,
+      version: 3,
       onConfigure: (database) async {
         // journal_mode returns a result row on Android SQLite and therefore
         // must be issued through rawQuery rather than execute.
         await database.rawQuery('PRAGMA journal_mode = WAL');
       },
       onCreate: (database, _) async {
+        await _createNotificationReads(database);
         await database.execute('''
           CREATE TABLE oa_cache (
             account_id TEXT NOT NULL,
@@ -229,6 +230,7 @@ final class OaLocalStore {
         ''');
       },
       onUpgrade: (database, oldVersion, _) async {
+        if (oldVersion < 3) await _createNotificationReads(database);
         if (oldVersion < 2) {
           await database.execute(
             "ALTER TABLE oa_approval_drafts ADD COLUMN attachments_json TEXT NOT NULL DEFAULT ''",
@@ -256,7 +258,12 @@ final class OaLocalStore {
       rows.single['payload_json']?.toString() ?? '{}',
     );
     final decoded = jsonDecode(payload);
-    return decoded is Map ? decoded.cast<String, Object?>() : null;
+    if (decoded is! Map) return null;
+    return projectNotificationObject(
+      accountId,
+      cacheKey,
+      decoded.cast<String, Object?>(),
+    );
   }
 
   Future<List<Object?>?> readList(String accountId, String cacheKey) async {
@@ -274,7 +281,157 @@ final class OaLocalStore {
       rows.single['payload_json']?.toString() ?? '[]',
     );
     final decoded = jsonDecode(payload);
-    return decoded is List ? decoded.cast<Object?>() : null;
+    if (decoded is! List) return null;
+    return cacheKey == notificationsCacheKey
+        ? projectNotifications(accountId, decoded.cast<Object?>())
+        : decoded.cast<Object?>();
+  }
+
+  static Future<void> _createNotificationReads(DatabaseExecutor database) =>
+      database.execute('''
+    CREATE TABLE oa_notification_reads (
+      account_id TEXT NOT NULL,
+      notification_id TEXT NOT NULL,
+      read_at TEXT NOT NULL,
+      state TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_retry_at TEXT NOT NULL,
+      PRIMARY KEY (account_id, notification_id)
+    )
+  ''');
+
+  /// Read intent is monotonic and kept after ACK, so a late/stale server
+  /// snapshot cannot resurrect an already read notification on this device.
+  Future<void> enqueueNotificationRead(String accountId, String id) async {
+    if (id.trim().isEmpty) throw ArgumentError('Notification id required');
+    final now = DateTime.now().toUtc().toIso8601String();
+    await (await _database).insert('oa_notification_reads', {
+      'account_id': accountId,
+      'notification_id': id,
+      'read_at': now,
+      'state': 'pending',
+      'attempts': 0,
+      'next_retry_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  Future<List<Map<String, Object?>>> dueNotificationReads(
+    String accountId,
+  ) async => (await _database).query(
+    'oa_notification_reads',
+    columns: ['notification_id', 'read_at', 'attempts'],
+    where: "account_id = ? AND state = 'pending' AND next_retry_at <= ?",
+    whereArgs: [accountId, DateTime.now().toUtc().toIso8601String()],
+    orderBy: 'read_at',
+  );
+
+  Future<int> pendingNotificationReadCount(String accountId) async {
+    final rows = await (await _database).rawQuery(
+      "SELECT COUNT(*) AS count FROM oa_notification_reads WHERE account_id = ? AND state != 'sent'",
+      [accountId],
+    );
+    return _integer(rows.single['count']);
+  }
+
+  Future<void> confirmNotificationRead(String accountId, String id) async =>
+      (await _database).update(
+        'oa_notification_reads',
+        {'state': 'sent'},
+        where: 'account_id = ? AND notification_id = ?',
+        whereArgs: [accountId, id],
+      );
+
+  Future<void> failNotificationRead(
+    String accountId,
+    String id,
+    int previousAttempts, {
+    required bool permanent,
+  }) async {
+    final attempts = previousAttempts + 1;
+    final next = DateTime.now().toUtc().add(
+      Duration(seconds: (attempts * attempts * 5).clamp(5, 300)),
+    );
+    await (await _database).update(
+      'oa_notification_reads',
+      {
+        'state': permanent ? 'failed' : 'pending',
+        'attempts': attempts,
+        'next_retry_at': next.toIso8601String(),
+      },
+      where: "account_id = ? AND notification_id = ? AND state != 'sent'",
+      whereArgs: [accountId, id],
+    );
+  }
+
+  Future<void> retryNotificationReads(String accountId) async =>
+      (await _database).update(
+        'oa_notification_reads',
+        {
+          'state': 'pending',
+          'next_retry_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        where: "account_id = ? AND state != 'sent'",
+        whereArgs: [accountId],
+      );
+
+  Future<List<Object?>> projectNotifications(
+    String accountId,
+    List<Object?> items,
+  ) async {
+    final ids = items
+        .whereType<Map>()
+        .map((item) => item['id'] ?? item['Id'])
+        .whereType<String>()
+        .toSet()
+        .toList();
+    if (ids.isEmpty) return items;
+    final readAt = <Object?, Object?>{};
+    final database = await _database;
+    // Bound SQLite parameters and only read receipts for this page, not the
+    // account's entire history on every bootstrap/notification refresh.
+    for (var offset = 0; offset < ids.length; offset += 400) {
+      final chunk = ids.skip(offset).take(400).toList();
+      final placeholders = List.filled(chunk.length, '?').join(',');
+      final receipts = await database.query(
+        'oa_notification_reads',
+        columns: ['notification_id', 'read_at'],
+        where: 'account_id = ? AND notification_id IN ($placeholders)',
+        whereArgs: [accountId, ...chunk],
+      );
+      for (final row in receipts) {
+        readAt[row['notification_id']] = row['read_at'];
+      }
+    }
+    return items.map((value) {
+      if (value is! Map) return value;
+      final id = value['id'] ?? value['Id'];
+      if (!readAt.containsKey(id)) return value;
+      return <String, Object?>{
+        ...value.cast<String, Object?>(),
+        'isRead': true,
+        'readAt': readAt[id],
+      };
+    }).toList();
+  }
+
+  Future<Map<String, Object?>> projectNotificationObject(
+    String accountId,
+    String key,
+    Map<String, Object?> object,
+  ) async {
+    final field = key == bootstrapCacheKey
+        ? 'notifications'
+        : key == notificationPageCacheKey
+        ? 'items'
+        : null;
+    if (field == null || object[field] is! List) return object;
+    return {
+      ...object,
+      field: await projectNotifications(
+        accountId,
+        (object[field] as List).cast<Object?>(),
+      ),
+    };
   }
 
   Future<DateTime?> cacheUpdatedAt(String accountId, String cacheKey) async {
@@ -515,6 +672,41 @@ final class OaLocalStore {
       limit: 1,
     );
     return rows.isEmpty ? 0 : _integer(rows.single['value']);
+  }
+
+  /// Returns only counters needed for safe client health telemetry. The
+  /// snapshot is account-scoped and never exposes cached business payloads.
+  Future<
+    ({
+      int appliedSequence,
+      int pendingCommandCount,
+      int pendingNotificationReadCount,
+    })
+  >
+  syncHealth(String accountId) async {
+    final database = await _database;
+    final cursorRows = await database.query(
+      'oa_sync_state',
+      columns: ['value'],
+      where: "account_id = ? AND state_key = 'last-event-sequence'",
+      whereArgs: [accountId],
+      limit: 1,
+    );
+    final commandRows = await database.rawQuery(
+      'SELECT COUNT(*) AS count FROM oa_outbox WHERE account_id = ?',
+      [accountId],
+    );
+    final notificationRows = await database.rawQuery(
+      "SELECT COUNT(*) AS count FROM oa_notification_reads WHERE account_id = ? AND state != 'sent'",
+      [accountId],
+    );
+    return (
+      appliedSequence: cursorRows.isEmpty
+          ? 0
+          : _integer(cursorRows.single['value']),
+      pendingCommandCount: _integer(commandRows.single['count']),
+      pendingNotificationReadCount: _integer(notificationRows.single['count']),
+    );
   }
 
   Future<void> applySyncBatch({

@@ -47,6 +47,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        testInstrumentationRunner = "com.hexing.zhilian.hexing_terminal_mobile.PushStoreInstrumentation"
         manifestPlaceholders["artifactSigningPublicKeys"] = ""
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")

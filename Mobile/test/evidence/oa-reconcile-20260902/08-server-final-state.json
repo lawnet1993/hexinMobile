@@ -1,0 +1,331 @@
+{
+  "checkedAt": "2026-09-02T18:40:26.8323781+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260902-183700-RECONCILE",
+  "bootstrapStatus": 200,
+  "requestId": null,
+  "pageStatus": 200,
+  "pageRequestId": null,
+  "hasMore": false,
+  "matchCount": 1,
+  "requests": [
+    {
+      "id": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+      "detailStatus": 200,
+      "requestId": null,
+      "status": "withdrawn",
+      "title": "Test Terminal 01的请假审批",
+      "requesterName": "Test Terminal 01",
+      "requesterDepartmentName": "公司总部",
+      "createdAt": "2026-09-02T10:36:46.400272Z",
+      "updatedAt": "2026-09-02T10:40:13.909769Z",
+      "allowedActions": [],
+      "templateVersion": 1,
+      "requestVersion": 4,
+      "workflowKey": "system.default.attendance.leave",
+      "clientRequestId": "72593174-0ef6-449b-b69a-924b72665081",
+      "completedAt": "2026-09-02T10:40:13.909769Z",
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "853e8c27-d405-45c1-876b-2d6d9eb7b14e",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "3a23732d-35f5-8845-7860-d12b3a4844cf",
+          "assigneeName": "陆炳",
+          "assigneeDepartmentName": "公司总部",
+          "status": "canceled",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "abf83733-6d4e-4976-82ba-480696c67ab9",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "8e0b6fdd-4490-435a-9be5-5a345e3b3ebc",
+          "assigneeName": "宋扬",
+          "assigneeDepartmentName": "公司总部",
+          "status": "canceled",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "bde7a06b-091a-4e9b-a97b-2be6668bc7b7",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "transferred",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-02T10:37:43.748779Z"
+        },
+        {
+          "id": "bb004658-c61c-4c91-934c-d87d439fdbc7",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+          "assigneeName": "Test Terminal 02",
+          "assigneeDepartmentName": "公司总部",
+          "status": "approved",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-02T10:39:22.171307Z"
+        }
+      ],
+      "actions": [
+        {
+          "id": "b15f99a3-f8ca-464c-b048-667246b4c01c",
+          "action": "submitted",
+          "actorName": "Test Terminal 01",
+          "occurredAt": "2026-09-02T10:36:46.400272Z"
+        },
+        {
+          "id": "9306ccc5-c276-4bcc-8dc2-17f3cb579fa4",
+          "action": "transferred",
+          "actorName": "Test Terminal 01",
+          "occurredAt": "2026-09-02T10:37:43.748779Z"
+        },
+        {
+          "id": "9a7cd7ac-f07f-497b-969e-83da498613ad",
+          "action": "approved",
+          "actorName": "Test Terminal 02",
+          "occurredAt": "2026-09-02T10:39:22.171307Z"
+        },
+        {
+          "id": "b1a4e9b6-96d1-49ed-99af-c31297fadac4",
+          "action": "withdrawn",
+          "actorName": "Test Terminal 01",
+          "occurredAt": "2026-09-02T10:40:13.909769Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": [
+        {
+          "id": "68f0dbd2-fd5a-4477-9102-07b1f5150c0a",
+          "type": "approval.withdrawn",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:40:13.909769Z"
+        },
+        {
+          "id": "1ed4da97-91bf-4a6e-96a9-67800dddb14a",
+          "type": "approval.updated",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:39:22.171307Z"
+        },
+        {
+          "id": "d243d1fb-88a0-4949-9ce5-3ba3e8f0d8e3",
+          "type": "approval.updated",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:37:43.748779Z"
+        },
+        {
+          "id": "0d38d50a-8eb1-4af7-9cf5-6f8bfd58eb49",
+          "type": "approval.task.transferred",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:37:43.748779Z"
+        },
+        {
+          "id": "ed539976-e2b2-466e-8fe2-9bc33c209cd1",
+          "type": "approval.submitted",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:36:46.400272Z"
+        },
+        {
+          "id": "c1c943d0-12bf-4e12-a83d-e418ffbe4543",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T10:36:46.400272Z"
+        }
+      ]
+    }
+  ],
+  "sync": {
+    "status": 200,
+    "requestId": null,
+    "latestSequence": 124,
+    "totalReturned": 56,
+    "events": [
+      {
+        "id": "c9e72e0c-1118-45a1-95c4-0a56861a3c4d",
+        "sequence": 108,
+        "type": "oa.notification.created",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+        "createdAt": "2026-09-02T10:36:46.400272Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "id": "9da900e7-81f2-4834-b24a-61faf701b5d5",
+        "sequence": 110,
+        "type": "oa.notification.created",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+        "createdAt": "2026-09-02T10:36:46.400272Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "id": "2c46b3d2-9b5f-4c18-93e5-77cd6204e18c",
+        "sequence": 115,
+        "type": "approval.task.transferred",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+        "createdAt": "2026-09-02T10:37:43.748779Z",
+        "payloadFields": [
+          "Title",
+          "TaskId",
+          "RequestId"
+        ]
+      },
+      {
+        "id": "cfe28dfa-16df-468c-975b-6e4e04d3b13a",
+        "sequence": 116,
+        "type": "oa.notification.created",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+        "createdAt": "2026-09-02T10:37:43.748779Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "id": "d3457c0f-391d-4926-9914-188838f7cc7d",
+        "sequence": 120,
+        "type": "oa.notification.created",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+        "createdAt": "2026-09-02T10:37:43.748779Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "id": "31eeb563-ad2b-4874-9306-fb24b0551584",
+        "sequence": 122,
+        "type": "oa.notification.created",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+        "createdAt": "2026-09-02T10:39:22.171307Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "id": "7afd8852-fab4-4ed9-9981-4f2dc9b0016e",
+        "sequence": 124,
+        "type": "oa.notification.created",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+        "createdAt": "2026-09-02T10:40:13.909769Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      }
+    ]
+  }
+}

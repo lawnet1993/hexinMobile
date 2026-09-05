@@ -1,0 +1,18 @@
+{
+  "CheckedAt": "2026-09-03T00:46:39.0321224+08:00",
+  "ComparisonBaseline": "member-presence-20260903/im-after.json and oa-after.json",
+  "ConversationMetadataUnchanged": true,
+  "MessageLedgerUnchanged": true,
+  "ImCursorsUnchanged": true,
+  "ImOutboxUnchanged": true,
+  "OaDraftsUnchanged": true,
+  "OaReceiptsUnchanged": true,
+  "OaCursorUnchanged": true,
+  "OaOutboxUnchanged": true,
+  "AppRunning": true,
+  "Wifi": "1",
+  "MobileData": "1",
+  "SampledLogLines": 58,
+  "FatalExceptions": 0,
+  "FlutterErrors": 0
+}

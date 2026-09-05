@@ -1,0 +1,42 @@
+{
+  "checkedAt": "2026-09-03T05:14:38.1468136+08:00",
+  "conversationId": "95e704ae-0e34-4f56-87db-038526796d6c",
+  "offlineDevice": "emulator-5556",
+  "senderDevice": "emulator-5558",
+  "events": [
+    {
+      "step": "starting",
+      "at": "2026-09-03T05:14:00.9576220+08:00"
+    },
+    {
+      "step": "offline-confirmed",
+      "at": "2026-09-03T05:14:02.0652959+08:00"
+    },
+    {
+      "step": "send-about-to-click",
+      "at": "2026-09-03T05:14:18.0590527+08:00",
+      "marker": "AI-UAT-20260903-051400-M4-M3-GROUP-OFFLINE-01"
+    },
+    {
+      "step": "send-clicked",
+      "at": "2026-09-03T05:14:18.1589798+08:00",
+      "marker": "AI-UAT-20260903-051400-M4-M3-GROUP-OFFLINE-01"
+    },
+    {
+      "step": "send-about-to-click",
+      "at": "2026-09-03T05:14:32.2834163+08:00",
+      "marker": "AI-UAT-20260903-051400-M4-M3-GROUP-OFFLINE-02"
+    },
+    {
+      "step": "send-clicked",
+      "at": "2026-09-03T05:14:32.3757487+08:00",
+      "marker": "AI-UAT-20260903-051400-M4-M3-GROUP-OFFLINE-02"
+    },
+    {
+      "step": "network-restored",
+      "at": "2026-09-03T05:14:38.1467295+08:00",
+      "mobileData": "1",
+      "wifi": "1"
+    }
+  ]
+}

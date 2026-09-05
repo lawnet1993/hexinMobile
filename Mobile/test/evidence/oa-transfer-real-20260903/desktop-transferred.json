@@ -1,0 +1,152 @@
+{
+  "checkedAt": "2026-09-03T02:14:49.8807266+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260903-021200-TRANSFER",
+  "bootstrapStatus": 200,
+  "requestId": null,
+  "pageStatus": 200,
+  "pageRequestId": null,
+  "hasMore": false,
+  "requests": [
+    {
+      "id": "e5f0977a-c8c0-46a0-baff-aeecea59094c",
+      "detailStatus": 200,
+      "requestId": null,
+      "markerMatched": true,
+      "status": "submitted",
+      "title": "Test Terminal 03的借支审批",
+      "requesterName": "Test Terminal 03",
+      "requesterDepartmentName": "财顺",
+      "createdAt": "2026-09-02T18:13:37.072238Z",
+      "updatedAt": "2026-09-02T18:14:45.659688Z",
+      "allowedActions": [
+        "approve",
+        "reject",
+        "transfer",
+        "add_sign"
+      ],
+      "templateVersion": 1,
+      "requestVersion": 2,
+      "workflowKey": "system.default.finance.advance-request",
+      "clientRequestId": "14442de9-9efd-46fb-82cc-a165732832ed",
+      "completedAt": null,
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "d9f33c2b-4687-4ae3-866c-e292cefe00e5",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+          "assigneeName": "Test Terminal 03",
+          "assigneeDepartmentName": "财顺",
+          "status": "transferred",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-02T18:14:45.659688Z"
+        },
+        {
+          "id": "e45129a1-8058-4215-8417-60954e44cdb1",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": true,
+          "completedAt": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "f782b5f2-3b90-4f7a-9bb9-adba5a448821",
+          "action": "submitted",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:13:37.072238Z"
+        },
+        {
+          "id": "813227a4-8490-49bf-a8ea-023aaf713936",
+          "action": "transferred",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:14:45.659688Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": [
+        {
+          "id": "b6cbcb6a-2eed-4a1e-9dfe-1ee3932d230a",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T18:14:45.659688Z"
+        }
+      ]
+    }
+  ],
+  "matchCount": 1,
+  "sync": {
+    "status": 200,
+    "requestId": null,
+    "latestSequence": 419,
+    "afterSequence": 343,
+    "totalReturned": 2,
+    "events": [
+      {
+        "id": "763c5529-13d8-4d10-8217-75a08fad503d",
+        "sequence": 419,
+        "type": "oa.notification.created",
+        "requestId": "e5f0977a-c8c0-46a0-baff-aeecea59094c",
+        "createdAt": "2026-09-02T18:14:45.659688Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      }
+    ]
+  }
+}

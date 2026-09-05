@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:hexing_terminal_mobile/core/updates/client_update_sheet.dart';
 import 'package:hexing_terminal_mobile/features/auth/application/auth_controller.dart';
 import 'package:hexing_terminal_mobile/features/auth/presentation/login_page.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration_repositories.dart';
+import 'package:hexing_terminal_mobile/features/collaboration/data/im_member_presence.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:hexing_terminal_mobile/features/contacts/presentation/contacts_page.dart';
 import 'package:hexing_terminal_mobile/features/messages/presentation/chat_page.dart';
@@ -26,7 +28,10 @@ import 'package:hexing_terminal_mobile/features/todos/presentation/todos_page.da
 import 'package:hexing_terminal_mobile/features/workbench/presentation/all_apps_page.dart';
 import 'package:hexing_terminal_mobile/features/workbench/presentation/workbench_page.dart';
 import 'package:hexing_terminal_mobile/features/workbench/data/managed_sites_repository.dart';
+import 'package:hexing_terminal_mobile/shared/widgets/mobile_primitives.dart';
 import 'package:secure_tunnel/secure_tunnel.dart';
+
+import 'support/fixture_member_presence.dart';
 
 const _captureKey = Key('mobile-design-capture');
 
@@ -136,6 +141,9 @@ void main() {
             oaBootstrapProvider.overrideWith(
               (ref) async => PreviewData.oaBootstrap,
             ),
+            oaSyncAvailabilityProvider.overrideWithValue(
+              OaSyncAvailability.available,
+            ),
             oaApplicationCatalogProvider.overrideWith(
               (ref) async => PreviewData.oaCatalog,
             ),
@@ -143,9 +151,55 @@ void main() {
               (ref, id) async => PreviewData.oaBootstrap.approvalRequests
                   .firstWhere((item) => item.id == id),
             ),
-            imBootstrapProvider.overrideWith(
-              (ref) async => PreviewData.imBootstrap,
+            imBootstrapProvider.overrideWith((ref) async {
+              final source = PreviewData.imBootstrap;
+              if (item.name != '05-chat') return source;
+              // This golden is the existing, already-read chat composition.
+              // Unread positioning has separate sequence-consistent tests.
+              return ImBootstrap(
+                currentMember: source.currentMember,
+                contacts: source.contacts,
+                permissions: source.permissions,
+                config: source.config,
+                conversations: source.conversations
+                    .map(
+                      (entry) => ImConversation(
+                        id: entry.id,
+                        type: entry.type,
+                        title: entry.title,
+                        preview: entry.preview,
+                        updatedAt: entry.updatedAt,
+                        unreadCount: 0,
+                      ),
+                    )
+                    .toList(),
+              );
+            }),
+            // Golden fixtures must not let an unconfigured real presence
+            // request change the transport state of an otherwise online page.
+            imRealtimeAvailabilityProvider.overrideWithValue(
+              ImRealtimeAvailability.available,
             ),
+            conversationPresenceProvider.overrideWith((ref, id) async {
+              final conversation = PreviewData.imBootstrap.conversations
+                  .firstWhere((item) => item.id == id);
+              final members = PreviewData.conversationMembers(id);
+              final peer = members
+                  .where(
+                    (item) =>
+                        item.id != PreviewData.imBootstrap.currentMember.id,
+                  )
+                  .firstOrNull;
+              return ImConversationPresence(
+                conversationId: id,
+                type: conversation.type,
+                onlineMemberCount: members
+                    .where((item) => item.isOnline)
+                    .length,
+                peerOnline: peer?.isOnline ?? false,
+                serverTime: DateTime.utc(2026, 8, 13, 12),
+              );
+            }),
             conversationMessagesProvider.overrideWith(
               (ref, id) async => PreviewData.messages,
             ),
@@ -173,6 +227,15 @@ void main() {
             groupManagersProvider.overrideWith(
               (ref, id) async => PreviewData.groupManagers(id),
             ),
+            imMemberPresenceProjectionProvider.overrideWith(
+              () => FixtureMemberPresence([
+                PreviewData.imBootstrap.currentMember,
+                ...PreviewData.imBootstrap.contacts,
+                for (final conversation
+                    in PreviewData.imBootstrap.conversations)
+                  ...PreviewData.conversationMembers(conversation.id),
+              ]),
+            ),
             tunnelControllerProvider.overrideWith(_PreviewTunnelController.new),
             mobileClockProvider.overrideWithValue(DateTime(2026, 8, 13, 20)),
             managedSitesProvider.overrideWith((ref) async => const []),
@@ -189,10 +252,28 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      if (item.name == '12-group-detail') {
+        expect(find.text('3 位成员 · 3 人在线'), findsOneWidget);
+        final avatars = tester.widgetList<InitialAvatar>(
+          find.byType(InitialAvatar),
+        );
+        expect(avatars, hasLength(3));
+        expect(avatars.every((avatar) => avatar.online == true), isTrue);
+      }
       if (item.name == '09-profile') {
         expect(find.text('密码与终端身份'), findsNothing);
         expect(find.text('提醒类型与方式'), findsNothing);
-        expect(find.text('网络与安全'), findsOneWidget);
+        expect(find.text('term.sh01'), findsNothing);
+        expect(
+          tester.getSize(find.byKey(const Key('profile-summary-card'))).height,
+          lessThanOrEqualTo(64),
+        );
+        expect(
+          tester.getSize(find.byKey(const Key('profile-logout-entry'))).height,
+          42,
+        );
+        expect(find.text('网络与安全'), findsNothing);
+        expect(find.text('消息、审批与公告'), findsOneWidget);
         expect(find.text('登录设备'), findsOneWidget);
         expect(find.text('外观与语言'), findsOneWidget);
       }
@@ -223,8 +304,63 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('状态未知'), findsOneWidget);
+    expect(find.text('状态未知'), findsNothing);
     expect(find.text('在线'), findsNothing);
+  });
+
+  testWidgets('profile summary stays actionable while member sync is offline', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_PreviewAuthController.new),
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.unavailable,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) => Completer<ImBootstrap>().future,
+          ),
+          tunnelControllerProvider.overrideWith(_PreviewTunnelController.new),
+        ],
+        child: const MaterialApp(home: ProfilePage()),
+      ),
+    );
+    await tester.pump();
+
+    final summary = find.byKey(const Key('profile-summary-card'));
+    expect(summary, findsOneWidget);
+    final inkWell = tester.widget<InkWell>(
+      find.descendant(of: summary, matching: find.byType(InkWell)),
+    );
+    expect(inkWell.onTap, isNotNull);
+  });
+
+  testWidgets('profile does not flash the account as a display name', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(
+            _AccountLikeDisplayAuthController.new,
+          ),
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.connecting,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) => Completer<ImBootstrap>().future,
+          ),
+          tunnelControllerProvider.overrideWith(_PreviewTunnelController.new),
+        ],
+        child: const MaterialApp(home: ProfilePage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('个人资料'), findsOneWidget);
+    expect(find.text('laowang'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('conversation details do not expose cached presence offline', (
@@ -372,6 +508,20 @@ final class _PreviewAuthController extends AuthController {
 
   @override
   Future<SavedCredential?> savedCredential() async => null;
+}
+
+final class _AccountLikeDisplayAuthController extends AuthController {
+  @override
+  Future<MobileSession?> build() async => const MobileSession(
+    accessToken: 'preview-token',
+    deviceId: 'preview-device',
+    userId: 'preview-user',
+    displayName: 'laowang',
+    username: 'laowang',
+    policySignatureKey: 'preview-key',
+    imApiUrl: 'https://im.invalid',
+    oaApiUrl: 'https://oa.invalid',
+  );
 }
 
 final class _PreviewTunnelController extends TunnelController {

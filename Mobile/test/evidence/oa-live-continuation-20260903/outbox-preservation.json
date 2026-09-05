@@ -1,0 +1,15 @@
+{
+  "beforeCount": 2,
+  "afterCount": 2,
+  "stableIdentitiesPreserved": true,
+  "finalIdentities": [
+    {
+      "client_message_id": "13dc7539-f758-450e-a45d-ae151c846e14",
+      "kind": "image"
+    },
+    {
+      "client_message_id": "4bd94d7a-d990-44d8-9b72-4edc3fc4925c",
+      "kind": "video"
+    }
+  ]
+}

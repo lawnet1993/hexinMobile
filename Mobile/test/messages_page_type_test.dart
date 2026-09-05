@@ -5,6 +5,7 @@ import 'package:hexing_terminal_mobile/core/demo/preview_data.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration_repositories.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:hexing_terminal_mobile/features/messages/presentation/messages_page.dart';
+import 'package:hexing_terminal_mobile/shared/formatters/mobile_date_time.dart';
 import 'package:hexing_terminal_mobile/shared/widgets/mobile_primitives.dart';
 
 void main() {
@@ -44,6 +45,29 @@ void main() {
     displayName: '对方',
     isOnline: false,
   );
+
+  test('会话时间按今天、昨天、本周和更早日期分层显示', () {
+    final now = DateTime(2026, 9, 2, 9, 30);
+
+    expect(
+      compactListDateTimeLabel(DateTime(2026, 9, 2, 8, 5), now: now),
+      '08:05',
+    );
+    expect(
+      compactListDateTimeLabel(DateTime(2026, 9, 1, 20, 15), now: now),
+      '昨天',
+    );
+    expect(compactListDateTimeLabel(DateTime(2026, 8, 31, 12), now: now), '周一');
+    expect(
+      compactListDateTimeLabel(DateTime(2026, 8, 30, 12), now: now),
+      '08/30',
+    );
+    expect(
+      compactListDateTimeLabel(DateTime(2025, 12, 31, 12), now: now),
+      '2025/12/31',
+    );
+    expect(compactListDateTimeLabel(null, now: now), isEmpty);
+  });
 
   test('单聊列表只显示对方姓名', () {
     const conversation = ImConversation(

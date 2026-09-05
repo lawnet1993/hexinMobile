@@ -1,0 +1,128 @@
+[
+  {
+    "at": "2026-09-03T10:04:03.4840654+08:00",
+    "serial": "emulator-5556",
+    "pid": "15906",
+    "sha256": "F18430699B1ACBEE68DF6C5952665A14DFC2BD28B4B78405432574CEF8562B47",
+    "fatalCount": 0,
+    "unhandledCount": 0,
+    "overflowCount": 0,
+    "decodedWindows": [
+      {
+        "cacheHits": 0,
+        "rows": 80,
+        "durationMicros": 29451
+      },
+      {
+        "cacheHits": 30,
+        "rows": 50,
+        "durationMicros": 6076
+      },
+      {
+        "cacheHits": 80,
+        "rows": 80,
+        "durationMicros": 29706
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 10574
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 9617
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 4339
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 13980
+      },
+      {
+        "cacheHits": 80,
+        "rows": 80,
+        "durationMicros": 18700
+      },
+      {
+        "cacheHits": 80,
+        "rows": 80,
+        "durationMicros": 16463
+      },
+      {
+        "cacheHits": 80,
+        "rows": 80,
+        "durationMicros": 10547
+      },
+      {
+        "cacheHits": 80,
+        "rows": 80,
+        "durationMicros": 17420
+      },
+      {
+        "cacheHits": 100,
+        "rows": 100,
+        "durationMicros": 6154
+      },
+      {
+        "cacheHits": 100,
+        "rows": 100,
+        "durationMicros": 7296
+      },
+      {
+        "cacheHits": 100,
+        "rows": 100,
+        "durationMicros": 9809
+      },
+      {
+        "cacheHits": 100,
+        "rows": 100,
+        "durationMicros": 32745
+      },
+      {
+        "cacheHits": 100,
+        "rows": 100,
+        "durationMicros": 8195
+      },
+      {
+        "cacheHits": 100,
+        "rows": 100,
+        "durationMicros": 10019
+      },
+      {
+        "cacheHits": 100,
+        "rows": 100,
+        "durationMicros": 5346
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 3187
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 6857
+      },
+      {
+        "cacheHits": 50,
+        "rows": 50,
+        "durationMicros": 3494
+      }
+    ]
+  },
+  {
+    "at": "2026-09-03T10:04:04.5739963+08:00",
+    "serial": "emulator-5558",
+    "pid": "12715",
+    "sha256": "F18430699B1ACBEE68DF6C5952665A14DFC2BD28B4B78405432574CEF8562B47",
+    "fatalCount": 0,
+    "unhandledCount": 0,
+    "overflowCount": 0,
+    "decodedWindows": []
+  }
+]

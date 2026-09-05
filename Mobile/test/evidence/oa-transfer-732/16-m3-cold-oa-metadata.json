@@ -1,0 +1,102 @@
+{
+  "checkedAt": "2026-09-05T02:05:01.331464+08:00",
+  "cursor": [
+    {
+      "value": "593",
+      "updated_at": "2026-09-04T18:02:50.529407Z"
+    }
+  ],
+  "events": [
+    {
+      "sequence": 593,
+      "event_id": "a89ddbc3-5f04-45a1-98bb-993dd2d06832",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-04T18:02:51.363676Z",
+      "applied_at": "2026-09-04T18:02:50.529407Z"
+    },
+    {
+      "sequence": 592,
+      "event_id": "fb6bd6f7-78e5-45f6-a883-e731e2fbf45a",
+      "type": "approval.business-result.updated",
+      "created_at": "2026-09-04T17:58:25.764219Z",
+      "applied_at": "2026-09-04T17:58:40.696642Z"
+    },
+    {
+      "sequence": 591,
+      "event_id": "3294fddd-ec35-4ad0-b330-c8a1ca5aa462",
+      "type": "attendance.adjusted",
+      "created_at": "2026-09-04T17:58:25.764219Z",
+      "applied_at": "2026-09-04T17:58:40.696642Z"
+    },
+    {
+      "sequence": 590,
+      "event_id": "056cc432-3759-4b4e-ae08-8437bee9f795",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-04T17:58:25.764219Z",
+      "applied_at": "2026-09-04T17:58:40.696642Z"
+    },
+    {
+      "sequence": 589,
+      "event_id": "e36a39e9-cb30-48dd-ac76-c2eaf74b2c01",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-04T17:58:22.645056Z",
+      "applied_at": "2026-09-04T17:58:40.696642Z"
+    },
+    {
+      "sequence": 588,
+      "event_id": "91a68818-579c-4a71-89eb-3e75f8558850",
+      "type": "approval.updated",
+      "created_at": "2026-09-04T17:58:22.645056Z",
+      "applied_at": "2026-09-04T17:58:40.696642Z"
+    },
+    {
+      "sequence": 587,
+      "event_id": "f63a3c38-ef8f-46c8-b719-70f1eb5402d0",
+      "type": "approval.updated",
+      "created_at": "2026-09-04T17:56:58.486705Z",
+      "applied_at": "2026-09-04T17:57:18.142369Z"
+    },
+    {
+      "sequence": 586,
+      "event_id": "ef74f9a3-e375-44de-8fcd-6945cd0178f9",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-04T17:56:58.486705Z",
+      "applied_at": "2026-09-04T17:57:18.142369Z"
+    },
+    {
+      "sequence": 585,
+      "event_id": "b55a0e9d-e92a-4962-86b6-537f6410bade",
+      "type": "approval.task.transferred",
+      "created_at": "2026-09-04T17:56:58.486705Z",
+      "applied_at": "2026-09-04T17:57:18.142369Z"
+    },
+    {
+      "sequence": 582,
+      "event_id": "3c654640-36b8-4422-a85c-56ae5e490fbe",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-04T17:56:58.486705Z",
+      "applied_at": "2026-09-04T17:57:18.142369Z"
+    },
+    {
+      "sequence": 581,
+      "event_id": "5a827943-c659-4a53-b1b3-83c51bc3bcba",
+      "type": "approval.task.created",
+      "created_at": "2026-09-04T17:56:00.941742Z",
+      "applied_at": "2026-09-04T17:56:00.316942Z"
+    },
+    {
+      "sequence": 580,
+      "event_id": "4d531279-320e-48b5-aa1b-316e6b7356ee",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-04T17:56:00.941742Z",
+      "applied_at": "2026-09-04T17:56:00.316942Z"
+    }
+  ],
+  "outbox": [],
+  "readReceipts": {
+    "notification_id": "e9c1ca62-a1c1-4897-9ec8-6e44f9cce7b6",
+    "read_at": "2026-09-04T18:02:48.839668Z",
+    "state": "sent",
+    "attempts": 0
+  }
+}

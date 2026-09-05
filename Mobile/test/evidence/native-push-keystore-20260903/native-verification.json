@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-09-03T07:10:21.3184240+08:00",
+  "seedPassed": true,
+  "restartPassed": true,
+  "firstProcess": "20055",
+  "secondProcess": "20095",
+  "distinctProcesses": true,
+  "seedChecks": 17,
+  "restartChecks": 5,
+  "total": 22,
+  "syntheticFixturesOnly": true,
+  "onlinePushRegistration": false
+}

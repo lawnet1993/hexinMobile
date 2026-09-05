@@ -1,0 +1,44 @@
+{
+  "checkedAt": "2026-09-03T03:07:31.1373163+08:00",
+  "directLedgerUnchanged": true,
+  "conversationMetadataUnchanged": true,
+  "outboxIdentitiesUnchanged": true,
+  "oaDraftsUnchanged": true,
+  "oaReadReceiptsUnchanged": true,
+  "oaOutboxUnchanged": true,
+  "oaCursorUnchanged": true,
+  "imCursorsBefore": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 236
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 236
+    }
+  ],
+  "imCursorsAfter": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 236
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 236
+    }
+  ],
+  "mediaFailures": [
+    {
+      "kind": "image",
+      "httpStatus": "500"
+    },
+    {
+      "kind": "video",
+      "httpStatus": "500"
+    }
+  ]
+}

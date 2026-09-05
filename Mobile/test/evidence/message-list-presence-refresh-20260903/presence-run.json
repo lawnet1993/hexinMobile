@@ -1,0 +1,81 @@
+{
+  "checkedAt": "2026-09-03T05:35:08.0419655+08:00",
+  "observer": "emulator-5556/test03",
+  "peer": "emulator-5558/test04",
+  "samples": [
+    {
+      "step": "baseline-00",
+      "at": "2026-09-03T05:30:11.8404490+08:00",
+      "elapsedSeconds": 2.6,
+      "status": "online"
+    },
+    {
+      "step": "baseline-30",
+      "at": "2026-09-03T05:30:44.8868374+08:00",
+      "elapsedSeconds": 35.7,
+      "status": "online"
+    },
+    {
+      "step": "baseline-60",
+      "at": "2026-09-03T05:31:17.5553072+08:00",
+      "elapsedSeconds": 68.4,
+      "status": "online"
+    },
+    {
+      "step": "baseline-90",
+      "at": "2026-09-03T05:31:50.1522113+08:00",
+      "elapsedSeconds": 100.9,
+      "status": "online"
+    },
+    {
+      "step": "peer-network-off",
+      "at": "2026-09-03T05:31:51.4923503+08:00"
+    },
+    {
+      "step": "peer-offline-30",
+      "at": "2026-09-03T05:32:24.6373733+08:00",
+      "elapsedSeconds": 135.4,
+      "status": "online"
+    },
+    {
+      "step": "peer-offline-60",
+      "at": "2026-09-03T05:32:57.4983724+08:00",
+      "elapsedSeconds": 168.3,
+      "status": "online"
+    },
+    {
+      "step": "peer-offline-90",
+      "at": "2026-09-03T05:33:30.0217380+08:00",
+      "elapsedSeconds": 200.8,
+      "status": "online"
+    },
+    {
+      "step": "peer-offline-120",
+      "at": "2026-09-03T05:34:02.5314100+08:00",
+      "elapsedSeconds": 233.3,
+      "status": "online"
+    },
+    {
+      "step": "peer-offline-150",
+      "at": "2026-09-03T05:34:35.0940893+08:00",
+      "elapsedSeconds": 265.9,
+      "status": "offline"
+    },
+    {
+      "wifi": "1",
+      "step": "peer-network-restored",
+      "at": "2026-09-03T05:34:35.2576716+08:00",
+      "mobileData": "1"
+    },
+    {
+      "step": "peer-reconnected-30",
+      "at": "2026-09-03T05:35:08.0395728+08:00",
+      "elapsedSeconds": 298.8,
+      "status": "online"
+    },
+    {
+      "step": "finished",
+      "at": "2026-09-03T05:35:08.0419142+08:00"
+    }
+  ]
+}

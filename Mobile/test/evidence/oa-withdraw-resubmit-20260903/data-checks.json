@@ -1,0 +1,11 @@
+{
+  "im.eventCursors.unchanged": true,
+  "im.messageLedger.unchanged": true,
+  "im.conversationMetadata.unchanged": true,
+  "im.outbox.unchanged": true,
+  "im.groupProjections.unchanged": true,
+  "oa.existingDraftsUnchanged": true,
+  "oa.offlineReadReceiptsUnchanged": true,
+  "oa.emptyOutbox": true,
+  "oa.twoNewDetailCaches": true
+}

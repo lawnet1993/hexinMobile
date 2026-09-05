@@ -7,6 +7,8 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:video_thumbnail_gdx_plus/video_thumbnail_gdx_plus.dart';
 
+import '../../../core/config/app_environment.dart';
+
 final class ImVideoThumbnail {
   const ImVideoThumbnail({
     required this.bytes,
@@ -66,7 +68,7 @@ Future<File> _previewCacheFile(String cacheKey) async {
   final directory = Directory(
     path.join(
       (await getApplicationSupportDirectory()).path,
-      'im-video-previews',
+      AppEnvironment.storageDirectoryName('im-video-previews'),
     ),
   );
   await directory.create(recursive: true);
@@ -118,8 +120,19 @@ Future<ImVideoThumbnail?> createImVideoThumbnail({
   );
   try {
     await source.writeAsBytes(videoBytes, flush: true);
+    return await createImVideoThumbnailFromPath(source.path);
+  } finally {
+    if (await source.exists()) await source.delete();
+  }
+}
+
+Future<ImVideoThumbnail?> createImVideoThumbnailFromPath(
+  String sourcePath,
+) async {
+  if (sourcePath.trim().isEmpty) return null;
+  try {
     final bytes = await VideoThumbnail.thumbnailData(
-      video: source.path,
+      video: sourcePath,
       imageFormat: ImageFormat.JPEG,
       maxWidth: 960,
       timeMs: 0,
@@ -143,7 +156,5 @@ Future<ImVideoThumbnail?> createImVideoThumbnail({
     }
   } catch (_) {
     return null;
-  } finally {
-    if (await source.exists()) await source.delete();
   }
 }

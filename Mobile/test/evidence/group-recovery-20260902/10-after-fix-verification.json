@@ -1,0 +1,165 @@
+{
+  "server": {
+    "checkedAt": "2026-09-02T19:30:29.1543277+08:00",
+    "bootstrap": 200,
+    "sync": 200,
+    "latestEvent": 159,
+    "conversations": [
+      {
+        "id": "c4906953-10bd-4671-b984-c50ed3951349",
+        "type": "group",
+        "latest": 85,
+        "read": 85,
+        "unread": 0,
+        "history": 200,
+        "matches": [
+          {
+            "id": "0e25adad-cd23-4433-8b51-1a523cc393d7",
+            "clientMessageId": "46bce48c-c409-45ae-99ee-4942a8d31320",
+            "sequence": 85,
+            "type": null,
+            "senderId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+            "createdAt": "2026-09-02T11:30:18.027499Z",
+            "testText": "@Test Terminal 02 AI-UAT-20260902-192300-GROUP-RECOVERY",
+            "mentionCount": 1,
+            "mentionFields": [
+              "memberId,type,displayName,mentionedMemberId,isMentionAll"
+            ],
+            "fields": [
+              "id",
+              "conversationId",
+              "sequence",
+              "senderId",
+              "clientMessageId",
+              "content",
+              "kind",
+              "attachmentName",
+              "attachmentSize",
+              "attachmentContentType",
+              "attachmentSha256",
+              "createdAt",
+              "recalledAt",
+              "contactCard",
+              "reply",
+              "mentions",
+              "replyTo",
+              "readState",
+              "images",
+              "senderRole",
+              "attachments",
+              "forwardedFrom",
+              "forwardBundle",
+              "payload"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "type": "direct",
+        "latest": 6,
+        "read": 6,
+        "unread": 0,
+        "history": 200,
+        "matches": []
+      }
+    ],
+    "groupEvents": []
+  },
+  "m1": {
+    "outbox": [
+      {
+        "client_message_id": "901c6844-5dde-48f5-87c4-1768742d0e18",
+        "conversation_id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "kind": "image",
+        "attempts": 19,
+        "created_at": "2026-09-02T10:01:48.872101Z",
+        "next_retry_at": "2026-09-02T11:34:38.391411Z"
+      }
+    ],
+    "failures": [
+      {
+        "kind": "image",
+        "httpStatus": "500"
+      }
+    ],
+    "groupMessages": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "message_count": 85,
+        "minimum_sequence": 1,
+        "maximum_sequence": 85
+      }
+    ],
+    "targetMessage": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "0e25adad-cd23-4433-8b51-1a523cc393d7",
+        "client_message_id": "46bce48c-c409-45ae-99ee-4942a8d31320",
+        "sequence": 85,
+        "local_status": "sent"
+      }
+    ],
+    "groupProjections": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "last_message_sequence": 85,
+        "last_read_sequence": 84,
+        "unread_count": 0,
+        "unread_mention_sequences_json": "[]"
+      }
+    ]
+  },
+  "m2": {
+    "outbox": [
+      {
+        "client_message_id": "3cd662e8-5d7c-40ab-82f9-7d9b5959af80",
+        "conversation_id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "kind": "video",
+        "attempts": 24,
+        "created_at": "2026-09-02T09:45:17.790598Z",
+        "next_retry_at": "2026-09-02T11:33:57.986924Z"
+      }
+    ],
+    "failures": [
+      {
+        "kind": "video",
+        "httpStatus": "500"
+      }
+    ],
+    "groupMessages": [
+      {
+        "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+        "message_count": 84,
+        "minimum_sequence": 1,
+        "maximum_sequence": 84
+      }
+    ],
+    "targetMessage": [],
+    "groupProjections": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "last_message_sequence": 84,
+        "last_read_sequence": 51,
+        "unread_count": 33,
+        "unread_mention_sequences_json": "[]"
+      },
+      {
+        "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+        "last_message_sequence": 85,
+        "last_read_sequence": 84,
+        "unread_count": 1,
+        "unread_mention_sequences_json": "[85]"
+      }
+    ]
+  },
+  "regression": {
+    "fullPassed": 378,
+    "fullFailed": 0,
+    "analyzeIssues": 0
+  },
+  "installed": {
+    "M1": "95510B8B24CB7FD639E476FF495AE66953DC2323BC58FF25F49525C78A48A6A2",
+    "M2": "not_updated_this_turn"
+  }
+}

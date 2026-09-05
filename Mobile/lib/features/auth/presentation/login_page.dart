@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../application/auth_controller.dart';
@@ -21,6 +22,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _obscure = true;
   String? _savedUsername;
   String? _savedPassword;
+  String? _terminationNotice;
 
   @override
   void initState() {
@@ -28,9 +30,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final notice = ref.read(sessionTerminationNoticeProvider.notifier).take();
       if (notice != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(notice), behavior: SnackBarBehavior.floating),
-        );
+        setState(() => _terminationNotice = notice);
       }
       final saved = await ref
           .read(authControllerProvider.notifier)
@@ -53,6 +53,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _terminationNotice = null);
     final savedPassword = _username.text.trim() == _savedUsername
         ? _savedPassword
         : null;
@@ -67,7 +68,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
     if (!mounted) return;
     final result = ref.read(authControllerProvider);
-    if (usedSavedPassword && result.error.toString() == '账号或密码错误') {
+    final resultError = result.hasError
+        ? mobileErrorText(result.error!, fallback: '登录失败，请稍后重试')
+        : null;
+    if (usedSavedPassword && resultError == '账号或密码错误') {
       await controller.clearSavedCredential();
       if (mounted) {
         setState(() {
@@ -81,7 +85,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
-    final error = auth.hasError ? auth.error.toString() : null;
+    final error = auth.hasError
+        ? mobileErrorText(auth.error!, fallback: '登录失败，请稍后重试')
+        : null;
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FC),
       body: SafeArea(
@@ -107,6 +113,41 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                       ),
                       const SizedBox(height: 22),
+                      if (_terminationNotice != null) ...[
+                        Semantics(
+                          liveRegion: true,
+                          child: Container(
+                            key: const Key('login-session-notice'),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8EFFB),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.info_outline_rounded,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _terminationNotice!,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      height: 1.4,
+                                      color: AppColors.secondaryText,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       const Text(
                         '终端账号',
                         style: TextStyle(

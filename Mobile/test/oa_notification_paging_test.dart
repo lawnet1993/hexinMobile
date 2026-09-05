@@ -202,6 +202,9 @@ void main() {
 
     try {
       await repository.markNotificationRead('notification-1');
+      expect(await repository.pendingNotificationReadCount(), 1);
+      expect(await repository.flushNotificationReads(), 1);
+      expect(await repository.pendingNotificationReadCount(), 0);
       final page = await repository.notificationPageCacheFirst();
       expect(page.items[0].isRead, isTrue);
       expect(page.items[0].readAt, isNotNull);

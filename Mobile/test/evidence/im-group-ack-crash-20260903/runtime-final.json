@@ -1,0 +1,26 @@
+[
+  {
+    "serial": "emulator-5556",
+    "processId": 8864,
+    "checkedAt": "2026-09-03T06:05:50.7318628+08:00",
+    "wifi": "1",
+    "mobileData": "1",
+    "checkpointLines": 0,
+    "presenceDiagnosticLines": 0,
+    "unhandled": 0,
+    "overflow": 0,
+    "fatal": 0
+  },
+  {
+    "serial": "emulator-5558",
+    "processId": 24635,
+    "checkedAt": "2026-09-03T06:05:51.0069632+08:00",
+    "wifi": "1",
+    "mobileData": "1",
+    "checkpointLines": 0,
+    "presenceDiagnosticLines": 0,
+    "unhandled": 0,
+    "overflow": 0,
+    "fatal": 0
+  }
+]

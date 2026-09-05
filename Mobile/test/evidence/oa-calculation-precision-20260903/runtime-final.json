@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-09-03T04:18:52.1116261+08:00",
+  "pid": "17829",
+  "scope": "Current process retained log buffer; counts only, not comprehensive crash audit",
+  "unhandledException": 0,
+  "renderFlexOverflow": 0,
+  "fatalException": 0,
+  "wifi": "1",
+  "mobileData": "1"
+}

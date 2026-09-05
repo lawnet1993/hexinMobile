@@ -1,0 +1,54 @@
+{
+  "passed": 12,
+  "total": 12,
+  "checks": [
+    {
+      "name": "m3-complete-ledger-and-read-state-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-existing-outbox-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-complete-ledger-and-read-state-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-existing-outbox-preserved",
+      "passed": true
+    },
+    {
+      "name": "oa-drafts-and-notification-receipts-preserved",
+      "passed": true
+    },
+    {
+      "name": "native-510-history-uses-exactly-510-decodes-across-expanded-queries",
+      "passed": true
+    },
+    {
+      "name": "native-swipe-reaches-first-message-with-sender-avatar",
+      "passed": true
+    },
+    {
+      "name": "hot-reopen-1-latest-visible-and-no-repeat-decode",
+      "passed": true
+    },
+    {
+      "name": "hot-reopen-2-latest-visible-and-no-repeat-decode",
+      "passed": true
+    },
+    {
+      "name": "hot-reopen-3-latest-visible-and-no-repeat-decode",
+      "passed": true
+    },
+    {
+      "name": "m4-normal-latest-window-decode-and-reuse-observed",
+      "passed": true
+    },
+    {
+      "name": "both-normal-installed-apks-match-and-remain-running",
+      "passed": true
+    }
+  ]
+}

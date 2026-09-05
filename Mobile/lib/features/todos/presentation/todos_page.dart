@@ -64,6 +64,7 @@ class _TodosPageState extends ConsumerState<TodosPage> {
     final catalog = ref.watch(oaApplicationCatalogProvider).value;
     final drafts = ref.watch(oaDraftsProvider).value ?? const [];
     final outbox = ref.watch(oaOutboxProvider).value ?? const [];
+    final syncAvailability = ref.watch(oaSyncAvailabilityProvider);
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
@@ -119,6 +120,10 @@ class _TodosPageState extends ConsumerState<TodosPage> {
         data: (data) {
           _visibleBootstrap = data;
           final approvals = _loadedApprovals ?? data.approvalRequests;
+          final syncConnecting =
+              syncAvailability == OaSyncAvailability.connecting;
+          final syncUnavailable =
+              syncAvailability == OaSyncAvailability.unavailable;
           final pendingCount =
               data.todos
                   .where((item) => !_isTodoCompleted(item.status))
@@ -271,6 +276,12 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                         ],
                       ),
                     ),
+                  if (_tab < 4 &&
+                      syncAvailability != OaSyncAvailability.available)
+                    _ApprovalSyncBar(
+                      availability: syncAvailability,
+                      onRetry: _refreshApprovals,
+                    ),
                   Expanded(
                     child: _tab == 4
                         ? _DraftList(items: drafts)
@@ -290,6 +301,8 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                                     hasScrollBody: false,
                                     child: _EmptyApprovalList(
                                       searching: _search.isNotEmpty,
+                                      connecting: syncConnecting,
+                                      offline: syncUnavailable,
                                       hasMore: _effectiveHasMore(data),
                                       loading: _loadingMore,
                                       error: _pagingError,
@@ -418,10 +431,21 @@ class _TodosPageState extends ConsumerState<TodosPage> {
   }
 
   Future<void> _refreshApprovals() async {
-    await ref.read(oaRepositoryProvider).refreshBootstrap();
-    if (!mounted) return;
-    setState(_resetPagination);
-    ref.invalidate(oaBootstrapProvider);
+    ref.read(oaSyncAvailabilityControllerProvider.notifier).markConnecting();
+    try {
+      await ref.read(oaRepositoryProvider).refreshBootstrap();
+      ref.read(oaSyncAvailabilityControllerProvider.notifier).markAvailable();
+      if (!mounted) return;
+      setState(_resetPagination);
+      ref.invalidate(oaBootstrapProvider);
+    } catch (error) {
+      ref.read(oaSyncAvailabilityControllerProvider.notifier).markUnavailable();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('同步失败', error))),
+        );
+      }
+    }
   }
 
   void _retryLoadMore(OaBootstrap data) {
@@ -462,8 +486,9 @@ class _TodosPageState extends ConsumerState<TodosPage> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('创建失败：${error.toString()}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('创建失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _todoActionId = '');
@@ -482,8 +507,9 @@ class _TodosPageState extends ConsumerState<TodosPage> {
       ref.invalidate(oaBootstrapProvider);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('更新失败：${error.toString()}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('更新失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _todoActionId = '');
@@ -695,9 +721,9 @@ class _TodosPageState extends ConsumerState<TodosPage> {
         _autoLoadRetryBlocked = true;
         setState(() => _pagingError = true);
         ref.invalidate(oaApprovalRequestsPageProvider(pageKey));
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('加载更多失败：${error.toString()}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('加载更多失败', error))),
+        );
       }
     } finally {
       if (mounted && generation == _paginationGeneration) {
@@ -1151,6 +1177,8 @@ const _colors = [
 class _EmptyApprovalList extends StatelessWidget {
   const _EmptyApprovalList({
     required this.searching,
+    required this.connecting,
+    required this.offline,
     required this.hasMore,
     required this.loading,
     required this.error,
@@ -1158,56 +1186,135 @@ class _EmptyApprovalList extends StatelessWidget {
   });
 
   final bool searching;
+  final bool connecting;
+  final bool offline;
   final bool hasMore;
   final bool loading;
   final bool error;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Align(
-    alignment: const Alignment(0, -0.34),
-    child: Semantics(
-      container: true,
-      label: searching ? '当前记录中没有匹配项' : '暂无审批事项',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF3F6FA),
-              shape: BoxShape.circle,
+  Widget build(BuildContext context) {
+    final title = searching
+        ? '当前记录中没有匹配项'
+        : connecting
+        ? '正在同步审批'
+        : offline
+        ? '本机暂无审批记录'
+        : '暂无审批事项';
+    return Align(
+      alignment: const Alignment(0, -0.34),
+      child: Semantics(
+        container: true,
+        label: title,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF3F6FA),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                searching
+                    ? Icons.search_off_rounded
+                    : connecting
+                    ? Icons.sync_rounded
+                    : Icons.fact_check_outlined,
+                size: 24,
+                color: AppColors.weakText,
+              ),
             ),
-            alignment: Alignment.center,
-            child: Icon(
-              searching ? Icons.search_off_rounded : Icons.fact_check_outlined,
-              size: 24,
-              color: AppColors.weakText,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            searching ? '当前记录中没有匹配项' : '暂无审批事项',
-            style: const TextStyle(
-              color: AppColors.secondaryText,
-              fontSize: 14,
-            ),
-          ),
-          if (error) ...[
-            const SizedBox(height: 6),
-            TextButton(onPressed: onRetry, child: const Text('重新加载')),
-          ] else if (hasMore && loading) ...[
             const SizedBox(height: 10),
-            const SizedBox.square(
-              dimension: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            Text(
+              title,
+              style: const TextStyle(
+                color: AppColors.secondaryText,
+                fontSize: 14,
+              ),
             ),
+            if (error) ...[
+              const SizedBox(height: 6),
+              TextButton(onPressed: onRetry, child: const Text('重新加载')),
+            ] else if (hasMore && loading) ...[
+              const SizedBox(height: 10),
+              const SizedBox.square(
+                dimension: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+class _ApprovalSyncBar extends StatelessWidget {
+  const _ApprovalSyncBar({required this.availability, required this.onRetry});
+
+  final OaSyncAvailability availability;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final connecting = availability == OaSyncAvailability.connecting;
+    return Semantics(
+      container: true,
+      label: connecting ? '正在同步审批' : '审批同步中断，当前显示本机记录',
+      child: ExcludeSemantics(
+        child: SizedBox(
+          key: Key(
+            connecting
+                ? 'approval-connecting-sync-bar'
+                : 'approval-offline-sync-bar',
+          ),
+          height: 32,
+          child: Row(
+            children: [
+              const SizedBox(width: 4),
+              Icon(
+                connecting ? Icons.sync_rounded : Icons.cloud_off_outlined,
+                size: 15,
+                color: AppColors.secondaryText,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  connecting ? '正在同步审批' : '当前显示本机记录',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+              ),
+              if (connecting)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    '同步中',
+                    style: TextStyle(fontSize: 11.5, color: AppColors.weakText),
+                  ),
+                )
+              else
+                TextButton(
+                  onPressed: onRetry,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(64, 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('重新同步', style: TextStyle(fontSize: 12)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ApprovalPageFooter extends StatelessWidget {
@@ -1273,11 +1380,12 @@ class _Tab extends StatelessWidget {
             children: [
               ExcludeSemantics(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
+                        key: ValueKey('todo-tab-label-$label'),
                         label,
                         style: TextStyle(
                           fontSize: 12.5,
@@ -1327,6 +1435,7 @@ class _Tab extends StatelessWidget {
                   right: 8,
                   bottom: 0,
                   child: Container(
+                    key: ValueKey('todo-tab-indicator-$label'),
                     height: 2,
                     decoration: BoxDecoration(
                       color: AppColors.primary,
@@ -1513,6 +1622,7 @@ class _OutboxList extends ConsumerWidget {
           final item = items[index];
           final title = item.payload['title']?.toString().trim() ?? '';
           final failed = item.state == 'failed';
+          final hasError = item.lastError.trim().isNotEmpty;
           final validationFailed = failed && _isValidationOutboxError(item);
           final editable = failed && _canEditFailedOutbox(item);
           final statusLabel = validationFailed
@@ -1565,7 +1675,7 @@ class _OutboxList extends ConsumerWidget {
                     ),
                   ],
                 ),
-                if (failed)
+                if (hasError)
                   Text(
                     _outboxErrorText(item.lastError),
                     maxLines: 1,
@@ -1577,7 +1687,7 @@ class _OutboxList extends ConsumerWidget {
                   ),
               ],
             ),
-            trailing: failed
+            trailing: failed || hasError
                 ? IconButton(
                     tooltip: '同步操作',
                     icon: const Icon(Icons.more_horiz_rounded, size: 22),
@@ -1604,17 +1714,18 @@ class _OutboxList extends ConsumerWidget {
                               label: '重试',
                               icon: Icons.refresh_rounded,
                             ),
-                          const MobileSheetOption(
+                          MobileSheetOption(
                             value: 'error-details',
-                            label: '查看失败原因',
+                            label: failed ? '查看失败原因' : '查看同步原因',
                             icon: Icons.error_outline_rounded,
                           ),
-                          const MobileSheetOption(
-                            value: 'discard',
-                            label: '放弃记录',
-                            icon: Icons.delete_outline_rounded,
-                            destructive: true,
-                          ),
+                          if (failed)
+                            const MobileSheetOption(
+                              value: 'discard',
+                              label: '放弃记录',
+                              icon: Icons.delete_outline_rounded,
+                              destructive: true,
+                            ),
                         ],
                       );
                       if (!context.mounted || action == null) return;
@@ -1649,7 +1760,7 @@ class _OutboxList extends ConsumerWidget {
                       } else if (action == 'error-details') {
                         await showMobileMessageSheet(
                           context,
-                          title: '失败原因',
+                          title: failed ? '失败原因' : '暂未同步',
                           message: _outboxErrorText(item.lastError),
                         );
                       } else if (action == 'discard') {
@@ -1759,6 +1870,14 @@ _outboxEditData(OaOutboxItem item) {
 String _outboxErrorText(String error) {
   final normalized = error.trim();
   if (normalized.isEmpty) return '同步失败，请检查申请内容';
+  // Older queued records can contain raw transport messages. Do not surface
+  // request URLs, credentials or stack traces when exposing their diagnosis.
+  if (RegExp(
+    r'https?://|/api/|token|cookie|authorization|stack trace|requestoptions',
+    caseSensitive: false,
+  ).hasMatch(normalized)) {
+    return '同步暂未完成，请稍后重试';
+  }
   if (normalized.toLowerCase().contains('approval form validation failed')) {
     return normalized.replaceFirst(
       RegExp('approval form validation failed\\.?', caseSensitive: false),

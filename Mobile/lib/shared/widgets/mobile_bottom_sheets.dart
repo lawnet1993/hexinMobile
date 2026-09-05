@@ -40,6 +40,7 @@ Future<T?> showMobileChoiceSheet<T>(
   String searchHint = '搜索',
   String emptyText = '暂无可选项',
 }) async {
+  FocusManager.instance.primaryFocus?.unfocus();
   final searchController = TextEditingController();
   var query = '';
   final result = await showModalBottomSheet<T>(
@@ -148,6 +149,7 @@ Future<List<T>?> showMobileMultiChoiceSheet<T>(
   bool searchable = false,
   String searchHint = '搜索',
 }) async {
+  FocusManager.instance.primaryFocus?.unfocus();
   final selected = selectedValues.toSet();
   final searchController = TextEditingController();
   var query = '';
@@ -217,11 +219,7 @@ Future<List<T>?> showMobileMultiChoiceSheet<T>(
                       ),
                       const Spacer(),
                       FilledButton(
-                        style: const ButtonStyle(
-                          minimumSize: WidgetStatePropertyAll(Size(92, 40)),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
+                        style: compactMobileActionStyle,
                         onPressed: () =>
                             Navigator.pop(sheetContext, selected.toList()),
                         child: Text('确定（${selected.length}）'),
@@ -277,11 +275,7 @@ Future<void> showMobileMessageSheet(
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton(
-              style: const ButtonStyle(
-                minimumSize: WidgetStatePropertyAll(Size(88, 40)),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-              ),
+              style: compactMobileActionStyle,
               onPressed: () => Navigator.pop(sheetContext),
               child: Text(actionLabel),
             ),
@@ -465,12 +459,7 @@ Future<String?> showMobileTextInputSheet(
                   const SizedBox(width: 8),
                   FilledButton(
                     key: const Key('mobile-text-input-submit'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(68, 36),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    style: compactMobileActionStyle,
                     onPressed: () => _submitMobileTextInput(
                       sheetContext,
                       controller.text,
@@ -745,21 +734,16 @@ Future<bool?> showMobileConfirmSheet(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(64, 40),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  style: compactMobileActionStyle,
                   onPressed: () => Navigator.pop(sheetContext, false),
                   child: const Text('取消'),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(96, 40),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: destructive ? AppColors.error : null,
+                  style: compactMobileActionStyle.copyWith(
+                    backgroundColor: destructive
+                        ? const WidgetStatePropertyAll(AppColors.error)
+                        : null,
                   ),
                   onPressed: () => Navigator.pop(sheetContext, true),
                   child: Text(confirmLabel),
@@ -780,6 +764,9 @@ Future<DateTime?> showMobileDatePickerSheet(
   required DateTime lastDate,
   String title = '选择日期',
 }) {
+  // A picker replaces text entry. Clear the route's focus history so closing
+  // it cannot reopen the keyboard from the previously edited form field.
+  FocusManager.instance.primaryFocus?.unfocus();
   var selected = initialDate;
   return showModalBottomSheet<DateTime>(
     context: context,
@@ -818,6 +805,7 @@ Future<DateTimeRange?> showMobileDateRangePickerSheet(
   required DateTime lastDate,
   String title = '选择日期范围',
 }) {
+  FocusManager.instance.primaryFocus?.unfocus();
   var start = initialDateRange?.start;
   var end = initialDateRange?.end;
   final initialDate = start ?? DateTime.now();
@@ -900,6 +888,7 @@ Future<TimeOfDay?> showMobileTimePickerSheet(
   required TimeOfDay initialTime,
   String title = '选择时间',
 }) async {
+  FocusManager.instance.primaryFocus?.unfocus();
   var hour = initialTime.hour;
   var minute = initialTime.minute;
   final hourController = FixedExtentScrollController(initialItem: hour);
@@ -999,21 +988,13 @@ class _SheetActions extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         TextButton(
-          style: TextButton.styleFrom(
-            minimumSize: const Size(64, 40),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          ),
+          style: compactMobileActionStyle,
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
         const SizedBox(width: 8),
         FilledButton(
-          style: const ButtonStyle(
-            minimumSize: WidgetStatePropertyAll(Size(88, 40)),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          ),
+          style: compactMobileActionStyle,
           onPressed: onConfirm,
           child: const Text('确定'),
         ),

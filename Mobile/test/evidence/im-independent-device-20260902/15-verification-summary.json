@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-02",
+  "tests": {"beforeFixEditRacesFailed": 2, "smokePassed": 27, "fullPassed": 403, "analysisIssues": 0, "goldensChanged": false},
+  "installedDevices": ["M1", "M3"],
+  "sha256": "93B64B3C5A07722539CDA452DCC0D6B66F3EF46A428FA0E656996B61E55E4F19",
+  "newEmulator": {"name": "SecureAccess_UAT_M3", "serial": "emulator-5556", "account": "test03", "copiedOldDeviceData": false, "networkRestored": true},
+  "friendRequest": {"sender": "test01", "recipient": "test03", "receivedAfterFirstLogin": true, "acceptedThroughUi": true},
+  "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+  "directMessages": {"total": 3, "sameServerIdsClientIdsAndSequences": true, "m1FinalReadSequence": 3, "m3FinalReadSequence": 3, "m1FinalUnread": 0, "m3FinalUnread": 0},
+  "offlineRecovery": {"noDefaultNetworkConfirmed": true, "coldRestartKeptLogin": true, "messagesBeforeReconnect": 1, "messagesAfterReconnectWithoutOpeningChat": 3, "unreadBeforeOpeningChat": 2},
+  "searchDraftUi": {"showsClickSearch": true, "prematureNotFound": false},
+  "notVerified": ["group chat on M3", "desktop UI", "attachment delivery", "advanced OA", "performance acceptance"]
+}

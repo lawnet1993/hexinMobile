@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 
+import 'app_storage_scope.dart';
+
 final class AppEnvironment {
   const AppEnvironment._();
 
   static const controlPlaneUrl = String.fromEnvironment(
     'CONTROL_PLANE_URL',
-    defaultValue: 'http://43.198.199.162',
+    defaultValue: 'http://api.sfhkh.com',
   );
   static const demoMode = bool.fromEnvironment('DEMO_MODE');
   static const demoAutoLogin = bool.fromEnvironment('DEMO_AUTO_LOGIN');
@@ -21,20 +23,22 @@ final class AppEnvironment {
     defaultValue: 'test',
   );
 
-  static String get storageNamespace {
-    final normalized = environmentName.trim().toLowerCase().replaceAll(
-      RegExp(r'[^a-z0-9_-]'),
-      '-',
-    );
-    return normalized.isEmpty ? 'test' : normalized;
-  }
+  static final storageScope = AppStorageScope(
+    environmentName: environmentName,
+    controlPlaneUrl: controlPlaneUrl,
+    demoMode: demoMode,
+  );
+
+  static String get storageNamespace => storageScope.namespace;
 
   static String secureStorageKey(String legacyKey) =>
-      storageNamespace == 'test' ? legacyKey : '$storageNamespace.$legacyKey';
+      storageScope.secureStorageKey(legacyKey);
 
-  static String databaseFileName(String feature) => storageNamespace == 'test'
-      ? 'hexing-mobile-$feature.db'
-      : 'hexing-mobile-$storageNamespace-$feature.db';
+  static String databaseFileName(String feature) =>
+      storageScope.databaseFileName(feature);
+
+  static String storageDirectoryName(String feature) =>
+      storageScope.directoryName(feature);
 
   static const _releaseArtifactPublicKeys = String.fromEnvironment(
     'MOBILE_ARTIFACT_PUBLIC_KEYS',

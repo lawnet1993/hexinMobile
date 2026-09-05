@@ -1,0 +1,20 @@
+{
+  "m3-directUnchanged": true,
+  "m3-groupPreservedAfterInstall": true,
+  "m3-groupSequences": true,
+  "m3-groupNoDuplicateIds": true,
+  "m3-groupReadPersisted": true,
+  "m3-oneNewConversationOnly": true,
+  "m3-originalOutboxIdentitiesPreserved": true,
+  "m4-directUnchanged": true,
+  "m4-groupPreservedAfterInstall": true,
+  "m4-groupSequences": true,
+  "m4-groupNoDuplicateIds": true,
+  "m4-groupReadPersisted": true,
+  "m4-oneNewConversationOnly": true,
+  "m4-originalOutboxIdentitiesPreserved": true,
+  "sameGroupLedgerBothDevices": true,
+  "oaDraftsPreserved": true,
+  "oaReadReceiptsPreserved": true,
+  "oaOutboxPreserved": true
+}

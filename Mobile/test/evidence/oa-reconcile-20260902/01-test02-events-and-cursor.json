@@ -1,0 +1,82 @@
+{
+  "checkedAt": "2026-09-02T10:32:05.657582Z",
+  "account": "test02",
+  "requestId": "cba9f30e-4def-41ac-b53f-d5212d44cd4b",
+  "detailHttpStatus": 200,
+  "status": "withdrawn",
+  "version": 4,
+  "updatedAt": "2026-09-02T10:21:49.388318Z",
+  "server": {
+    "latestSequence": 100,
+    "complete": true,
+    "typeCounts": {
+      "attendance.exception.detected": 2,
+      "approval.task.created": 2,
+      "oa.notification.created": 2,
+      "oa.notification.read": 1
+    },
+    "matchingEvents": [
+      {
+        "sequence": 95,
+        "id": "2ac75d61-403d-4633-8440-d7cbb2755254",
+        "type": "oa.notification.created",
+        "createdAt": "2026-09-02T10:18:27.352601Z",
+        "requestId": "cba9f30e-4def-41ac-b53f-d5212d44cd4b",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "sequence": 100,
+        "id": "b0c99061-fa73-4e66-8372-960b7315cfe6",
+        "type": "oa.notification.read",
+        "createdAt": "2026-09-02T10:21:24.043723Z",
+        "requestId": "cba9f30e-4def-41ac-b53f-d5212d44cd4b",
+        "payloadFields": [
+          "ReadAt",
+          "RequestId",
+          "NotificationId"
+        ]
+      }
+    ]
+  },
+  "local": {
+    "cursors": [
+      {
+        "state_key": "last-event-sequence",
+        "value": "100",
+        "updated_at": "2026-09-02T10:21:27.399451Z"
+      }
+    ],
+    "eventCount": 7,
+    "matchingEvents": [
+      {
+        "sequence": 95,
+        "id": "2ac75d61-403d-4633-8440-d7cbb2755254",
+        "type": "oa.notification.created",
+        "createdAt": "2026-09-02T10:18:27.352601Z",
+        "appliedAt": "2026-09-02T10:18:41.694141Z",
+        "requestId": "cba9f30e-4def-41ac-b53f-d5212d44cd4b"
+      },
+      {
+        "sequence": 100,
+        "id": "b0c99061-fa73-4e66-8372-960b7315cfe6",
+        "type": "oa.notification.read",
+        "createdAt": "2026-09-02T10:21:24.043723Z",
+        "appliedAt": "2026-09-02T10:21:27.399451Z",
+        "requestId": "cba9f30e-4def-41ac-b53f-d5212d44cd4b"
+      }
+    ]
+  }
+}

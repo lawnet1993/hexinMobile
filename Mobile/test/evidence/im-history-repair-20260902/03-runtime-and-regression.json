@@ -1,0 +1,321 @@
+{
+  "tests": {
+    "passed": 390,
+    "failed": 0,
+    "newHistoryTests": 12,
+    "analyzeIssues": 0
+  },
+  "beforeM1": {
+    "outbox": [
+      {
+        "client_message_id": "901c6844-5dde-48f5-87c4-1768742d0e18",
+        "conversation_id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "kind": "image",
+        "attempts": 20,
+        "created_at": "2026-09-02T10:01:48.872101Z",
+        "next_retry_at": "2026-09-02T11:40:18.283933Z"
+      }
+    ],
+    "failures": [
+      {
+        "kind": "image",
+        "httpStatus": "500"
+      }
+    ],
+    "groupMessages": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "message_count": 85,
+        "minimum_sequence": 1,
+        "maximum_sequence": 85
+      }
+    ],
+    "targetMessage": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "0e25adad-cd23-4433-8b51-1a523cc393d7",
+        "client_message_id": "46bce48c-c409-45ae-99ee-4942a8d31320",
+        "sequence": 85,
+        "local_status": "sent"
+      }
+    ],
+    "groupProjections": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "last_message_sequence": 85,
+        "last_read_sequence": 85,
+        "unread_count": 0,
+        "unread_mention_sequences_json": "[]"
+      }
+    ],
+    "historyRepairState": [],
+    "conversationMetadata": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "ce4a77c2-7acb-41f9-aa7e-d07937a4d2fa",
+        "type": "group",
+        "last_message_sequence": 0,
+        "last_read_sequence": 0,
+        "unread_count": 0,
+        "local_message_count": 0
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "b0c895f2-3336-45f2-a52a-44e1e8500a2b",
+        "type": "direct",
+        "last_message_sequence": 1,
+        "last_read_sequence": 0,
+        "unread_count": 1,
+        "local_message_count": 1
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "type": "direct",
+        "last_message_sequence": 6,
+        "last_read_sequence": 6,
+        "unread_count": 0,
+        "local_message_count": 7
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "c4906953-10bd-4671-b984-c50ed3951349",
+        "type": "group",
+        "last_message_sequence": 85,
+        "last_read_sequence": 85,
+        "unread_count": 0,
+        "local_message_count": 85
+      }
+    ]
+  },
+  "afterM1": {
+    "outbox": [
+      {
+        "client_message_id": "901c6844-5dde-48f5-87c4-1768742d0e18",
+        "conversation_id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "kind": "image",
+        "attempts": 21,
+        "created_at": "2026-09-02T10:01:48.872101Z",
+        "next_retry_at": "2026-09-02T11:45:40.728270Z"
+      }
+    ],
+    "failures": [
+      {
+        "kind": "image",
+        "httpStatus": "500"
+      }
+    ],
+    "groupMessages": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "message_count": 85,
+        "minimum_sequence": 1,
+        "maximum_sequence": 85
+      }
+    ],
+    "targetMessage": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "0e25adad-cd23-4433-8b51-1a523cc393d7",
+        "client_message_id": "46bce48c-c409-45ae-99ee-4942a8d31320",
+        "sequence": 85,
+        "local_status": "sent"
+      }
+    ],
+    "groupProjections": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "last_message_sequence": 85,
+        "last_read_sequence": 85,
+        "unread_count": 0,
+        "unread_mention_sequences_json": "[]"
+      }
+    ],
+    "historyRepairState": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "state_key": "history.coverage.c4906953-10bd-4671-b984-c50ed3951349",
+        "value": "85"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "state_key": "history.coverage.b0c895f2-3336-45f2-a52a-44e1e8500a2b",
+        "value": "1"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "state_key": "history.coverage.a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "value": "6"
+      }
+    ],
+    "conversationMetadata": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "c4906953-10bd-4671-b984-c50ed3951349",
+        "type": "group",
+        "last_message_sequence": 85,
+        "last_read_sequence": 85,
+        "unread_count": 0,
+        "local_message_count": 85
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "ce4a77c2-7acb-41f9-aa7e-d07937a4d2fa",
+        "type": "group",
+        "last_message_sequence": 0,
+        "last_read_sequence": 0,
+        "unread_count": 0,
+        "local_message_count": 0
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "b0c895f2-3336-45f2-a52a-44e1e8500a2b",
+        "type": "direct",
+        "last_message_sequence": 1,
+        "last_read_sequence": 0,
+        "unread_count": 1,
+        "local_message_count": 1
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "type": "direct",
+        "last_message_sequence": 6,
+        "last_read_sequence": 6,
+        "unread_count": 0,
+        "local_message_count": 7
+      }
+    ]
+  },
+  "unchangedOldPackageM2": {
+    "outbox": [
+      {
+        "client_message_id": "3cd662e8-5d7c-40ab-82f9-7d9b5959af80",
+        "conversation_id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "kind": "video",
+        "attempts": 26,
+        "created_at": "2026-09-02T09:45:17.790598Z",
+        "next_retry_at": "2026-09-02T11:45:00.910580Z"
+      }
+    ],
+    "failures": [
+      {
+        "kind": "video",
+        "httpStatus": "500"
+      }
+    ],
+    "groupMessages": [
+      {
+        "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+        "message_count": 84,
+        "minimum_sequence": 1,
+        "maximum_sequence": 84
+      }
+    ],
+    "targetMessage": [],
+    "groupProjections": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "last_message_sequence": 84,
+        "last_read_sequence": 51,
+        "unread_count": 33,
+        "unread_mention_sequences_json": "[]"
+      },
+      {
+        "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+        "last_message_sequence": 85,
+        "last_read_sequence": 84,
+        "unread_count": 1,
+        "unread_mention_sequences_json": "[85]"
+      }
+    ],
+    "historyRepairState": [],
+    "conversationMetadata": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "ce4a77c2-7acb-41f9-aa7e-d07937a4d2fa",
+        "type": "group",
+        "last_message_sequence": 0,
+        "last_read_sequence": 0,
+        "unread_count": 0,
+        "local_message_count": 0
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "b0c895f2-3336-45f2-a52a-44e1e8500a2b",
+        "type": "direct",
+        "last_message_sequence": 1,
+        "last_read_sequence": 0,
+        "unread_count": 1,
+        "local_message_count": 1
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "type": "direct",
+        "last_message_sequence": 6,
+        "last_read_sequence": 6,
+        "unread_count": 0,
+        "local_message_count": 6
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "c4906953-10bd-4671-b984-c50ed3951349",
+        "type": "group",
+        "last_message_sequence": 84,
+        "last_read_sequence": 51,
+        "unread_count": 33,
+        "local_message_count": 0
+      },
+      {
+        "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+        "id": "c4906953-10bd-4671-b984-c50ed3951349",
+        "type": "group",
+        "last_message_sequence": 85,
+        "last_read_sequence": 84,
+        "unread_count": 1,
+        "local_message_count": 84
+      },
+      {
+        "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+        "id": "ce4a77c2-7acb-41f9-aa7e-d07937a4d2fa",
+        "type": "group",
+        "last_message_sequence": 0,
+        "last_read_sequence": 0,
+        "unread_count": 0,
+        "local_message_count": 0
+      },
+      {
+        "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+        "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "type": "direct",
+        "last_message_sequence": 6,
+        "last_read_sequence": 6,
+        "unread_count": 0,
+        "local_message_count": 7
+      }
+    ]
+  },
+  "runtimes": [
+    {
+      "device": "dd00d66d",
+      "checkedAt": "2026-09-02T19:41:13.3901738+08:00",
+      "apkSha256": "4ca78cbcead7cd8bec5b8f99873789cde5b63436e2e07540ac340bd5673810e2",
+      "fatalOrUnhandledCount": 0,
+      "sessionFailureCount": 0,
+      "wifi": "0",
+      "data": "1",
+      "defaultNetwork": "Active default network: 107"
+    },
+    {
+      "device": "emulator-5554",
+      "checkedAt": "2026-09-02T19:41:14.4476740+08:00",
+      "apkSha256": "96c54582eb09ead2d98c3cd88a5d4aeaf62c20ca5804e9584644bf907aa4edc5",
+      "fatalOrUnhandledCount": 0,
+      "sessionFailureCount": 0,
+      "wifi": "1",
+      "data": "1",
+      "defaultNetwork": "Active default network: 109"
+    }
+  ]
+}

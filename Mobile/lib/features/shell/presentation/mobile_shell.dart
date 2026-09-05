@@ -63,6 +63,10 @@ class _MobileShellState extends ConsumerState<MobileShell>
     ref.listenManual(authControllerProvider, (previous, next) {
       if (previous?.value != null && next.value == null) {
         _stopSessionRuntime();
+      } else if (!_sessionRuntimeStopped && previous?.value != null &&
+          next.value != null && !previous!.value!.isSameSession(next.value!)) {
+        // A refreshed login token must bind push registration to that session.
+        _pushRegistration.synchronize().ignore();
       }
     });
     WidgetsBinding.instance.addObserver(this);
@@ -87,11 +91,11 @@ class _MobileShellState extends ConsumerState<MobileShell>
       // the dedicated device page when collaboration is temporarily offline.
     }
     if (!mounted || _sessionRuntimeStopped) return;
-    await _presenceCoordinator.start();
-    if (!mounted || _sessionRuntimeStopped) return;
-    await _imSyncCoordinator.start();
-    if (!mounted || _sessionRuntimeStopped) return;
-    await _oaSyncCoordinator.start();
+    await Future.wait([
+      _presenceCoordinator.start(),
+      _imSyncCoordinator.start(),
+      _oaSyncCoordinator.start(),
+    ]);
     if (!mounted || _sessionRuntimeStopped) return;
     try {
       await _pushRegistration.start(onOpenRoute: _openPushRoute);

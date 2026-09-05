@@ -1,0 +1,98 @@
+{
+  "passed": 23,
+  "total": 23,
+  "checks": [
+    {
+      "name": "m3-schema-integrity-and-message-count",
+      "passed": true
+    },
+    {
+      "name": "m3-messageLedger-retained",
+      "passed": true
+    },
+    {
+      "name": "m3-groupProjections-retained",
+      "passed": true
+    },
+    {
+      "name": "m3-conversationMetadata-retained",
+      "passed": true
+    },
+    {
+      "name": "m3-currentMembers-retained",
+      "passed": true
+    },
+    {
+      "name": "m3-pending-media-retained",
+      "passed": true
+    },
+    {
+      "name": "m3-oa-drafts-retained",
+      "passed": true
+    },
+    {
+      "name": "m3-oa-readReceipts-retained",
+      "passed": true
+    },
+    {
+      "name": "m3-oa-outbox-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-schema-integrity-and-message-count",
+      "passed": true
+    },
+    {
+      "name": "m4-messageLedger-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-groupProjections-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-conversationMetadata-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-currentMembers-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-pending-media-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-oa-drafts-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-oa-readReceipts-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-oa-outbox-retained",
+      "passed": true
+    },
+    {
+      "name": "android-benchmark.json-actual-codec-sizes-and-samples",
+      "passed": true
+    },
+    {
+      "name": "android-benchmark-repeat.json-actual-codec-sizes-and-samples",
+      "passed": true
+    },
+    {
+      "name": "emulator-5556-normal-apk-runtime",
+      "passed": true
+    },
+    {
+      "name": "emulator-5558-normal-apk-runtime",
+      "passed": true
+    },
+    {
+      "name": "normal-contact-open-and-single-back-five-cycles",
+      "passed": true
+    }
+  ]
+}

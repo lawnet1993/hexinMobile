@@ -1,0 +1,21 @@
+{
+  "sha256": "DDBB7276CC9766FD65FBAE7E061085F2E2B6FC11C409E286E28AADA4FD17A845",
+  "libs": [
+    {
+      "name": "lib/arm64-v8a/libflutter.so",
+      "length": 12567816
+    },
+    {
+      "name": "lib/x86_64/libflutter.so",
+      "length": 13922960
+    },
+    {
+      "name": "lib/arm64-v8a/libapp.so",
+      "length": 13173640
+    },
+    {
+      "name": "lib/x86_64/libapp.so",
+      "length": 13304712
+    }
+  ]
+}

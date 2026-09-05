@@ -1,0 +1,64 @@
+{
+  "checkedAt": "2026-09-05T03:04:06+08:00",
+  "environment": "http://api.sfhkh.com",
+  "requestId": "702821d9-c252-406d-b060-095812719950",
+  "marker": "AI-UAT-20260905-025500-OA-ADD-SIGN-737",
+  "requester": {
+    "account": "test03",
+    "name": "Test Terminal 03",
+    "department": "财顺"
+  },
+  "status": "approved",
+  "templateVersion": 1,
+  "requestVersion": 4,
+  "workflowKey": "system.default.attendance.leave",
+  "allowedActions": [],
+  "tasks": [
+    {
+      "node": "部门负责人审批",
+      "assignee": "test03",
+      "department": "财顺",
+      "status": "approved",
+      "canOperate": false,
+      "completedAtUtc": "2026-09-04T19:01:52.737905Z"
+    },
+    {
+      "node": "部门负责人审批（加签）",
+      "assignee": "test01",
+      "department": "公司总部",
+      "status": "approved",
+      "canOperate": false,
+      "completedAtUtc": "2026-09-04T19:00:30.627403Z"
+    }
+  ],
+  "actions": [
+    "submitted",
+    "add_signed",
+    "approved:test01",
+    "approved:test03",
+    "service_queued",
+    "service_succeeded"
+  ],
+  "deviceProjection": {
+    "test03": {
+      "oaCursor": 610,
+      "detailCached": true,
+      "finalEventsApplied": true
+    },
+    "test01": {
+      "oaCursor": 601,
+      "detailCached": true,
+      "frontAddSignTaskNotificationReceived": true
+    }
+  },
+  "verification": {
+    "uiSubmitted": true,
+    "uiFrontAddSign": true,
+    "uiAddedAssigneeApproved": true,
+    "uiOriginalAssigneeResumed": true,
+    "uiOriginalAssigneeApproved": true,
+    "serverDetailStatus": 200,
+    "businessWritebackCompleted": true,
+    "focusedTestsPassed": 71
+  }
+}

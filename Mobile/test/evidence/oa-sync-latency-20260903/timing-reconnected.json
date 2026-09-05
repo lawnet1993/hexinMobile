@@ -1,0 +1,18 @@
+{
+  "checkedAt": "2026-09-03T02:08:22.2455567+08:00",
+  "serial": "emulator-5556",
+  "processId": 20442,
+  "source": "normal-app-scoped-logcat-whitelisted-timing",
+  "events": [
+    {
+      "recordedAt": "2026-09-02T18:08:16.2929250+00:00",
+      "eventCount": 1,
+      "waitSeconds": 0,
+      "requestMs": 1048,
+      "projectionMs": 508,
+      "commitMs": 104,
+      "totalMs": 1660,
+      "outcome": "committed"
+    }
+  ]
+}

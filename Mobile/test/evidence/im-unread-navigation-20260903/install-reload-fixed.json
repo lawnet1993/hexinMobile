@@ -1,0 +1,16 @@
+[
+  {
+    "at": "2026-09-03T10:01:44.8209456+08:00",
+    "serial": "emulator-5556",
+    "pid": "15906",
+    "sha256": "F18430699B1ACBEE68DF6C5952665A14DFC2BD28B4B78405432574CEF8562B47",
+    "normalApkMatches": true
+  },
+  {
+    "at": "2026-09-03T10:02:02.4070649+08:00",
+    "serial": "emulator-5558",
+    "pid": "12715",
+    "sha256": "F18430699B1ACBEE68DF6C5952665A14DFC2BD28B4B78405432574CEF8562B47",
+    "normalApkMatches": true
+  }
+]

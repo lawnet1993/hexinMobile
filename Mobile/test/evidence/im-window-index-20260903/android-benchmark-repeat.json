@@ -1,0 +1,308 @@
+{
+  "scope": "Synthetic SQLite + platform channel + model decoding; not touch-to-frame latency",
+  "sqliteVersion": "3.44.3",
+  "schemaVersion": 15,
+  "pageBytes": 4096,
+  "results": [
+    {
+      "confirmedFixtureRows": 1000,
+      "pendingRows": 3,
+      "visibleWindowRows": 80,
+      "sameRowsAndReceipts": true,
+      "encryptedDecodedContentMatches": true,
+      "beforePlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_conversation_sequence (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ],
+      "afterPlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_visible_window (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)"
+      ],
+      "oldSql": {
+        "samplesMicros": [
+          10264,
+          16427,
+          5987,
+          17049,
+          8990,
+          6392,
+          9814,
+          6268,
+          8224
+        ],
+        "medianMicros": 8990,
+        "maxMicros": 17049
+      },
+      "newSql": {
+        "samplesMicros": [
+          12416,
+          15561,
+          15434,
+          3580,
+          12022,
+          16263,
+          14723,
+          14138,
+          2571
+        ],
+        "medianMicros": 14138,
+        "maxMicros": 16263
+      },
+      "oldSqlAgain": {
+        "samplesMicros": [
+          15197,
+          15248,
+          15458,
+          14714,
+          15938,
+          14524,
+          16837,
+          4015,
+          10558
+        ],
+        "medianMicros": 15197,
+        "maxMicros": 16837
+      },
+      "oldReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          11836,
+          7903,
+          6833,
+          6360,
+          17377,
+          8033,
+          8128,
+          11114,
+          19046
+        ],
+        "medianMicros": 8128,
+        "maxMicros": 19046
+      },
+      "newReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          15619,
+          15562,
+          16128,
+          14016,
+          16640,
+          13920,
+          16458,
+          14427,
+          17740
+        ],
+        "medianMicros": 15619,
+        "maxMicros": 17740
+      },
+      "indexCreationMicros": 6760,
+      "databasePagesBefore": 164,
+      "databasePagesAfter": 185
+    },
+    {
+      "confirmedFixtureRows": 10000,
+      "pendingRows": 3,
+      "visibleWindowRows": 80,
+      "sameRowsAndReceipts": true,
+      "encryptedDecodedContentMatches": true,
+      "beforePlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_conversation_sequence (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ],
+      "afterPlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_visible_window (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)"
+      ],
+      "oldSql": {
+        "samplesMicros": [
+          31521,
+          30712,
+          32737,
+          30521,
+          30138,
+          30580,
+          31035,
+          31976,
+          31110
+        ],
+        "medianMicros": 31035,
+        "maxMicros": 32737
+      },
+      "newSql": {
+        "samplesMicros": [
+          15171,
+          15275,
+          16022,
+          15417,
+          15293,
+          2813,
+          11801,
+          16165,
+          15184
+        ],
+        "medianMicros": 15275,
+        "maxMicros": 16165
+      },
+      "oldSqlAgain": {
+        "samplesMicros": [
+          30458,
+          32609,
+          45613,
+          30309,
+          30766,
+          31834,
+          30995,
+          31325,
+          29450
+        ],
+        "medianMicros": 30995,
+        "maxMicros": 45613
+      },
+      "oldReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          31631,
+          29983,
+          32804,
+          32260,
+          32376,
+          30009,
+          31653,
+          29947,
+          32938
+        ],
+        "medianMicros": 31653,
+        "maxMicros": 32938
+      },
+      "newReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          13948,
+          16409,
+          14704,
+          16001,
+          15845,
+          17515,
+          13964,
+          17159,
+          14271
+        ],
+        "medianMicros": 15845,
+        "maxMicros": 17515
+      },
+      "indexCreationMicros": 39085,
+      "databasePagesBefore": 1405,
+      "databasePagesAfter": 1601
+    },
+    {
+      "confirmedFixtureRows": 50000,
+      "pendingRows": 3,
+      "visibleWindowRows": 80,
+      "sameRowsAndReceipts": true,
+      "encryptedDecodedContentMatches": true,
+      "beforePlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_conversation_sequence (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ],
+      "afterPlan": [
+        "SEARCH im_messages USING INDEX ix_im_messages_visible_window (account_id=? AND conversation_id=?)",
+        "CORRELATED SCALAR SUBQUERY 1",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)",
+        "CORRELATED SCALAR SUBQUERY 2",
+        "SEARCH s USING INDEX sqlite_autoindex_im_sync_state_1 (account_id=? AND state_key=?)"
+      ],
+      "oldSql": {
+        "samplesMicros": [
+          109535,
+          108226,
+          108758,
+          97057,
+          105564,
+          110529,
+          106478,
+          96540,
+          107467
+        ],
+        "medianMicros": 107467,
+        "maxMicros": 110529
+      },
+      "newSql": {
+        "samplesMicros": [
+          4986,
+          10434,
+          4356,
+          10362,
+          15282,
+          2536,
+          13543,
+          15970,
+          16640
+        ],
+        "medianMicros": 10434,
+        "maxMicros": 16640
+      },
+      "oldSqlAgain": {
+        "samplesMicros": [
+          122913,
+          108528,
+          94843,
+          95406,
+          106631,
+          109224,
+          107810,
+          109800,
+          110237
+        ],
+        "medianMicros": 108528,
+        "maxMicros": 122913
+      },
+      "oldReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          124710,
+          110686,
+          123715,
+          124271,
+          105200,
+          110329,
+          122787,
+          109896,
+          125527
+        ],
+        "medianMicros": 122787,
+        "maxMicros": 125527
+      },
+      "newReadMessagesWithDecrypt": {
+        "samplesMicros": [
+          16282,
+          15349,
+          14771,
+          14728,
+          16430,
+          15208,
+          16258,
+          14033,
+          15894
+        ],
+        "medianMicros": 15349,
+        "maxMicros": 16430
+      },
+      "indexCreationMicros": 85173,
+      "databasePagesBefore": 6943,
+      "databasePagesAfter": 7924
+    }
+  ]
+}

@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kReleaseMode, kProfileMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as path;
@@ -12,14 +15,24 @@ import 'package:uuid/uuid.dart';
 import '../../../core/config/app_environment.dart';
 import '../../../core/demo/preview_data.dart';
 import '../../../core/network/collaboration_client.dart';
+import '../../../core/network/mobile_read_retry.dart';
 import '../../../core/storage/im_cache_cipher.dart';
 import '../../../core/storage/secure_session_store.dart';
 import '../../auth/application/auth_controller.dart';
 import '../domain/collaboration_models.dart';
 import 'im_local_store.dart';
 import 'im_message_image_cache.dart';
+import 'im_message_window_retention.dart';
+import 'im_decoded_message_cache.dart';
+import 'im_outbox_file_store.dart';
+import 'im_upload_diagnostics.dart';
+import 'im_read_diagnostics.dart';
+import 'im_presence_projection.dart';
+import 'im_presence_diagnostics.dart';
+import 'im_member_presence.dart';
 import 'im_video_thumbnail.dart';
 import 'oa_local_store.dart';
+import 'oa_sync_timing.dart';
 
 const _demoSession = MobileSession(
   accessToken: 'demo-token',
@@ -47,7 +60,34 @@ final collaborationAccountScopeProvider = Provider<String>((ref) {
   );
 });
 
+// Refreshing credentials must not invalidate already rendered media, but a
+// different account or service environment must never reuse its cached bytes.
+String imMediaCacheNamespace(MobileSession session) => crypto.sha256
+    .convert(
+      utf8.encode(
+        jsonEncode([
+          AppEnvironment.storageNamespace,
+          session.userId.trim(),
+          session.imApiUrl.trim(),
+          session.oaApiUrl.trim(),
+        ]),
+      ),
+    )
+    .toString();
+
+final imMediaScopeProvider = Provider((ref) {
+  final account = ref.watch(collaborationAccountScopeProvider);
+  final endpoints = ref.watch(
+    authControllerProvider.select(
+      (state) => (state.value?.imApiUrl ?? '', state.value?.oaApiUrl ?? ''),
+    ),
+  );
+  return (account, endpoints);
+});
+
 enum ImRealtimeAvailability { connecting, available, unavailable }
+
+enum OaSyncAvailability { connecting, available, unavailable }
 
 final imRealtimeAvailabilityControllerProvider =
     NotifierProvider<ImRealtimeAvailabilityController, ImRealtimeAvailability>(
@@ -70,11 +110,80 @@ class ImRealtimeAvailabilityController
   void markUnavailable() => state = ImRealtimeAvailability.unavailable;
 }
 
+final oaSyncAvailabilityControllerProvider =
+    NotifierProvider<OaSyncAvailabilityController, OaSyncAvailability>(
+      OaSyncAvailabilityController.new,
+    );
+
+final oaSyncAvailabilityProvider = Provider<OaSyncAvailability>((ref) {
+  return ref.watch(oaSyncAvailabilityControllerProvider);
+});
+
+class OaSyncAvailabilityController extends Notifier<OaSyncAvailability> {
+  @override
+  OaSyncAvailability build() => OaSyncAvailability.connecting;
+
+  void markConnecting() => state = OaSyncAvailability.connecting;
+
+  void markAvailable() => state = OaSyncAvailability.available;
+
+  void markUnavailable() => state = OaSyncAvailability.unavailable;
+}
+
+final oaApprovalRevisionsProvider =
+    NotifierProvider<OaApprovalRevisions, Map<String, int>>(
+      OaApprovalRevisions.new,
+    );
+
+final oaApprovalRevisionProvider = Provider.family<int, String>((ref, id) {
+  return ref.watch(
+    oaApprovalRevisionsProvider.select((value) => value[id] ?? 0),
+  );
+});
+
+class OaApprovalRevisions extends Notifier<Map<String, int>> {
+  @override
+  Map<String, int> build() {
+    ref.watch(collaborationAccountScopeProvider);
+    return const {};
+  }
+
+  void changed(Set<String> requestIds) {
+    if (requestIds.isEmpty) return;
+    state = {...state, for (final id in requestIds) id: (state[id] ?? 0) + 1};
+  }
+}
+
+final imDecodedMessageCacheProvider = Provider<ImDecodedMessageCache>((ref) {
+  final cache = ImDecodedMessageCache();
+  ref.onDispose(cache.clear);
+  return cache;
+});
+
 final imLocalStoreProvider = Provider<ImLocalStore>((ref) {
   final sessionStore = ref.read(secureSessionStoreProvider);
+  var decodeSamples = 0;
   final store = ImLocalStore(
     cipher: AesGcmImCacheCipher(sessionStore.readOrCreateImCacheKey),
+    decodedMessageCache: ref.read(imDecodedMessageCacheProvider),
+    onMessageRead: kProfileMode
+        ? (rows, cacheHits, durationMicros) {
+            if (decodeSamples++ < 80) {
+              debugPrint(
+                'MOBILE_IM_ROW_DECODE ${jsonEncode({'rows': rows, 'cacheHits': cacheHits, 'durationMicros': durationMicros})}',
+              );
+            }
+          }
+        : null,
   );
+  // Repositories retain this store through ref.read, without an active UI
+  // listener. A ref.listen would pause with that provider and miss logout.
+  // Keep the security cleanup subscription active until the store is disposed.
+  final accountSubscription = ref.container.listen<String>(
+    collaborationAccountScopeProvider,
+    (_, _) => store.clearDecodedMessages(),
+  );
+  ref.onDispose(accountSubscription.close);
   ref.onDispose(store.close);
   return store;
 });
@@ -124,7 +233,13 @@ final oaApprovalRequestLoaderProvider = Provider<OaApprovalRequestLoader>((
   ref,
 ) {
   final repository = ref.read(oaRepositoryProvider);
-  return repository.approvalRequestNetworkFirst;
+  return repository.approvalRequestCacheFirst;
+});
+
+final oaApprovalRequestRefresherProvider = Provider<OaApprovalRequestLoader>((
+  ref,
+) {
+  return ref.read(oaRepositoryProvider).refreshApprovalRequest;
 });
 
 final oaAttachmentThumbnailBytesLoaderProvider =
@@ -158,7 +273,33 @@ final imRepositoryProvider = Provider<ImRepository>((ref) {
     ref.read(collaborationClientProvider),
     ref.read(secureSessionStoreProvider),
     ref.read(imLocalStoreProvider),
+    memberPresence: () => ref.mounted
+        ? ref.read(imMemberPresenceProjectionProvider.notifier)
+        : null,
   );
+});
+
+final conversationVisibleReadMarkerProvider =
+    Provider<Future<void> Function(String, int)>((ref) {
+      return ref.read(imRepositoryProvider).markRead;
+    });
+
+final conversationPresenceEnterActionProvider =
+    Provider<Future<void> Function(String)>((ref) {
+      return ref.read(imRepositoryProvider).enterConversation;
+    });
+
+final conversationPresenceLeaveActionProvider =
+    Provider<Future<void> Function()>((ref) {
+      return ref.read(imRepositoryProvider).leaveActiveConversation;
+    });
+
+typedef ImMemberProfileLoader = Future<ImMemberProfile> Function(
+  String memberId,
+);
+
+final imMemberProfileLoaderProvider = Provider<ImMemberProfileLoader>((ref) {
+  return ref.read(imRepositoryProvider).memberProfile;
 });
 
 typedef ImGroupManagementCapabilitiesLoader =
@@ -246,6 +387,12 @@ final oaApplicationCatalogProvider = FutureProvider<OaApplicationCatalog>((
   if (AppEnvironment.demoMode) return PreviewData.oaCatalog;
   return ref.read(oaRepositoryProvider).appCatalogCacheFirst();
 });
+
+final oaApplicationCatalogRefresherProvider =
+    Provider<Future<OaApplicationCatalog> Function()>((ref) {
+      if (AppEnvironment.demoMode) return () async => PreviewData.oaCatalog;
+      return ref.read(oaRepositoryProvider).refreshAppCatalog;
+    });
 
 final oaApprovalRequestProvider = FutureProvider.autoDispose
     .family<OaApprovalRequest, String>((ref, id) async {
@@ -375,6 +522,12 @@ final oaOutboxProvider = FutureProvider<List<OaOutboxItem>>((ref) async {
   return ref.read(oaRepositoryProvider).outbox();
 });
 
+final oaPendingNotificationReadsProvider = FutureProvider<int>((ref) async {
+  ref.watch(collaborationAccountScopeProvider);
+  if (AppEnvironment.demoMode) return 0;
+  return ref.read(oaRepositoryProvider).pendingNotificationReadCount();
+});
+
 final imBootstrapProvider = FutureProvider<ImBootstrap>((ref) async {
   ref.watch(collaborationAccountScopeProvider);
   if (AppEnvironment.demoMode) return _demoValue(PreviewData.imBootstrap);
@@ -399,9 +552,47 @@ final conversationMessagesProvider =
       ref.watch(collaborationAccountScopeProvider);
       if (AppEnvironment.demoMode) return PreviewData.conversationMessages(id);
       return ref.read(imRepositoryProvider).messagesCacheFirst(id);
-    });
+    }, retry: mobileReadRetry);
 
 typedef ConversationMessageWindowKey = ({String conversationId, int take});
+typedef ConversationAnchoredWindowKey = ({
+  String conversationId,
+  int take,
+  int beforeSequence,
+});
+typedef ConversationAnchoredWindowLoader = Future<List<ImMessage>> Function(
+  String conversationId, {
+  required int take,
+  required int beforeSequence,
+});
+
+final conversationAnchoredWindowLoaderProvider =
+    Provider<ConversationAnchoredWindowLoader>((ref) {
+      return ref.read(imRepositoryProvider).messagesBeforeCacheFirst;
+    });
+
+// An unread anchor must not drag the whole unread backlog into the first frame.
+// Keep a bounded initial slice around it, then page in either direction.
+final conversationAnchoredWindowProvider = FutureProvider.autoDispose
+    .family<List<ImMessage>, ConversationAnchoredWindowKey>((ref, key) async {
+      ref.watch(collaborationAccountScopeProvider);
+      ref.watch(conversationMessageRevisionProvider(key.conversationId));
+      if (AppEnvironment.demoMode) {
+        final all = PreviewData.conversationMessages(key.conversationId)
+            .where(
+              (item) => item.sequence > 0 && item.sequence < key.beforeSequence,
+            )
+            .toList();
+        return all.length <= key.take
+            ? all
+            : all.sublist(all.length - key.take);
+      }
+      return ref.read(conversationAnchoredWindowLoaderProvider)(
+        key.conversationId,
+        take: key.take,
+        beforeSequence: key.beforeSequence,
+      );
+    }, retry: mobileReadRetry);
 typedef ConversationMessageWindowLoader = Future<List<ImMessage>> Function(
   String conversationId, {
   int? take,
@@ -437,22 +628,57 @@ final conversationLatestReconcilerProvider =
 final conversationMessageRevisionProvider = Provider.autoDispose
     .family<Object, String>((ref, conversationId) => Object());
 
+final imMessageWindowRetentionProvider = Provider<ImMessageWindowRetention>((
+  ref,
+) {
+  ref.watch(collaborationAccountScopeProvider);
+  var diagnosticSamples = 0;
+  final retention = ImMessageWindowRetention(
+    onChanged: kProfileMode
+        ? (windows, messages) {
+            if (diagnosticSamples++ < 80) {
+              debugPrint(
+                'MOBILE_IM_WINDOW_CACHE ${jsonEncode({'windows': windows, 'messages': messages})}',
+              );
+            }
+          }
+        : null,
+  );
+  ref.onDispose(retention.dispose);
+  return retention;
+});
+
 final conversationMessageWindowProvider = FutureProvider.autoDispose
     .family<List<ImMessage>, ConversationMessageWindowKey>((ref, key) async {
-      _retainForHotReopen(ref, retention: const Duration(minutes: 30));
       ref.watch(collaborationAccountScopeProvider);
       ref.watch(conversationMessageRevisionProvider(key.conversationId));
-      if (AppEnvironment.demoMode) {
-        final messages = PreviewData.conversationMessages(key.conversationId);
-        return messages.length <= key.take
-            ? messages
-            : messages.sublist(messages.length - key.take);
+      final keepAlive = ref.keepAlive();
+      final lease = ref
+          .watch(imMessageWindowRetentionProvider)
+          .acquire(key.conversationId, keepAlive.close);
+      ref.onCancel(lease.idle);
+      ref.onResume(lease.resume);
+      ref.onDispose(lease.release);
+      try {
+        final List<ImMessage> messages;
+        if (AppEnvironment.demoMode) {
+          final all = PreviewData.conversationMessages(key.conversationId);
+          messages = all.length <= key.take
+              ? all
+              : all.sublist(all.length - key.take);
+        } else {
+          messages = await ref.read(conversationMessageWindowLoaderProvider)(
+            key.conversationId,
+            take: key.take,
+          );
+        }
+        lease.loaded(messages.length);
+        return messages;
+      } catch (_) {
+        lease.release();
+        rethrow;
       }
-      return ref.read(conversationMessageWindowLoaderProvider)(
-        key.conversationId,
-        take: key.take,
-      );
-    });
+    }, retry: mobileReadRetry);
 
 typedef ImMediaCacheAccountLoader = Future<String> Function();
 typedef ImMessageImageBytesLoader = Future<Uint8List> Function(
@@ -472,7 +698,7 @@ final imMediaCacheAccountLoaderProvider = Provider<ImMediaCacheAccountLoader>((
     final session = await store.readSession();
     final accountId = session?.userId.trim() ?? '';
     if (accountId.isEmpty) throw StateError('登录状态已失效，请重新登录');
-    return accountId;
+    return imMediaCacheNamespace(session!);
   };
 });
 
@@ -490,6 +716,7 @@ final imMediaAttachmentBytesLoaderProvider =
     });
 
 final imBinaryMemoryCacheProvider = Provider<ImBinaryMemoryCache>((ref) {
+  ref.watch(imMediaScopeProvider);
   final cache = ImBinaryMemoryCache();
   ref.onDispose(cache.clear);
   return cache;
@@ -528,17 +755,30 @@ final imMessageImageProvider = FutureProvider.autoDispose
       ref,
       key,
     ) async {
-      ref.watch(collaborationAccountScopeProvider);
-      final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
+      ref.watch(imMediaScopeProvider);
+      final load = await _MediaLoad.start(ref);
+      final accountId = load.accountId;
       final cache = ref.read(imBinaryMemoryCacheProvider);
-      final cacheKey = 'image:${key.messageId}:${key.imageId}';
+      final cacheKey =
+          'image:${key.messageId}:${key.imageId}'
+          '${key.sha256.isEmpty ? '' : ':${key.sha256}'}';
       final cached = cache.read(accountId, cacheKey);
       if (cached != null) return cached;
+      if (parseImOutboxSyntheticFileId(key.imageId) != null) {
+        final bytes = await ref.read(imMessageImageBytesLoaderProvider)(
+          key.messageId,
+          key.imageId,
+        );
+        await load.check();
+        cache.write(accountId, cacheKey, bytes);
+        return bytes;
+      }
       final diskCached = await ref.read(imMessageImageDiskCacheReaderProvider)(
         accountId: accountId,
         imageId: key.imageId,
         sha256Value: key.sha256,
       );
+      await load.check();
       if (diskCached != null) {
         cache.write(accountId, cacheKey, diskCached);
         return diskCached;
@@ -547,6 +787,7 @@ final imMessageImageProvider = FutureProvider.autoDispose
         key.messageId,
         key.imageId,
       );
+      await load.check();
       cache.write(accountId, cacheKey, bytes);
       await ref.read(imMessageImageDiskCacheWriterProvider)(
         accountId: accountId,
@@ -554,13 +795,15 @@ final imMessageImageProvider = FutureProvider.autoDispose
         sha256Value: key.sha256,
         bytes: bytes,
       );
+      await load.check();
       return bytes;
-    });
+    }, retry: mobileReadRetry);
 
 final imMediaAttachmentProvider = FutureProvider.autoDispose
     .family<Uint8List, ({String attachmentId, bool cover})>((ref, key) async {
-      ref.watch(collaborationAccountScopeProvider);
-      final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
+      ref.watch(imMediaScopeProvider);
+      final load = await _MediaLoad.start(ref);
+      final accountId = load.accountId;
       final cache = ref.read(imBinaryMemoryCacheProvider);
       final cacheKey = 'media:${key.attachmentId}:${key.cover ? 1 : 0}';
       final cached = cache.read(accountId, cacheKey);
@@ -569,9 +812,38 @@ final imMediaAttachmentProvider = FutureProvider.autoDispose
         key.attachmentId,
         cover: key.cover,
       );
+      await load.check();
       cache.write(accountId, cacheKey, bytes);
       return bytes;
-    });
+    }, retry: mobileReadRetry);
+
+// An invalidated account provider may still finish its asynchronous download.
+// Never let that retired generation mutate the currently active account cache.
+void _requireActiveMediaLoad(Ref ref) {
+  if (!ref.mounted) throw const SessionChangedException();
+}
+
+final class _MediaLoad {
+  _MediaLoad(this.ref, this.accountLoader, this.accountId);
+  final Ref ref;
+  final ImMediaCacheAccountLoader accountLoader;
+  final String accountId;
+
+  static Future<_MediaLoad> start(Ref ref) async {
+    final loader = ref.read(imMediaCacheAccountLoaderProvider);
+    final account = await loader();
+    _requireActiveMediaLoad(ref);
+    return _MediaLoad(ref, loader, account);
+  }
+
+  Future<void> check() async {
+    _requireActiveMediaLoad(ref);
+    // The secure store can change before auth state notifies the widget tree.
+    final current = await accountLoader();
+    _requireActiveMediaLoad(ref);
+    if (current != accountId) throw const SessionChangedException();
+  }
+}
 
 final class ImBinaryMemoryCache {
   ImBinaryMemoryCache({this.maxEntries = 48, this.maxBytes = 32 * 1024 * 1024})
@@ -640,44 +912,85 @@ final class ImVideoPreviewSource {
   final Uint8List? bytes;
 }
 
+final imVideoPreviewCacheReaderProvider =
+    Provider<Future<String?> Function(String)>(
+      (ref) => readImVideoPreviewCachePath,
+    );
+final imVideoPreviewCacheWriterProvider =
+    Provider<Future<String?> Function(String, Uint8List)>(
+      (ref) => writeImVideoPreviewCache,
+    );
+final imQueuedMediaPreviewLoaderProvider =
+    Provider<Future<Uint8List?> Function(String)>(
+      (ref) => ref.read(imRepositoryProvider).readQueuedMediaPreview,
+    );
+final imVideoThumbnailBuilderProvider =
+    Provider<
+      Future<ImVideoThumbnail?> Function({
+        required Uint8List videoBytes,
+        required String fileName,
+      })
+    >((ref) => createImVideoThumbnail);
+
 final imVideoPreviewProvider = FutureProvider.autoDispose
     .family<ImVideoPreviewSource?, ImVideoPreviewKey>((ref, key) async {
       _retainForHotReopen(ref);
-      ref.watch(collaborationAccountScopeProvider);
-      final repository = ref.read(imRepositoryProvider);
-      final cacheKey = imVideoPreviewCacheKey(
+      ref.watch(imMediaScopeProvider);
+      final load = await _MediaLoad.start(ref);
+      if (parseImOutboxSyntheticFileId(key.attachmentId) != null) {
+        final preview = await ref.read(imQueuedMediaPreviewLoaderProvider)(
+          key.attachmentId,
+        );
+        await load.check();
+        return preview == null ? null : ImVideoPreviewSource.memory(preview);
+      }
+      final mediaKey = imVideoPreviewCacheKey(
         attachmentId: key.attachmentId,
         sha256Value: key.sha256,
         coverObjectId: key.coverObjectId,
       );
-      final cachedPath = await readImVideoPreviewCachePath(cacheKey);
+      final cacheKey = '${load.accountId}:$mediaKey';
+      final cachedPath = await ref.read(imVideoPreviewCacheReaderProvider)(
+        cacheKey,
+      );
+      await load.check();
       if (cachedPath != null) return ImVideoPreviewSource.file(cachedPath);
       Uint8List? preview;
       if (key.coverObjectId.isNotEmpty) {
         try {
-          preview = await repository.downloadMediaAttachment(
+          preview = await ref.read(imMediaAttachmentBytesLoaderProvider)(
             key.attachmentId,
             cover: true,
           );
+        } on SessionChangedException {
+          rethrow;
         } catch (_) {
           preview = null;
         }
+        await load.check();
       }
       if ((preview == null || preview.isEmpty) &&
           !AppEnvironment.demoMode &&
           key.size <= 32 * 1024 * 1024) {
-        final videoBytes = await repository.downloadMediaAttachment(
+        final videoBytes = await ref.read(imMediaAttachmentBytesLoaderProvider)(
           key.attachmentId,
+          cover: false,
         );
-        preview = (await createImVideoThumbnail(
+        await load.check();
+        preview = (await ref.read(imVideoThumbnailBuilderProvider)(
           videoBytes: videoBytes,
           fileName: key.fileName,
         ))?.bytes;
+        await load.check();
       }
       if (preview == null || preview.isEmpty) return null;
-      final filePath = await writeImVideoPreviewCache(cacheKey, preview);
+      final filePath = await ref.read(imVideoPreviewCacheWriterProvider)(
+        cacheKey,
+        preview,
+      );
+      await load.check();
       return filePath == null ? null : ImVideoPreviewSource.file(filePath);
-    });
+    }, retry: mobileReadRetry);
 
 void _retainForHotReopen(
   Ref ref, {
@@ -698,8 +1011,9 @@ void _retainForHotReopen(
 
 final oaAttachmentThumbnailProvider = FutureProvider.autoDispose
     .family<Uint8List, String>((ref, attachmentId) async {
-      ref.watch(collaborationAccountScopeProvider);
-      final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
+      ref.watch(imMediaScopeProvider);
+      final load = await _MediaLoad.start(ref);
+      final accountId = load.accountId;
       final cache = ref.read(imBinaryMemoryCacheProvider);
       final cacheKey = 'oa-thumbnail:$attachmentId';
       final cached = cache.read(accountId, cacheKey);
@@ -707,9 +1021,10 @@ final oaAttachmentThumbnailProvider = FutureProvider.autoDispose
       final bytes = await ref.read(oaAttachmentThumbnailBytesLoaderProvider)(
         attachmentId,
       );
+      await load.check();
       cache.write(accountId, cacheKey, bytes);
       return bytes;
-    });
+    }, retry: mobileReadRetry);
 
 final conversationMembersProvider =
     FutureProvider.family<List<ImMember>, String>((ref, id) async {
@@ -738,6 +1053,15 @@ final conversationMemberPageProvider =
       ({String conversationId, int page, int pageSize, String keyword})
     >((ref, key) async {
       ref.watch(collaborationAccountScopeProvider);
+      ref.watch(
+        authControllerProvider.select(
+          (value) => (
+            value.value?.userId,
+            value.value?.deviceId,
+            value.value?.accessToken,
+          ),
+        ),
+      );
       if (AppEnvironment.demoMode) {
         final keyword = key.keyword.trim().toLowerCase();
         final members = PreviewData.conversationMembers(key.conversationId)
@@ -801,6 +1125,17 @@ final imBadgeSummaryProvider = FutureProvider<ImBadgeSummary>((ref) async {
       pendingFriendRequests: 0,
     );
   }
+  // Visible reads update SQLite even when the server emits no new read event.
+  // Refresh the authoritative total on unread changes, not every metadata or
+  // presence refresh. Keep the server count: the cached index may be partial.
+  ref.watch(
+    imBootstrapProvider.select(
+      (state) => state.value?.conversations.fold<int>(
+        0,
+        (total, item) => total + item.unreadCount,
+      ),
+    ),
+  );
   return ref.read(imRepositoryProvider).badgeSummary();
 });
 
@@ -872,6 +1207,15 @@ final imLanguagePreferenceProvider = FutureProvider<ImLanguagePreference?>((
 final conversationPresenceProvider =
     FutureProvider.family<ImConversationPresence, String>((ref, id) async {
       ref.watch(collaborationAccountScopeProvider);
+      ref.watch(
+        authControllerProvider.select(
+          (value) => (
+            value.value?.userId,
+            value.value?.deviceId,
+            value.value?.accessToken,
+          ),
+        ),
+      );
       if (AppEnvironment.demoMode) {
         final conversation = PreviewData.imBootstrap.conversations
             .where((item) => item.id == id)
@@ -891,14 +1235,27 @@ final conversationPresenceProvider =
         );
       }
       try {
+        final session = await ref
+            .read(secureSessionStoreProvider)
+            .readSession();
+        if (!ref.mounted || session == null) {
+          throw const SessionChangedException();
+        }
         final presence = await ref
             .read(imRepositoryProvider)
-            .conversationPresence(id);
+            .conversationPresence(id, forSession: session);
+        if (!ref.mounted) throw const SessionChangedException();
+        ref
+            .read(imPresenceProjectionProvider.notifier)
+            .observe(session, presence);
         ref
             .read(imRealtimeAvailabilityControllerProvider.notifier)
             .markAvailable();
         return presence;
+      } on SessionChangedException {
+        rethrow;
       } catch (_) {
+        if (!ref.mounted) rethrow;
         ref
             .read(imRealtimeAvailabilityControllerProvider.notifier)
             .markUnavailable();
@@ -934,10 +1291,40 @@ final class OaSubmissionQueuedException implements Exception {
 }
 
 final class OaSyncPullResult {
-  const OaSyncPullResult({required this.changed, required this.sequence});
+  const OaSyncPullResult({
+    required this.changed,
+    required this.sequence,
+    this.requestIds = const {},
+  });
+
+  factory OaSyncPullResult.fromEvents(List<OaSyncEvent> events) {
+    final requestIds = <String>{};
+    var sequence = 0;
+    for (final event in events) {
+      if (event.sequence > sequence) sequence = event.sequence;
+      try {
+        final payload = jsonDecode(event.payloadJson);
+        if (payload is! Map) continue;
+        final id =
+            payload['requestId'] ??
+            payload['RequestId'] ??
+            payload['approvalRequestId'] ??
+            payload['ApprovalRequestId'];
+        if (id is String && id.trim().isNotEmpty) requestIds.add(id.trim());
+      } on FormatException {
+        // A malformed optional payload must not interrupt other updates.
+      }
+    }
+    return OaSyncPullResult(
+      changed: events.isNotEmpty,
+      sequence: sequence,
+      requestIds: Set.unmodifiable(requestIds),
+    );
+  }
 
   final bool changed;
   final int sequence;
+  final Set<String> requestIds;
 }
 
 final class OaRepository {
@@ -946,6 +1333,7 @@ final class OaRepository {
   final CollaborationClient _client;
   final SecureSessionStore _sessionStore;
   final OaLocalStore _store;
+  final _notificationReadFlushes = <(String, String, String), Future<int>>{};
 
   Future<MobileSession> _session() async {
     if (AppEnvironment.demoMode) return _demoSession;
@@ -958,65 +1346,102 @@ final class OaRepository {
 
   Future<OaBootstrap> bootstrapCacheFirst() async {
     final session = await _session();
-    final cached = await _store.readObject(
-      session.userId,
-      OaLocalStore.bootstrapCacheKey,
+    final cached = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.readObject(session.userId, OaLocalStore.bootstrapCacheKey),
     );
-    return cached == null ? refreshBootstrap() : OaBootstrap.fromJson(cached);
+    return cached == null
+        ? _refreshBootstrapFor(session)
+        : OaBootstrap.fromJson(cached);
   }
 
   Future<OaBootstrap> refreshBootstrap() async {
     final session = await _session();
-    final payload = await _fetchBootstrap();
-    await _store.writeObject(
-      session.userId,
-      OaLocalStore.bootstrapCacheKey,
-      payload,
+    return _refreshBootstrapFor(session);
+  }
+
+  Future<OaBootstrap> _refreshBootstrapFor(
+    MobileSession session, {
+    CancelToken? cancelToken,
+  }) async {
+    final payload = await _fetchBootstrap(
+      forSession: session,
+      cancelToken: cancelToken,
     );
-    return OaBootstrap.fromJson(payload);
+    return _sessionStore.withCurrentSession(session, () async {
+      if (cancelToken?.isCancelled == true) throw cancelToken!.cancelError!;
+      await _store.writeObject(
+        session.userId,
+        OaLocalStore.bootstrapCacheKey,
+        payload,
+      );
+      return OaBootstrap.fromJson(
+        await _store.projectNotificationObject(
+          session.userId,
+          OaLocalStore.bootstrapCacheKey,
+          payload,
+        ),
+      );
+    });
   }
 
   Future<OaApplicationCatalog> appCatalogCacheFirst() async {
     final session = await _session();
-    final cached = await _store.readObject(
-      session.userId,
-      OaLocalStore.catalogCacheKey,
+    final cached = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.readObject(session.userId, OaLocalStore.catalogCacheKey),
     );
     return cached == null
-        ? refreshAppCatalog()
+        ? _refreshAppCatalogFor(session)
         : OaApplicationCatalog.fromJson(cached);
   }
 
   Future<OaApplicationCatalog> refreshAppCatalog() async {
     final session = await _session();
-    final payload = await _fetchAppCatalog();
-    await _store.writeObject(
-      session.userId,
-      OaLocalStore.catalogCacheKey,
-      payload,
+    return _refreshAppCatalogFor(session);
+  }
+
+  Future<OaApplicationCatalog> _refreshAppCatalogFor(
+    MobileSession session, {
+    CancelToken? cancelToken,
+  }) async {
+    final payload = await _fetchAppCatalog(
+      forSession: session,
+      cancelToken: cancelToken,
     );
-    return OaApplicationCatalog.fromJson(payload);
+    return _sessionStore.withCurrentSession(session, () async {
+      if (cancelToken?.isCancelled == true) throw cancelToken!.cancelError!;
+      await _store.writeObject(
+        session.userId,
+        OaLocalStore.catalogCacheKey,
+        payload,
+      );
+      return OaApplicationCatalog.fromJson(payload);
+    });
   }
 
   Future<OaApprovalRequest> approvalRequestCacheFirst(String requestId) async {
     final session = await _session();
     final cacheKey = 'approval:$requestId';
-    final cached = await _store.readObject(session.userId, cacheKey);
+    final cached = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.readObject(session.userId, cacheKey),
+    );
     if (cached != null) return OaApprovalRequest.fromJson(cached);
-    return refreshApprovalRequest(requestId);
+    return _refreshApprovalRequestFor(session, requestId);
   }
 
   Future<OaApprovalRequest> approvalRequestNetworkFirst(
     String requestId,
   ) async {
+    final session = await _session();
     try {
-      return await refreshApprovalRequest(requestId);
+      return await _refreshApprovalRequestFor(session, requestId);
     } on DioException catch (error) {
       if (error.response != null) rethrow;
-      final session = await _session();
-      final cached = await _store.readObject(
-        session.userId,
-        'approval:$requestId',
+      final cached = await _sessionStore.withCurrentSession(
+        session,
+        () => _store.readObject(session.userId, 'approval:$requestId'),
       );
       if (cached == null) rethrow;
       return OaApprovalRequest.fromJson(cached);
@@ -1025,13 +1450,21 @@ final class OaRepository {
 
   Future<OaApprovalRequest> refreshApprovalRequest(String requestId) async {
     final session = await _session();
-    final dio = await _client.forOa();
-    final response = await dio.get<Map<String, Object?>>(
-      '/api/oa/approval-requests/$requestId',
+    return _refreshApprovalRequestFor(session, requestId);
+  }
+
+  Future<OaApprovalRequest> _refreshApprovalRequestFor(
+    MobileSession session,
+    String requestId,
+  ) async {
+    final payload = await _readOaObject(
+      session,
+      '/api/oa/approval-requests/${Uri.encodeComponent(requestId)}',
     );
-    final payload = response.data ?? <String, Object?>{};
-    await _store.writeObject(session.userId, 'approval:$requestId', payload);
-    return OaApprovalRequest.fromJson(payload);
+    return _sessionStore.withCurrentSession(session, () async {
+      await _store.writeObject(session.userId, 'approval:$requestId', payload);
+      return OaApprovalRequest.fromJson(payload);
+    });
   }
 
   Future<OaApprovalRequestPage> approvalRequestsPage({
@@ -1044,8 +1477,9 @@ final class OaRepository {
     DateTime? to,
     int take = 50,
   }) async {
-    final dio = await _client.forOa();
-    final response = await dio.get<Map<String, Object?>>(
+    final session = await _session();
+    final payload = await _readOaObject(
+      session,
       '/api/oa/approval-requests/page',
       queryParameters: {
         'take': take,
@@ -1058,9 +1492,7 @@ final class OaRepository {
         if (cursor?.isNotEmpty == true) 'cursor': cursor,
       },
     );
-    return OaApprovalRequestPage.fromJson(
-      response.data ?? const <String, Object?>{},
-    );
+    return OaApprovalRequestPage.fromJson(payload);
   }
 
   Future<OaApprovalRequest> reviewApproval({
@@ -1069,6 +1501,7 @@ final class OaRepository {
     required int expectedTaskVersion,
     required String decision,
     required String comment,
+    MobileSession? expectedSession,
   }) async {
     if (AppEnvironment.demoMode) {
       return _reviewDemoApproval(
@@ -1079,10 +1512,11 @@ final class OaRepository {
         comment: comment,
       );
     }
-    final session = await _session();
-    final dio = await _client.forOa();
-    final response = await dio.patch<Map<String, Object?>>(
-      '/api/oa/approval-requests/$requestId/review',
+    final session = expectedSession ?? await _session();
+    final payload = await _requestOa<Map<String, Object?>>(
+      session,
+      '/api/oa/approval-requests/${Uri.encodeComponent(requestId)}/review',
+      method: 'PATCH',
       data: {
         'taskId': taskId,
         'expectedTaskVersion': expectedTaskVersion,
@@ -1090,15 +1524,8 @@ final class OaRepository {
         'decision': decision,
         'comment': comment,
       },
-      options: Options(contentType: Headers.jsonContentType),
     );
-    final payload = response.data ?? <String, Object?>{};
-    await _store.writeObject(session.userId, 'approval:$requestId', payload);
-    await _store.invalidate(session.userId, [
-      OaLocalStore.bootstrapCacheKey,
-      OaLocalStore.notificationsCacheKey,
-    ]);
-    return OaApprovalRequest.fromJson(payload);
+    return _commitApprovalAction(session, requestId, payload ?? {});
   }
 
   Future<OaApprovalRequest> _reviewDemoApproval({
@@ -1283,16 +1710,18 @@ final class OaRepository {
   Future<OaApprovalRequest> withdrawApproval({
     required String requestId,
     required String reason,
+    MobileSession? expectedSession,
   }) => _postApprovalAction(requestId, 'withdraw', {
     'idempotencyKey': const Uuid().v4(),
     'reason': reason,
-  });
+  }, expectedSession: expectedSession);
 
   Future<OaApprovalRequest> transferApproval({
     required String requestId,
     required OaApprovalTask task,
     required String newAssigneeId,
     required String reason,
+    MobileSession? expectedSession,
   }) async {
     if (AppEnvironment.demoMode) {
       return _transferDemoApproval(
@@ -1308,7 +1737,7 @@ final class OaRepository {
       'idempotencyKey': const Uuid().v4(),
       'newAssigneeId': newAssigneeId,
       'reason': reason,
-    });
+    }, expectedSession: expectedSession);
   }
 
   Future<OaApprovalRequest> _transferDemoApproval({
@@ -1441,6 +1870,7 @@ final class OaRepository {
     required String addedAssigneeId,
     required String mode,
     required String comment,
+    MobileSession? expectedSession,
   }) => _postApprovalAction(requestId, 'add-sign', {
     'taskId': task.id,
     'expectedTaskVersion': task.version,
@@ -1448,35 +1878,44 @@ final class OaRepository {
     'addedAssigneeId': addedAssigneeId,
     'mode': mode,
     'comment': comment,
-  });
+  }, expectedSession: expectedSession);
 
   Future<OaApprovalRequest> returnApproval({
     required String requestId,
     required OaApprovalTask task,
     required String reason,
+    MobileSession? expectedSession,
   }) => _postApprovalAction(requestId, 'return', {
     'taskId': task.id,
     'expectedTaskVersion': task.version,
     'idempotencyKey': const Uuid().v4(),
     'reason': reason,
-  });
+  }, expectedSession: expectedSession);
 
   Future<OaApprovalRequest> remindApproval({
     required String requestId,
     required String comment,
+    MobileSession? expectedSession,
   }) => _postApprovalAction(requestId, 'remind', {
     'idempotencyKey': const Uuid().v4(),
     'comment': comment,
-  });
+  }, expectedSession: expectedSession);
 
   Future<void> markApprovalCcRead(String requestId) async {
     final session = await _session();
-    final dio = await _client.forOa();
-    await dio.post<void>('/api/oa/approval-requests/$requestId/cc/read');
-    await _store.invalidate(session.userId, [
-      OaLocalStore.bootstrapCacheKey,
-      OaLocalStore.notificationsCacheKey,
-    ]);
+    await _requestOa<void>(
+      session,
+      '/api/oa/approval-requests/${Uri.encodeComponent(requestId)}/cc/read',
+      method: 'POST',
+    );
+    await _sessionStore.withCurrentSession(
+      session,
+      () => _store.invalidate(session.userId, [
+        OaLocalStore.bootstrapCacheKey,
+        OaLocalStore.notificationsCacheKey,
+        OaLocalStore.notificationPageCacheKey,
+      ]),
+    );
   }
 
   Future<OaWorkflowPreview> previewWorkflow({
@@ -1485,42 +1924,50 @@ final class OaRepository {
     required Map<String, Object?> formData,
   }) async {
     if (AppEnvironment.demoMode) return PreviewData.workflowPreview(template);
-    final dio = await _client.forOa();
-    final response = await dio.post<Map<String, Object?>>(
+    final session = await _session();
+    final payload = await _requestOa<Map<String, Object?>>(
+      session,
       '/api/oa/workflow-resolution/preview',
+      method: 'POST',
       data: {
         'applicationKey': applicationKey,
         'templateId': template.id,
         'workflowKey': template.workflowKey,
         'formDataJson': jsonEncode(formData),
       },
-      options: Options(contentType: Headers.jsonContentType),
     );
-    return OaWorkflowPreview.fromJson(
-      response.data ?? const <String, Object?>{},
-    );
+    return OaWorkflowPreview.fromJson(payload ?? {});
   }
 
   Future<OaApprovalRequest> _postApprovalAction(
     String requestId,
     String action,
-    Map<String, Object?> data,
-  ) async {
-    final session = await _session();
-    final dio = await _client.forOa();
-    final response = await dio.post<Map<String, Object?>>(
-      '/api/oa/approval-requests/$requestId/$action',
+    Map<String, Object?> data, {
+    MobileSession? expectedSession,
+  }) async {
+    final session = expectedSession ?? await _session();
+    final payload = await _requestOa<Map<String, Object?>>(
+      session,
+      '/api/oa/approval-requests/${Uri.encodeComponent(requestId)}/$action',
+      method: 'POST',
       data: data,
-      options: Options(contentType: Headers.jsonContentType),
     );
-    final payload = response.data ?? <String, Object?>{};
+    return _commitApprovalAction(session, requestId, payload ?? {});
+  }
+
+  Future<OaApprovalRequest> _commitApprovalAction(
+    MobileSession session,
+    String requestId,
+    Map<String, Object?> payload,
+  ) => _sessionStore.withCurrentSession(session, () async {
     await _store.writeObject(session.userId, 'approval:$requestId', payload);
     await _store.invalidate(session.userId, [
       OaLocalStore.bootstrapCacheKey,
       OaLocalStore.notificationsCacheKey,
+      OaLocalStore.notificationPageCacheKey,
     ]);
     return OaApprovalRequest.fromJson(payload);
-  }
+  });
 
   Future<OaApprovalRequest> submitApproval({
     required String applicationKey,
@@ -1565,35 +2012,46 @@ final class OaRepository {
           )
           .toList(),
     };
-    var outboxItem = await _store.enqueue(
-      session.userId,
-      id: outboxId,
-      idempotencyKey: clientRequestId,
-      commandType: 'submit-approval',
-      payload: payload,
+    var outboxItem = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.enqueue(
+        session.userId,
+        id: outboxId,
+        idempotencyKey: clientRequestId,
+        commandType: 'submit-approval',
+        payload: payload,
+      ),
     );
     try {
-      final response = await _deliverApprovalOutbox(session.userId, outboxItem);
-      await _store.removeOutbox(session.userId, outboxId);
-      await _store.invalidate(session.userId, [
-        OaLocalStore.bootstrapCacheKey,
-        OaLocalStore.notificationsCacheKey,
-      ]);
-      return OaApprovalRequest.fromJson(response);
+      final response = await _deliverApprovalOutbox(session, outboxItem);
+      return await _sessionStore.withCurrentSession(session, () async {
+        await _store.removeOutbox(session.userId, outboxId);
+        await _store.invalidate(session.userId, [
+          OaLocalStore.bootstrapCacheKey,
+          OaLocalStore.notificationsCacheKey,
+        ]);
+        return OaApprovalRequest.fromJson(response);
+      });
     } on DioException catch (error) {
-      final permanent = !_isTransient(error);
-      await _store.markOutboxFailed(
-        session.userId,
-        outboxItem,
-        _dioMessage(error),
-        permanent: permanent,
-      );
-      if (!permanent && allowOfflineQueue) {
-        outboxItem = (await _store.readOutbox(session.userId))
-            .firstWhere((item) => item.id == outboxId);
-        throw OaSubmissionQueuedException(outboxItem);
-      }
-      if (!permanent) await _store.removeOutbox(session.userId, outboxId);
+      final sessionFailure = _isOaSessionFailure(error);
+      final permanent = !_isTransient(error) && !sessionFailure;
+      await _sessionStore.withCurrentSession(session, () async {
+        await _store.markOutboxFailed(
+          session.userId,
+          outboxItem,
+          _oaOutboxMessage(error),
+          permanent: permanent,
+        );
+        // Keep the same request id for the restored session. Authentication
+        // errors are not business validation failures or network-only queues.
+        if (sessionFailure) return;
+        if (!permanent && allowOfflineQueue) {
+          outboxItem = (await _store.readOutbox(session.userId))
+              .firstWhere((item) => item.id == outboxId);
+          throw OaSubmissionQueuedException(outboxItem);
+        }
+        if (!permanent) await _store.removeOutbox(session.userId, outboxId);
+      });
       rethrow;
     }
   }
@@ -1602,8 +2060,9 @@ final class OaRepository {
     required String fileName,
     required List<int> bytes,
     String contentType = 'application/octet-stream',
+    MobileSession? forSession,
   }) async {
-    final dio = await _client.forOa();
+    final dio = await _client.forOa(forSession: forSession);
     final response = await dio.post<Map<String, Object?>>(
       '/api/oa/attachments',
       data: FormData.fromMap({
@@ -1622,41 +2081,70 @@ final class OaRepository {
     await dio.delete<void>('/api/oa/attachments/$attachmentId');
   }
 
-  Future<Uint8List> downloadAttachment(String attachmentId) async {
-    final dio = await _client.forOa();
-    final response = await dio.get<List<int>>(
-      '/api/oa/attachments/$attachmentId',
-      options: Options(responseType: ResponseType.bytes),
-    );
-    return Uint8List.fromList(response.data ?? const <int>[]);
-  }
+  Future<Uint8List> downloadAttachment(
+    String attachmentId, {
+    MobileSession? expectedSession,
+    CancelToken? cancelToken,
+  }) => _downloadOaAttachment(attachmentId, '', expectedSession, cancelToken);
 
-  Future<Uint8List> downloadAttachmentThumbnail(String attachmentId) async {
-    final dio = await _client.forOa();
-    final response = await dio.get<List<int>>(
-      '/api/oa/attachments/$attachmentId/thumbnail',
-      options: Options(responseType: ResponseType.bytes),
-    );
-    return Uint8List.fromList(response.data ?? const <int>[]);
-  }
+  Future<Uint8List> downloadAttachmentThumbnail(
+    String attachmentId, {
+    MobileSession? expectedSession,
+    CancelToken? cancelToken,
+  }) => _downloadOaAttachment(
+    attachmentId,
+    '/thumbnail',
+    expectedSession,
+    cancelToken,
+  );
 
-  Future<Uint8List> downloadAttachmentPreview(String attachmentId) async {
-    final dio = await _client.forOa();
-    final response = await dio.get<List<int>>(
-      '/api/oa/attachments/$attachmentId/preview',
-      options: Options(responseType: ResponseType.bytes),
-    );
-    return Uint8List.fromList(response.data ?? const <int>[]);
+  Future<Uint8List> downloadAttachmentPreview(
+    String attachmentId, {
+    MobileSession? expectedSession,
+    CancelToken? cancelToken,
+  }) => _downloadOaAttachment(
+    attachmentId,
+    '/preview',
+    expectedSession,
+    cancelToken,
+  );
+
+  Future<Uint8List> _downloadOaAttachment(
+    String attachmentId,
+    String suffix,
+    MobileSession? expectedSession,
+    CancelToken? cancelToken,
+  ) async {
+    final session = expectedSession ?? await _session();
+    await _sessionStore.withCurrentSession(session, () async {});
+    Dio? dio;
+    try {
+      dio = await _client.forOa(forSession: session);
+      final response = await dio.get<List<int>>(
+        '/api/oa/attachments/${Uri.encodeComponent(attachmentId)}$suffix',
+        cancelToken: cancelToken,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return await _sessionStore.withCurrentSession(session, () async {
+        if (cancelToken?.isCancelled == true) throw cancelToken!.cancelError!;
+        return Uint8List.fromList(response.data ?? const <int>[]);
+      });
+    } catch (_) {
+      await _sessionStore.withCurrentSession(session, () async {});
+      rethrow;
+    } finally {
+      dio?.close(force: true);
+    }
   }
 
   Future<List<OaNotification>> notificationsCacheFirst() async {
     final session = await _session();
-    final cached = await _store.readList(
-      session.userId,
-      OaLocalStore.notificationsCacheKey,
+    final cached = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.readList(session.userId, OaLocalStore.notificationsCacheKey),
     );
     return cached == null
-        ? refreshNotifications()
+        ? (await _refreshNotificationPageFor(session)).items
         : _notificationModels(cached);
   }
 
@@ -1664,20 +2152,40 @@ final class OaRepository {
     bool unreadOnly = false,
   }) async {
     final session = await _session();
-    final page = await notificationPage(unreadOnly: unreadOnly);
-    if (!unreadOnly) {
-      await _store.writeList(
-        session.userId,
-        OaLocalStore.notificationsCacheKey,
-        page.items.map<Object?>((item) => item.toJson()).toList(),
-      );
-      await _store.writeObject(
-        session.userId,
-        OaLocalStore.notificationPageCacheKey,
-        page.toJson(),
-      );
-    }
-    return page.items;
+    return (await _refreshNotificationPageFor(
+      session,
+      unreadOnly: unreadOnly,
+    )).items;
+  }
+
+  Future<OaNotificationPage> _refreshNotificationPageFor(
+    MobileSession session, {
+    bool unreadOnly = false,
+    int take = 100,
+    CancelToken? cancelToken,
+  }) async {
+    final page = await _notificationPageFor(
+      session,
+      unreadOnly: unreadOnly,
+      take: take,
+      cancelToken: cancelToken,
+    );
+    return _sessionStore.withCurrentSession(session, () async {
+      if (cancelToken?.isCancelled == true) throw cancelToken!.cancelError!;
+      if (!unreadOnly) {
+        await _store.writeList(
+          session.userId,
+          OaLocalStore.notificationsCacheKey,
+          page.items.map<Object?>((item) => item.toJson()).toList(),
+        );
+        await _store.writeObject(
+          session.userId,
+          OaLocalStore.notificationPageCacheKey,
+          page.toJson(),
+        );
+      }
+      return page;
+    });
   }
 
   Future<OaNotificationPage> notificationPage({
@@ -1685,18 +2193,62 @@ final class OaRepository {
     bool unreadOnly = false,
     int take = 100,
   }) async {
-    final dio = await _client.forOa();
-    final response = await dio.get<Map<String, Object?>>(
-      '/api/oa/notifications/page',
-      queryParameters: {
-        'take': take.clamp(1, 200),
-        'unreadOnly': unreadOnly,
-        if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
-      },
+    final session = await _session();
+    return _notificationPageFor(
+      session,
+      cursor: cursor,
+      unreadOnly: unreadOnly,
+      take: take,
     );
-    return OaNotificationPage.fromJson(
-      response.data ?? const <String, Object?>{},
+  }
+
+  Future<Map<String, Object?>> _fetchNotificationPage({
+    required MobileSession forSession,
+    String? cursor,
+    bool unreadOnly = false,
+    int take = 100,
+    CancelToken? cancelToken,
+  }) => _readOaObject(
+    forSession,
+    '/api/oa/notifications/page',
+    queryParameters: {
+      'take': take.clamp(1, 200),
+      'unreadOnly': unreadOnly,
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    },
+    cancelToken: cancelToken,
+  );
+
+  Future<OaNotificationPage> _notificationPageFor(
+    MobileSession session, {
+    String? cursor,
+    bool unreadOnly = false,
+    int take = 100,
+    CancelToken? cancelToken,
+  }) async {
+    final payload = await _fetchNotificationPage(
+      forSession: session,
+      cursor: cursor,
+      unreadOnly: unreadOnly,
+      take: take,
+      cancelToken: cancelToken,
     );
+    return _sessionStore.withCurrentSession(session, () async {
+      if (cancelToken?.isCancelled == true) throw cancelToken!.cancelError!;
+      final projected = await _store.projectNotificationObject(
+        session.userId,
+        OaLocalStore.notificationPageCacheKey,
+        payload,
+      );
+      final page = OaNotificationPage.fromJson(projected);
+      return unreadOnly
+          ? OaNotificationPage(
+              items: page.items.where((item) => !item.isRead).toList(),
+              nextCursor: page.nextCursor,
+              hasMore: page.hasMore,
+            )
+          : page;
+    });
   }
 
   Future<OaNotificationPage> notificationPageCacheFirst({
@@ -1704,17 +2256,21 @@ final class OaRepository {
     bool unreadOnly = false,
     int take = 100,
   }) async {
+    final session = await _session();
     if (cursor != null && cursor.isNotEmpty) {
-      return notificationPage(
+      return _notificationPageFor(
+        session,
         cursor: cursor,
         unreadOnly: unreadOnly,
         take: take,
       );
     }
-    final session = await _session();
-    final cachedPage = await _store.readObject(
-      session.userId,
-      OaLocalStore.notificationPageCacheKey,
+    final cachedPage = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.readObject(
+        session.userId,
+        OaLocalStore.notificationPageCacheKey,
+      ),
     );
     if (cachedPage != null) {
       final page = OaNotificationPage.fromJson(cachedPage);
@@ -1726,9 +2282,9 @@ final class OaRepository {
             )
           : page;
     }
-    final legacy = await _store.readList(
-      session.userId,
-      OaLocalStore.notificationsCacheKey,
+    final legacy = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.readList(session.userId, OaLocalStore.notificationsCacheKey),
     );
     if (legacy != null) {
       final items = _notificationModels(legacy)
@@ -1737,20 +2293,11 @@ final class OaRepository {
           .toList();
       return OaNotificationPage(items: items, nextCursor: null, hasMore: false);
     }
-    final page = await notificationPage(unreadOnly: unreadOnly, take: take);
-    if (!unreadOnly) {
-      await _store.writeList(
-        session.userId,
-        OaLocalStore.notificationsCacheKey,
-        page.items.map<Object?>((item) => item.toJson()).toList(),
-      );
-      await _store.writeObject(
-        session.userId,
-        OaLocalStore.notificationPageCacheKey,
-        page.toJson(),
-      );
-    }
-    return page;
+    return _refreshNotificationPageFor(
+      session,
+      unreadOnly: unreadOnly,
+      take: take,
+    );
   }
 
   Future<void> markNotificationRead(String notificationId) async {
@@ -1779,12 +2326,83 @@ final class OaRepository {
       return;
     }
     final session = await _session();
-    final dio = await _client.forOa();
-    await dio.post<void>('/api/oa/notifications/$notificationId/read');
-    await _updateCachedNotificationReadState(
-      session.userId,
-      notificationId: notificationId,
+    // Commit the local read intent before any network work. Separate from
+    // approval submissions: opening a notice must not create a pending OA form.
+    await _sessionStore.withCurrentSession(
+      session,
+      () => _store.enqueueNotificationRead(session.userId, notificationId),
     );
+  }
+
+  Future<int> pendingNotificationReadCount() async {
+    final session = await _session();
+    return _sessionStore.withCurrentSession(
+      session,
+      () => _store.pendingNotificationReadCount(session.userId),
+    );
+  }
+
+  Future<int> flushNotificationReads({bool retryNow = false}) async {
+    if (AppEnvironment.demoMode) return 0;
+    final session = await _session();
+    if (retryNow) {
+      await _sessionStore.withCurrentSession(
+        session,
+        () => _store.retryNotificationReads(session.userId),
+      );
+    }
+    // Coalesce within one login, not across accounts or renewed credentials.
+    // The key is memory-only and must never be logged.
+    final key = (session.userId, session.deviceId, session.accessToken);
+    return _notificationReadFlushes.putIfAbsent(
+      key,
+      () => _flushNotificationReads(session).whenComplete(() {
+        _notificationReadFlushes.remove(key);
+      }),
+    );
+  }
+
+  Future<int> _flushNotificationReads(MobileSession session) async {
+    final items = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.dueNotificationReads(session.userId),
+    );
+    if (items.isEmpty) return 0;
+    var delivered = 0;
+    for (final item in items) {
+      final id = item['notification_id'] as String;
+      try {
+        try {
+          await _requestOa<void>(
+            session,
+            '/api/oa/notifications/${Uri.encodeComponent(id)}/read',
+            method: 'POST',
+          );
+          await _sessionStore.withCurrentSession(
+            session,
+            () => _store.confirmNotificationRead(session.userId, id),
+          );
+          delivered++;
+        } on DioException catch (error) {
+          final sessionFailure = _isOaSessionFailure(error);
+          await _sessionStore.withCurrentSession(
+            session,
+            () => _store.failNotificationRead(
+              session.userId,
+              id,
+              item['attempts'] as int,
+              permanent: !_isTransient(error) && !sessionFailure,
+            ),
+          );
+          // A shared network/session failure should not cause N doomed calls.
+          if (_isTransient(error) || sessionFailure) break;
+        }
+      } on SessionChangedException {
+        // The original read intent remains pending for its own restored login.
+        break;
+      }
+    }
+    return delivered;
   }
 
   Future<void> markAllNotificationsRead() async {
@@ -1813,9 +2431,15 @@ final class OaRepository {
       return;
     }
     final session = await _session();
-    final dio = await _client.forOa();
-    await dio.post<void>('/api/oa/notifications/read-all');
-    await _updateCachedNotificationReadState(session.userId);
+    await _requestOa<void>(
+      session,
+      '/api/oa/notifications/read-all',
+      method: 'POST',
+    );
+    await _sessionStore.withCurrentSession(
+      session,
+      () => _updateCachedNotificationReadState(session.userId),
+    );
   }
 
   Future<void> _updateCachedNotificationReadState(
@@ -1877,33 +2501,42 @@ final class OaRepository {
 
   Future<OaAttendanceOverview> attendanceOverviewCacheFirst() async {
     final session = await _session();
-    final cached = await _store.readObject(
-      session.userId,
-      OaLocalStore.attendanceCacheKey,
+    final cached = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.readObject(session.userId, OaLocalStore.attendanceCacheKey),
     );
     return cached == null
-        ? refreshAttendanceOverview()
+        ? _refreshAttendanceOverviewFor(session)
         : OaAttendanceOverview.fromJson(cached);
   }
 
   Future<OaAttendanceOverview> refreshAttendanceOverview() async {
     final session = await _session();
-    final payload = await _fetchAttendanceOverview();
-    await _store.writeObject(
-      session.userId,
-      OaLocalStore.attendanceCacheKey,
-      payload,
-    );
-    return OaAttendanceOverview.fromJson(payload);
+    return _refreshAttendanceOverviewFor(session);
   }
 
-  Future<Map<String, Object?>> _fetchAttendanceOverview() async {
-    final dio = await _client.forOa();
-    final response = await dio.get<Map<String, Object?>>(
-      '/api/oa/attendance/overview',
-    );
-    return response.data ?? <String, Object?>{};
+  Future<OaAttendanceOverview> _refreshAttendanceOverviewFor(
+    MobileSession session,
+  ) async {
+    final payload = await _fetchAttendanceOverview(forSession: session);
+    return _sessionStore.withCurrentSession(session, () async {
+      await _store.writeObject(
+        session.userId,
+        OaLocalStore.attendanceCacheKey,
+        payload,
+      );
+      return OaAttendanceOverview.fromJson(payload);
+    });
   }
+
+  Future<Map<String, Object?>> _fetchAttendanceOverview({
+    required MobileSession forSession,
+    CancelToken? cancelToken,
+  }) => _readOaObject(
+    forSession,
+    '/api/oa/attendance/overview',
+    cancelToken: cancelToken,
+  );
 
   Future<OaAttendanceRecord> punchAttendance() async {
     final session = await _session();
@@ -2183,28 +2816,51 @@ final class OaRepository {
 
   Future<int> flushOutbox() async {
     final session = await _session();
+    final readReceiptsDelivered = await flushNotificationReads();
     final items = await _store.dueOutbox(session.userId);
     var delivered = 0;
     for (final item in items) {
       if (item.commandType != 'submit-approval') continue;
       try {
-        await _deliverApprovalOutbox(session.userId, item);
-        await _store.removeOutbox(session.userId, item.id);
+        await _deliverApprovalOutbox(session, item);
+        await _sessionStore.withCurrentSession(
+          session,
+          () => _store.removeOutbox(session.userId, item.id),
+        );
         delivered++;
+      } on SessionChangedException {
+        // Keep the original account's stable request id retryable. An already
+        // accepted POST may be replayed after login and must be deduplicated.
+        break;
       } on DioException catch (error) {
-        await _store.markOutboxFailed(
-          session.userId,
-          item,
-          _dioMessage(error),
-          permanent: !_isTransient(error),
-        );
+        try {
+          await _sessionStore.withCurrentSession(
+            session,
+            () => _store.markOutboxFailed(
+              session.userId,
+              item,
+              _oaOutboxMessage(error),
+              permanent: !_isTransient(error) && !_isOaSessionFailure(error),
+            ),
+          );
+          if (_isOaSessionFailure(error)) break;
+        } on SessionChangedException {
+          break;
+        }
       } catch (error) {
-        await _store.markOutboxFailed(
-          session.userId,
-          item,
-          error.toString(),
-          permanent: true,
-        );
+        try {
+          await _sessionStore.withCurrentSession(
+            session,
+            () => _store.markOutboxFailed(
+              session.userId,
+              item,
+              error.toString(),
+              permanent: true,
+            ),
+          );
+        } on SessionChangedException {
+          break;
+        }
       }
     }
     if (delivered > 0) {
@@ -2213,23 +2869,30 @@ final class OaRepository {
         OaLocalStore.notificationsCacheKey,
       ]);
     }
-    return delivered;
+    return delivered + readReceiptsDelivered;
   }
 
-  Future<OaSyncPullResult> pullEvents({CancelToken? cancelToken}) async {
+  Future<OaSyncPullResult> pullEvents({
+    CancelToken? cancelToken,
+    int waitSeconds = 20,
+  }) async {
     final session = await _session();
-    final cursor = await _store.lastEventSequence(session.userId);
-    final dio = await _client.forOa();
-    final response = await dio.get<Map<String, Object?>>(
+    final cursor = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.lastEventSequence(session.userId),
+    );
+    final requestTimer = Stopwatch()..start();
+    final body = await _readOaObject(
+      session,
       '/api/oa/sync/events',
       queryParameters: {
         'afterSequence': cursor,
-        'waitSeconds': 20,
+        'waitSeconds': waitSeconds.clamp(0, 20),
         'take': 200,
       },
       cancelToken: cancelToken,
     );
-    final body = response.data ?? <String, Object?>{};
+    requestTimer.stop();
     final events = (body['events'] is List ? body['events'] as List : const [])
         .whereType<Map>()
         .map((item) => OaSyncEvent.fromJson(item.cast<String, Object?>()))
@@ -2239,9 +2902,17 @@ final class OaRepository {
       return OaSyncPullResult(changed: false, sequence: cursor);
     }
 
-    final notificationsPage = await notificationPage();
+    final projectionTimer = Stopwatch()..start();
+    final notificationsPage = OaNotificationPage.fromJson(
+      await _fetchNotificationPage(
+        forSession: session,
+        cancelToken: cancelToken,
+      ),
+    );
     final caches = <String, String>{
-      OaLocalStore.bootstrapCacheKey: jsonEncode(await _fetchBootstrap()),
+      OaLocalStore.bootstrapCacheKey: jsonEncode(
+        await _fetchBootstrap(forSession: session, cancelToken: cancelToken),
+      ),
       OaLocalStore.notificationsCacheKey: jsonEncode(
         notificationsPage.items.map((item) => item.toJson()).toList(),
       ),
@@ -2251,46 +2922,122 @@ final class OaRepository {
     };
     if (events.any((event) => event.type == 'oa.app-catalog.changed')) {
       caches[OaLocalStore.catalogCacheKey] = jsonEncode(
-        await _fetchAppCatalog(),
+        await _fetchAppCatalog(forSession: session, cancelToken: cancelToken),
       );
     }
     if (events.any((event) => event.type.contains('attendance'))) {
       caches[OaLocalStore.attendanceCacheKey] = jsonEncode(
-        await _fetchAttendanceOverview(),
+        await _fetchAttendanceOverview(
+          forSession: session,
+          cancelToken: cancelToken,
+        ),
       );
     }
-    await _store.applySyncBatch(
-      accountId: session.userId,
-      events: events,
-      refreshedCaches: caches,
+    if (cancelToken?.isCancelled == true) {
+      throw cancelToken!.cancelError!;
+    }
+    projectionTimer.stop();
+    final commitTimer = Stopwatch()..start();
+    final result = await _sessionStore.withCurrentSession(session, () async {
+      await _store.applySyncBatch(
+        accountId: session.userId,
+        events: events,
+        refreshedCaches: caches,
+      );
+      return OaSyncPullResult.fromEvents(events);
+    });
+    commitTimer.stop();
+    recordOaSyncTiming(
+      eventCount: events.length,
+      waitSeconds: waitSeconds.clamp(0, 20),
+      requestMilliseconds: requestTimer.elapsedMilliseconds,
+      projectionMilliseconds: projectionTimer.elapsedMilliseconds,
+      commitMilliseconds: commitTimer.elapsedMilliseconds,
     );
-    return OaSyncPullResult(changed: true, sequence: events.last.sequence);
+    return result;
   }
 
-  Future<void> refreshWorkspace() async {
+  Future<void> refreshWorkspace({CancelToken? cancelToken}) async {
+    final session = await _session();
     await Future.wait([
-      refreshBootstrap(),
-      refreshAppCatalog(),
-      refreshNotifications(),
-    ]);
+      _refreshBootstrapFor(session, cancelToken: cancelToken),
+      _refreshAppCatalogFor(session, cancelToken: cancelToken),
+      _refreshNotificationPageFor(session, cancelToken: cancelToken),
+    ], eagerError: true);
   }
 
-  Future<Map<String, Object?>> _fetchBootstrap() async {
-    final dio = await _client.forOa();
-    final response = await dio.get<Map<String, Object?>>('/api/oa/bootstrap');
-    return response.data ?? <String, Object?>{};
-  }
+  Future<Map<String, Object?>> _fetchBootstrap({
+    required MobileSession forSession,
+    CancelToken? cancelToken,
+  }) =>
+      _readOaObject(forSession, '/api/oa/bootstrap', cancelToken: cancelToken);
 
-  Future<Map<String, Object?>> _fetchAppCatalog() async {
-    final dio = await _client.forOa();
-    final response = await dio.get<Map<String, Object?>>('/api/oa/app-catalog');
-    return response.data ?? <String, Object?>{};
+  Future<Map<String, Object?>> _fetchAppCatalog({
+    required MobileSession forSession,
+    CancelToken? cancelToken,
+  }) => _readOaObject(
+    forSession,
+    '/api/oa/app-catalog',
+    cancelToken: cancelToken,
+  );
+
+  // Network stages always retain the caller's identity. The session lock is
+  // held only for local checks/commits, never while waiting for the network.
+  Future<Map<String, Object?>> _readOaObject(
+    MobileSession session,
+    String path, {
+    Map<String, Object?>? queryParameters,
+    CancelToken? cancelToken,
+  }) async =>
+      await _requestOa<Map<String, Object?>>(
+        session,
+        path,
+        queryParameters: queryParameters,
+        cancelToken: cancelToken,
+      ) ??
+      {};
+
+  Future<T?> _requestOa<T>(
+    MobileSession session,
+    String path, {
+    String method = 'GET',
+    Map<String, Object?>? queryParameters,
+    Object? data,
+    CancelToken? cancelToken,
+  }) async {
+    await _sessionStore.withCurrentSession(session, () async {});
+    if (cancelToken?.isCancelled == true) {
+      throw cancelToken!.cancelError!;
+    }
+    final dio = await _client.forOa(forSession: session);
+    try {
+      // Recheck after client construction, which itself may await secure storage.
+      await _sessionStore.withCurrentSession(session, () async {});
+      final response = await dio.request<T>(
+        path,
+        queryParameters: queryParameters,
+        data: data,
+        options: Options(method: method, contentType: Headers.jsonContentType),
+        cancelToken: cancelToken,
+      );
+      return await _sessionStore.withCurrentSession(
+        session,
+        () async => response.data,
+      );
+    } on DioException {
+      // A late failure must not be presented as a failure of the new login.
+      await _sessionStore.withCurrentSession(session, () async {});
+      rethrow;
+    } finally {
+      dio.close();
+    }
   }
 
   Future<Map<String, Object?>> _sendApprovalPayload(
     Map<String, Object?> payload,
+    MobileSession session,
   ) async {
-    final dio = await _client.forOa();
+    final dio = await _client.forOa(forSession: session);
     final requestPayload = Map<String, Object?>.from(payload)
       ..remove('pendingAttachments');
     if (requestPayload['attachmentBindings'] is List &&
@@ -2306,9 +3053,11 @@ final class OaRepository {
   }
 
   Future<Map<String, Object?>> _deliverApprovalOutbox(
-    String accountId,
+    MobileSession session,
     OaOutboxItem item,
   ) async {
+    await _sessionStore.withCurrentSession(session, () async {});
+    final accountId = session.userId;
     final payload = Map<String, Object?>.from(item.payload);
     final attachmentIds =
         (payload['attachmentIds'] is List
@@ -2330,11 +3079,13 @@ final class OaRepository {
             .toList();
 
     while (pending.isNotEmpty) {
+      await _sessionStore.withCurrentSession(session, () async {});
       final local = pending.first;
       final uploaded = await uploadAttachment(
         fileName: local.fileName,
         bytes: local.bytes,
         contentType: local.contentType,
+        forSession: session,
       );
       attachmentIds.add(uploaded.id);
       final fieldId = local.formFieldId.trim();
@@ -2358,10 +3109,15 @@ final class OaRepository {
       payload['pendingAttachments'] = pending
           .map((attachment) => attachment.toJson())
           .toList();
-      await _store.updateOutboxPayload(accountId, item.id, payload);
+      await _sessionStore.withCurrentSession(
+        session,
+        () => _store.updateOutboxPayload(accountId, item.id, payload),
+      );
     }
 
-    return _sendApprovalPayload(payload);
+    await _sessionStore.withCurrentSession(session, () async {});
+    final response = await _sendApprovalPayload(payload, session);
+    return _sessionStore.withCurrentSession(session, () async => response);
   }
 }
 
@@ -2400,10 +3156,33 @@ List<OaLocalAttachment> _localAttachments(Object? payload) =>
         .map((item) => OaLocalAttachment.fromJson(item.cast<String, Object?>()))
         .toList();
 
+bool _isOaSessionFailure(DioException error) {
+  if (error.response?.statusCode == 401) return true;
+  final body = error.response?.data;
+  final code = body is Map
+      ? (body['code'] ?? body['Code'])?.toString().trim().toLowerCase()
+      : null;
+  return error.response?.statusCode == 409 && code == 'session_replaced';
+}
+
 bool _isTransient(DioException error) {
   if (error.response == null) return true;
   final status = error.response!.statusCode ?? 0;
   return status == 408 || status == 429 || status >= 500;
+}
+
+String _oaOutboxMessage(DioException error) {
+  if (!_isTransient(error)) return _dioMessage(error);
+  final operation = error.requestOptions.path == '/api/oa/attachments'
+      ? '附件上传'
+      : '申请提交';
+  final status = error.response?.statusCode;
+  // Persist a safe diagnosis instead of a proxy body, token-bearing URL, or
+  // transport exception. Keep the HTTP status so support can distinguish 5xx
+  // from an offline device without exposing the actual request.
+  return status == null
+      ? '$operation暂未完成，网络恢复后自动重试'
+      : '$operation暂未完成（HTTP $status），将自动重试';
 }
 
 String _dioMessage(DioException error) {
@@ -2460,11 +3239,32 @@ final class CollaborationOperationException implements Exception {
 }
 
 final class ImRepository {
-  ImRepository(this._client, this._sessionStore, this._store);
+  ImRepository(
+    this._client,
+    this._sessionStore,
+    this._store, {
+    ImOutboxFileStore? outboxFileStore,
+    DateTime Function()? conversationIndexClock,
+    this.beforeEventAck,
+    this.memberPresence,
+  }) : _conversationIndexClock = conversationIndexClock ?? DateTime.now,
+       _outboxFiles =
+           outboxFileStore ??
+           ImOutboxFileStore(keyLoader: _sessionStore.readOrCreateImCacheKey);
 
   final CollaborationClient _client;
   final SecureSessionStore _sessionStore;
   final ImLocalStore _store;
+  final ImOutboxFileStore _outboxFiles;
+  final ImReadDiagnostics _readDiagnostics = ImReadDiagnostics();
+  final ImMemberPresenceProjection? Function()? memberPresence;
+  // Fault-injection seam for tests; normal application construction leaves null.
+  final Future<void> Function(int sequence, List<ImSyncEvent> events)?
+  beforeEventAck;
+  final Map<String, DateTime> _historyRetryAfter = {};
+  final DateTime Function() _conversationIndexClock;
+  ({MobileSession session, DateTime at})? _lastConversationIndexAttempt;
+  ({MobileSession session, Future<bool> request})? _conversationIndexInFlight;
 
   Future<MobileSession> _session() async {
     if (AppEnvironment.demoMode) return _demoSession;
@@ -2477,35 +3277,224 @@ final class ImRepository {
 
   Future<ImBootstrap> bootstrapCacheFirst() async {
     final session = await _session();
-    final cached = await _store.readBootstrap(session.userId);
-    return cached ?? refreshBootstrap();
+    final cached = await _sessionStore.withCurrentSession(
+      session,
+      () => _store.readBootstrap(session.userId),
+    );
+    return cached ?? _refreshBootstrapFor(session);
   }
 
   Future<ImBootstrap> refreshBootstrap() async {
     final session = await _session();
-    final result = await _fetchBootstrap();
-    await _store.replaceBootstrap(session.userId, result);
-    return result;
+    return _refreshBootstrapFor(session);
   }
 
-  /// Repairs a stale conversation list when the event stream omits a message.
-  ///
-  /// The badge endpoint is intentionally used as the cheap probe. A complete
-  /// bootstrap (which can include a large contact directory) is fetched only
-  /// when the server unread total disagrees with the local projection.
-  Future<bool> reconcileBootstrapFromBadges() async {
+  Future<ImBootstrap> _refreshBootstrapFor(MobileSession session) async {
+    await _sessionStore.withCurrentSession(session, () async {});
+    try {
+      final result = await _fetchBootstrap(forSession: session);
+      return await _sessionStore.withCurrentSession(session, () async {
+        await _store.replaceBootstrap(session.userId, result);
+        return result;
+      });
+    } catch (_) {
+      // An old session's failed refresh is not the current account's error.
+      await _sessionStore.withCurrentSession(session, () async {});
+      rethrow;
+    }
+  }
+
+  /// Compare conversation sequence/metadata even when unread totals do not
+  /// change (e.g. same-account desktop sends). No directory reload is required.
+  Future<bool> reconcileConversationIndex({
+    bool force = false,
+    CancelToken? cancelToken,
+  }) async {
     final session = await _session();
-    final cached = await _store.readBootstrap(session.userId);
-    final remoteBadges = await badgeSummary();
-    if (!imUnreadProjectionDiffers(remoteBadges, cached)) return false;
-    await refreshBootstrap();
-    return true;
+    final inFlight = _conversationIndexInFlight;
+    if (inFlight != null && inFlight.session.isSameSession(session)) {
+      return inFlight.request;
+    }
+    final now = _conversationIndexClock();
+    final previous = _lastConversationIndexAttempt;
+    if (!force && previous != null && previous.session.isSameSession(session)) {
+      final elapsed = now.difference(previous.at);
+      if (!elapsed.isNegative && elapsed < const Duration(seconds: 25)) {
+        return false;
+      }
+    }
+    _lastConversationIndexAttempt = (session: session, at: now);
+    final request = _fetchAndMergeConversationIndex(session, cancelToken);
+    _conversationIndexInFlight = (session: session, request: request);
+    try {
+      return await request;
+    } finally {
+      if (identical(_conversationIndexInFlight?.request, request)) {
+        _conversationIndexInFlight = null;
+      }
+    }
   }
 
-  Future<ImBootstrap> _fetchBootstrap() async {
-    final dio = await _client.forIm();
+  Future<bool> _fetchAndMergeConversationIndex(
+    MobileSession session,
+    CancelToken? cancelToken,
+  ) async {
+    final dio = await _client.forIm(forSession: session);
+    final response = await dio.get<List<Object?>>(
+      '/api/im/conversations',
+      cancelToken: cancelToken,
+    );
+    if ((await _sessionStore.readSession())?.isSameSession(session) != true) {
+      return false;
+    }
+    if (response.data == null) {
+      throw const FormatException('Conversation index missing');
+    }
+    final ids = <String>{};
+    final values = response.data!.map((raw) {
+      if (raw is! Map) {
+        throw const FormatException('Invalid conversation index');
+      }
+      final value = ImConversation.fromJson(raw.cast<String, Object?>());
+      if (value.id.isEmpty || !value.isSupported || !ids.add(value.id)) {
+        throw const FormatException('Invalid conversation identity');
+      }
+      return value;
+    }).toList();
+    final changed = await _store.mergeConversationIndex(session.userId, values);
+    _readDiagnostics.snapshot(
+      'conversation_index',
+      response.statusCode,
+      values,
+    );
+    if (!kReleaseMode) {
+      // Whitelisted transport metadata only: no identities, headers or body.
+      debugPrint(
+        'MOBILE_IM_INDEX ${jsonEncode({'status': response.statusCode, 'received': values.length, 'changed': changed})}',
+      );
+    }
+    return changed;
+  }
+
+  Future<ImBootstrap> _fetchBootstrap({MobileSession? forSession}) async {
+    final session = forSession ?? await _session();
+    final presence = memberPresence?.call();
+    final request = presence?.beginRequest();
+    final dio = await _client.forIm(forSession: session);
     final response = await dio.get<Map<String, Object?>>('/api/im/bootstrap');
-    return ImBootstrap.fromJson(response.data ?? <String, Object?>{});
+    final bootstrap = ImBootstrap.fromJson(
+      response.data ?? <String, Object?>{},
+    );
+    _readDiagnostics.snapshot(
+      'bootstrap',
+      response.statusCode,
+      bootstrap.conversations,
+    );
+    if (presence != null && request != null) {
+      try {
+        await _sessionStore.withCurrentSession(session, () async {
+          presence.observe(session, request, [
+            bootstrap.currentMember,
+            ...bootstrap.contacts,
+          ]);
+        });
+      } on SessionChangedException {
+        // Cache/event callers keep their existing late-session rejection path.
+      }
+    }
+    return bootstrap;
+  }
+
+  /// Repairs announced message ranges without inventing event ACKs or reads.
+  /// Small page budgets let event polling and outgoing messages keep running.
+  Future<({Set<String> changed, bool progressed})> repairAnnouncedMessageGaps({
+    int pageBudget = 3,
+    CancelToken? cancelToken,
+  }) async {
+    final session = await _session();
+    final jobs = await _store.pendingHistoryCatchups(session.userId);
+    final changed = <String>{};
+    var progressed = false;
+    var attempted = 0;
+    for (final job in jobs) {
+      if (cancelToken?.isCancelled ?? false) break;
+      final key = '${session.userId}:${job.conversationId}';
+      if ((_historyRetryAfter[key]?.isAfter(DateTime.now()) ?? false)) continue;
+      if (attempted++ >= pageBudget) break;
+      if ((await _sessionStore.readSession())?.isSameSession(session) != true) {
+        break;
+      }
+      try {
+        if (await _store.historyCatchupAlreadyCached(session.userId, job)) {
+          progressed =
+              await _store.commitHistoryCatchupPage(
+                session.userId,
+                job,
+                const [],
+                nextBeforeSequence: job.beforeSequence,
+                complete: true,
+              ) ||
+              progressed;
+          continue;
+        }
+        final dio = await _client.forIm(forSession: session);
+        final response = await dio.get<List<Object?>>(
+          '/api/im/conversations/${job.conversationId}/messages',
+          queryParameters: {'beforeSequence': job.beforeSequence, 'take': 50},
+          cancelToken: cancelToken,
+        );
+        if ((await _sessionStore.readSession())?.isSameSession(session) !=
+            true) {
+          break;
+        }
+        final messages = (response.data ?? const []).map((raw) {
+          if (raw is! Map) throw const FormatException('Invalid history entry');
+          final message = ImMessage.fromJson(raw.cast<String, Object?>());
+          if (message.id.isEmpty ||
+              message.conversationId != job.conversationId ||
+              message.sequence <= 0 ||
+              message.sequence >= job.beforeSequence) {
+            throw const FormatException('Invalid history identity or range');
+          }
+          return message;
+        }).toList()..sort((a, b) => a.sequence.compareTo(b.sequence));
+        if (messages.isEmpty && job.beforeSequence == job.targetSequence + 1) {
+          // A stale empty page is not proof that the announced message exists.
+          _historyRetryAfter[key] = DateTime.now().add(
+            const Duration(seconds: 30),
+          );
+          continue;
+        }
+        final next = messages.isEmpty
+            ? job.afterSequence + 1
+            : messages.first.sequence;
+        final committed = await _store.commitHistoryCatchupPage(
+          session.userId,
+          job,
+          messages,
+          nextBeforeSequence: next,
+          complete: next <= job.afterSequence + 1,
+        );
+        if (committed) {
+          if (messages.isNotEmpty) changed.add(job.conversationId);
+          progressed = true;
+          _historyRetryAfter.remove(key);
+        }
+      } on DioException catch (error) {
+        final status = error.response?.statusCode;
+        if (status == 401 || status == 409 || CancelToken.isCancel(error)) {
+          rethrow;
+        }
+        _historyRetryAfter[key] = DateTime.now().add(
+          const Duration(seconds: 30),
+        );
+      } on FormatException {
+        _historyRetryAfter[key] = DateTime.now().add(
+          const Duration(seconds: 30),
+        );
+      }
+    }
+    return (changed: changed, progressed: progressed);
   }
 
   Future<List<ImDepartment>> departmentsCacheFirst() async {
@@ -2541,34 +3530,39 @@ final class ImRepository {
         remark: PreviewData.demoFriendRemarks[member.id] ?? '',
       );
     }
-    final dio = await _client.forIm();
-    final response = await dio.get<Map<String, Object?>>(
+    final session = await _session();
+    final body = await _imReadRequest<Map<String, Object?>>(
+      session,
       '/api/im/members/$memberId/profile',
     );
-    return ImMemberProfile.fromJson(response.data ?? <String, Object?>{});
+    return ImMemberProfile.fromJson(body ?? <String, Object?>{});
   }
 
   Future<ImMemberProfile> updateProfile({
     required String nickname,
     required String signature,
+    MobileSession? expectedSession,
   }) async {
     final normalizedNickname = nickname.trim();
     final normalizedSignature = signature.trim();
     if (normalizedNickname.length > 128 || normalizedSignature.length > 280) {
       throw ArgumentError('昵称或签名超出长度限制');
     }
-    final dio = await _client.forIm();
-    final response = await dio.put<Map<String, Object?>>(
+    final session = expectedSession ?? await _session();
+    final body = await _imReadRequest<Map<String, Object?>>(
+      session,
       '/api/im/profile',
+      method: 'PUT',
       data: {'nickname': normalizedNickname, 'signature': normalizedSignature},
     );
-    await refreshBootstrap();
-    return ImMemberProfile.fromJson(response.data ?? <String, Object?>{});
+    await _refreshBootstrapFor(session);
+    return ImMemberProfile.fromJson(body ?? <String, Object?>{});
   }
 
   Future<void> updateAvatar({
     required String avatarKey,
     String? avatarDataUrl,
+    MobileSession? expectedSession,
   }) async {
     final key = avatarKey.trim().toLowerCase();
     const allowed = {
@@ -2586,13 +3580,14 @@ final class ImRepository {
             avatarDataUrl.length > 400000)) {
       throw ArgumentError('头像文件过大或格式无效');
     }
-    final dio = await _client.forIm();
-    await dio.put<void>(
+    final session = expectedSession ?? await _session();
+    await _imReadRequest<void>(
+      session,
       '/api/im/profile/avatar',
+      method: 'PUT',
       data: {'avatarKey': key, 'avatarDataUrl': avatarDataUrl},
-      options: Options(contentType: Headers.jsonContentType),
     );
-    await refreshBootstrap();
+    await _refreshBootstrapFor(session);
   }
 
   Future<void> updateFriendRemark(String memberId, String remark) async {
@@ -2615,12 +3610,77 @@ final class ImRepository {
     int? take,
   }) async {
     final session = await _session();
-    final cached = await _store.readMessages(
-      session.userId,
-      conversationId,
-      limit: take,
+    final cached = await _readMessageCache(
+      session,
+      () => _store.readMessages(session.userId, conversationId, limit: take),
     );
-    return cached.isNotEmpty ? cached : refreshMessages(conversationId);
+    return cached.isNotEmpty
+        ? cached
+        : _refreshMessagesFor(session, conversationId);
+  }
+
+  Future<List<ImMessage>> messagesBeforeCacheFirst(
+    String conversationId, {
+    required int take,
+    required int beforeSequence,
+  }) async {
+    if (take < 1 || beforeSequence < 1)
+      throw ArgumentError('Invalid message slice');
+    final session = await _session();
+    if (beforeSequence == 1) return const [];
+    // Continuity includes deletion tombstones: an arbitrary old cached row is
+    // not proof that the unread anchor is present. Only the newest page needs
+    // this check; earlier pages are explicitly loaded by the scroll actions.
+    final pageSize = take.clamp(1, 80);
+    final covered = await _readMessageCache(
+      session,
+      () => _store.historyCatchupAlreadyCached(
+        session.userId,
+        ImHistoryCatchup(
+          conversationId: conversationId,
+          afterSequence: (beforeSequence - pageSize - 1).clamp(
+            0,
+            beforeSequence,
+          ),
+          beforeSequence: beforeSequence,
+          targetSequence: beforeSequence - 1,
+        ),
+      ),
+    );
+    if (!covered) {
+      final data = await _imReadRequest<List<Object?>>(
+        session,
+        '/api/im/conversations/$conversationId/messages',
+        queryParameters: {'beforeSequence': beforeSequence, 'take': pageSize},
+      );
+      final page = (data ?? const <Object?>[])
+          .whereType<Map>()
+          .map((item) => ImMessage.fromJson(item.cast<String, Object?>()))
+          .toList();
+      if (page.any(
+        (item) =>
+            item.conversationId != conversationId ||
+            item.sequence <= 0 ||
+            item.sequence >= beforeSequence,
+      )) {
+        throw StateError(
+          'Message slice is outside the requested conversation or range',
+        );
+      }
+      await _sessionStore.withCurrentSession(
+        session,
+        () => _store.mergeMessages(session.userId, conversationId, page),
+      );
+    }
+    return _readMessageCache(
+      session,
+      () => _store.readMessages(
+        session.userId,
+        conversationId,
+        limit: take,
+        beforeSequence: beforeSequence,
+      ),
+    );
   }
 
   Future<List<ImMember>> conversationMembersCacheFirst(
@@ -2640,7 +3700,9 @@ final class ImRepository {
     String conversationId,
   ) async {
     final session = await _session();
-    final dio = await _client.forIm();
+    final presence = memberPresence?.call();
+    final request = presence?.beginRequest();
+    final dio = await _client.forIm(forSession: session);
     final response = await dio.get<List<Object?>>(
       '/api/im/conversations/$conversationId/members',
     );
@@ -2648,12 +3710,16 @@ final class ImRepository {
         .whereType<Map>()
         .map((item) => ImMember.fromJson(item.cast<String, Object?>()))
         .toList();
-    await _store.replaceConversationMembers(
-      session.userId,
-      conversationId,
-      members,
-    );
-    return members;
+    return _sessionStore.withCurrentSession(session, () async {
+      await _store.replaceConversationMembers(
+        session.userId,
+        conversationId,
+        members,
+      );
+      if (presence != null && request != null)
+        presence.observe(session, request, members);
+      return members;
+    });
   }
 
   Future<ImMemberPage> conversationMemberPage(
@@ -2663,7 +3729,9 @@ final class ImRepository {
     String keyword = '',
   }) async {
     final session = await _session();
-    final dio = await _client.forIm();
+    final presence = memberPresence?.call();
+    final request = presence?.beginRequest();
+    final dio = await _client.forIm(forSession: session);
     final response = await dio.get<Map<String, Object?>>(
       '/api/im/conversations/$conversationId/members/page',
       queryParameters: {
@@ -2675,13 +3743,17 @@ final class ImRepository {
     final result = ImMemberPage.fromJson(
       response.data ?? const <String, Object?>{},
     );
-    await _store.mergeConversationMembers(
-      session.userId,
-      conversationId,
-      result.items,
-      positionOffset: (result.page - 1) * result.pageSize,
-    );
-    return result;
+    return _sessionStore.withCurrentSession(session, () async {
+      await _store.mergeConversationMembers(
+        session.userId,
+        conversationId,
+        result.items,
+        positionOffset: (result.page - 1) * result.pageSize,
+      );
+      if (presence != null && request != null)
+        presence.observe(session, request, result.items);
+      return result;
+    });
   }
 
   Future<ImGroupProfile?> groupProfileCacheFirst(String conversationId) async {
@@ -2711,9 +3783,18 @@ final class ImRepository {
 
   Future<List<ImMessage>> refreshMessages(String conversationId) async {
     final session = await _session();
-    final messages = await _fetchLatestMessages(conversationId);
-    await _store.mergeMessages(session.userId, conversationId, messages);
-    return _store.readMessages(session.userId, conversationId);
+    return _refreshMessagesFor(session, conversationId);
+  }
+
+  Future<List<ImMessage>> _refreshMessagesFor(
+    MobileSession session,
+    String conversationId,
+  ) async {
+    final messages = await _fetchLatestMessages(session, conversationId);
+    return _sessionStore.withCurrentSession(session, () async {
+      await _store.mergeMessages(session.userId, conversationId, messages);
+      return _store.readMessages(session.userId, conversationId);
+    });
   }
 
   /// Reconciles the visible conversation with the latest server window.
@@ -2726,25 +3807,33 @@ final class ImRepository {
   /// its message list.
   Future<bool> reconcileLatestMessages(String conversationId) async {
     final session = await _session();
-    final latest = await _fetchLatestMessages(conversationId);
+    final latest = await _fetchLatestMessages(session, conversationId);
     if (latest.isEmpty) return false;
-    final cached = await _store.readMessages(
-      session.userId,
-      conversationId,
-      limit: latest.length.clamp(1, 50),
+    final cached = await _readMessageCache(
+      session,
+      () => _store.readMessages(
+        session.userId,
+        conversationId,
+        limit: latest.length.clamp(1, 50),
+      ),
     );
     if (!imMessageSnapshotsDiffer(cached, latest)) return false;
-    await _store.mergeMessages(session.userId, conversationId, latest);
-    return true;
+    return _sessionStore.withCurrentSession(session, () async {
+      await _store.mergeMessages(session.userId, conversationId, latest);
+      return true;
+    });
   }
 
-  Future<List<ImMessage>> _fetchLatestMessages(String conversationId) async {
-    final dio = await _client.forIm();
-    final response = await dio.get<List<Object?>>(
+  Future<List<ImMessage>> _fetchLatestMessages(
+    MobileSession session,
+    String conversationId,
+  ) async {
+    final data = await _imReadRequest<List<Object?>>(
+      session,
       '/api/im/conversations/$conversationId/messages',
       queryParameters: const {'take': 50},
     );
-    return (response.data ?? const <Object?>[])
+    return (data ?? const <Object?>[])
         .whereType<Map>()
         .map((item) => ImMessage.fromJson(item.cast<String, Object?>()))
         .toList()
@@ -2758,10 +3847,9 @@ final class ImRepository {
     final session = await _session();
     var cursor = beforeSequence;
     if (cursor == null) {
-      final cached = await _store.readMessages(
-        session.userId,
-        conversationId,
-        limit: 80,
+      final cached = await _readMessageCache(
+        session,
+        () => _store.readMessages(session.userId, conversationId, limit: 80),
       );
       final sequenced = cached
           .where((message) => message.sequence > 0)
@@ -2772,13 +3860,22 @@ final class ImRepository {
           .reduce((left, right) => left < right ? left : right);
     }
     if (cursor <= 1) return const [];
-    final dio = await _client.forIm();
-    final response = await dio.get<List<Object?>>(
+    final cachedOlder = await _readMessageCache(
+      session,
+      () => _store.readAdjacentOlderMessages(
+        session.userId,
+        conversationId,
+        beforeSequence: cursor!,
+      ),
+    );
+    if (cachedOlder.isNotEmpty) return cachedOlder;
+    final data = await _imReadRequest<List<Object?>>(
+      session,
       '/api/im/conversations/$conversationId/messages',
       queryParameters: {'beforeSequence': cursor, 'take': 80},
     );
     final older =
-        (response.data ?? const <Object?>[])
+        (data ?? const <Object?>[])
             .whereType<Map>()
             .map((item) => ImMessage.fromJson(item.cast<String, Object?>()))
             .where(
@@ -2786,10 +3883,31 @@ final class ImRepository {
             )
             .toList()
           ..sort((left, right) => left.sequence.compareTo(right.sequence));
-    if (older.isNotEmpty) {
-      await _store.mergeMessages(session.userId, conversationId, older);
+    return _sessionStore.withCurrentSession(session, () async {
+      if (older.isNotEmpty) {
+        await _store.mergeMessages(session.userId, conversationId, older);
+      }
+      return older;
+    });
+  }
+
+  // Local decoding may yield just like HTTP. Do not hold the login lock while
+  // reading/decrypting, but do not return old data (or old errors) to a new login.
+  Future<T> _readMessageCache<T>(
+    MobileSession session,
+    Future<T> Function() read,
+  ) async {
+    await _sessionStore.withCurrentSession(session, () async {});
+    try {
+      final result = await read();
+      return await _sessionStore.withCurrentSession(
+        session,
+        () async => result,
+      );
+    } catch (_) {
+      await _sessionStore.withCurrentSession(session, () async {});
+      rethrow;
     }
-    return older;
   }
 
   Future<ImMessage?> retryMessage(
@@ -2799,7 +3917,6 @@ final class ImRepository {
     if (clientMessageId.isEmpty) return null;
     final session = await _session();
     await _store.retryOutboxNow(session.userId, clientMessageId);
-    await flushOutbox();
     final messages = await _store.readMessages(session.userId, conversationId);
     return messages
         .where((message) => message.clientMessageId == clientMessageId)
@@ -3106,26 +4223,27 @@ final class ImRepository {
     bool mentionAll = false,
     String? replyToMessageId,
     ImMessageReply? replyTo,
+    String? clientMessageId,
+    String? expectedAccountId,
   }) async {
     final session = await _session();
-    final clientMessageId = const Uuid().v4();
-    final local = await _store.enqueueText(
+    if (expectedAccountId != null && session.userId != expectedAccountId) {
+      throw const SessionChangedException();
+    }
+    final messageId = clientMessageId ?? const Uuid().v4();
+    Future<ImMessage> enqueue() => _store.enqueueText(
       accountId: session.userId,
       senderId: session.userId,
       conversationId: conversationId,
-      clientMessageId: clientMessageId,
+      clientMessageId: messageId,
       content: content,
       mentionedMemberIds: mentionedMemberIds,
       mentionAll: mentionAll,
       replyToMessageId: replyToMessageId ?? replyTo?.messageId,
       replyTo: replyTo,
     );
-    await flushOutbox();
-    final messages = await _store.readMessages(session.userId, conversationId);
-    return messages.firstWhere(
-      (message) => message.clientMessageId == clientMessageId,
-      orElse: () => local,
-    );
+    if (AppEnvironment.demoMode) return enqueue();
+    return _sessionStore.withCurrentSession(session, enqueue);
   }
 
   Future<ImConversation> createDirect(String memberId) async {
@@ -3205,23 +4323,70 @@ final class ImRepository {
     required Uint8List bytes,
     String contentType = 'application/octet-stream',
   }) async {
+    if (bytes.isEmpty || bytes.length > 536870912) {
+      throw ArgumentError('文件必须非空且不超过 512 MB');
+    }
     final session = await _session();
     final clientMessageId = const Uuid().v4();
-    final local = await _store.enqueueAttachment(
-      accountId: session.userId,
-      senderId: session.userId,
-      conversationId: conversationId,
-      clientMessageId: clientMessageId,
-      fileName: fileName,
-      bytes: bytes,
-      contentType: contentType,
-    );
-    await flushOutbox();
-    final messages = await _store.readMessages(session.userId, conversationId);
-    return messages.firstWhere(
-      (message) => message.clientMessageId == clientMessageId,
-      orElse: () => local,
-    );
+    final stored = <ImOutboxStoredFile>[];
+    try {
+      final file = await _outboxFiles.writeBytes(
+        accountId: session.userId,
+        clientMessageId: clientMessageId,
+        role: 'file',
+        fileName: fileName,
+        contentType: contentType,
+        bytes: bytes,
+      );
+      stored.add(file);
+      return await _store.enqueueAttachment(
+        accountId: session.userId,
+        senderId: session.userId,
+        conversationId: conversationId,
+        clientMessageId: clientMessageId,
+        file: file,
+      );
+    } catch (_) {
+      await _outboxFiles.deleteAll(session.userId, stored);
+      rethrow;
+    }
+  }
+
+  Future<ImMessage> sendAttachmentStream({
+    required String conversationId,
+    required String fileName,
+    required int length,
+    required Stream<List<int>> Function() openRead,
+    String contentType = 'application/octet-stream',
+  }) async {
+    if (length <= 0 || length > 536870912) {
+      throw ArgumentError('文件必须非空且不超过 512 MB');
+    }
+    final session = await _session();
+    final clientMessageId = const Uuid().v4();
+    final stored = <ImOutboxStoredFile>[];
+    try {
+      final file = await _outboxFiles.writeStream(
+        accountId: session.userId,
+        clientMessageId: clientMessageId,
+        role: 'file',
+        fileName: fileName,
+        contentType: contentType,
+        clearLength: length,
+        source: openRead(),
+      );
+      stored.add(file);
+      return await _store.enqueueAttachment(
+        accountId: session.userId,
+        senderId: session.userId,
+        conversationId: conversationId,
+        clientMessageId: clientMessageId,
+        file: file,
+      );
+    } catch (_) {
+      await _outboxFiles.deleteAll(session.userId, stored);
+      rethrow;
+    }
   }
 
   Future<ImMessage> sendImages({
@@ -3239,33 +4404,43 @@ final class ImRepository {
       throw ArgumentError('图片必须非空且不超过 50 MB');
     }
     final session = await _session();
-    final dio = await _client.forIm();
-    final response = await dio.post<Map<String, Object?>>(
-      '/api/im/conversations/$conversationId/images',
-      data: FormData.fromMap({
-        'clientMessageId': const Uuid().v4(),
-        'caption': caption.trim(),
-        'files': files
-            .map(
-              (file) => MultipartFile.fromBytes(
-                file.bytes,
-                filename: file.fileName,
-                contentType: DioMediaType.parse(file.contentType),
-              ),
-            )
-            .toList(),
-      }),
-    );
-    final message = ImMessage.fromJson(response.data ?? <String, Object?>{});
-    await _store.mergeMessages(session.userId, conversationId, [message]);
-    await refreshBootstrap();
-    return message;
+    final clientMessageId = const Uuid().v4();
+    final stored = <ImOutboxStoredFile>[];
+    try {
+      for (final file in files) {
+        stored.add(
+          await _outboxFiles.writeBytes(
+            accountId: session.userId,
+            clientMessageId: clientMessageId,
+            role: 'image',
+            fileName: file.fileName,
+            contentType: file.contentType,
+            bytes: file.bytes,
+          ),
+        );
+      }
+      return await _store.enqueueImages(
+        accountId: session.userId,
+        senderId: session.userId,
+        conversationId: conversationId,
+        clientMessageId: clientMessageId,
+        files: stored,
+        caption: caption,
+      );
+    } catch (_) {
+      await _outboxFiles.deleteAll(session.userId, stored);
+      rethrow;
+    }
   }
 
   Future<Uint8List> downloadMessageImage(
     String messageId,
     String imageId,
   ) async {
+    final local = parseImOutboxSyntheticFileId(imageId);
+    if (local != null) {
+      return _readQueuedFile(local.clientMessageId, local.token);
+    }
     final dio = await _client.forIm();
     final response = await dio.get<List<int>>(
       '/api/im/messages/$messageId/images/$imageId',
@@ -3293,82 +4468,144 @@ final class ImRepository {
       throw ArgumentError('媒体文件必须非空且不超过 512 MB');
     }
     final session = await _session();
-    final dio = await _client.forIm();
-    final uploadResponse = await dio.post<Map<String, Object?>>(
-      '/api/im/upload/$normalizedKind',
-      data: FormData.fromMap({
-        'file': MultipartFile.fromBytes(
-          bytes,
-          filename: fileName,
-          contentType: DioMediaType.parse(contentType),
-        ),
-      }),
-    );
-    final uploaded = uploadResponse.data ?? <String, Object?>{};
-    final objectId = uploaded['objectId']?.toString() ?? '';
-    if (objectId.isEmpty) throw StateError('媒体上传未返回对象标识');
-    Map<String, Object?> cover = const {};
-    if (normalizedKind == 'video' &&
-        coverBytes != null &&
-        coverBytes.isNotEmpty) {
-      try {
-        final coverResponse = await dio.post<Map<String, Object?>>(
-          '/api/im/upload/picture',
-          data: FormData.fromMap({
-            'file': MultipartFile.fromBytes(
-              coverBytes,
-              filename: '${path.basenameWithoutExtension(fileName)}-cover.jpg',
-              contentType: DioMediaType.parse('image/jpeg'),
-            ),
-          }),
-        );
-        cover = coverResponse.data ?? const {};
-      } catch (_) {
-        // A missing cover must not discard a successfully uploaded video.
-      }
-    }
-    final response = await dio.post<Map<String, Object?>>(
-      '/api/im/conversations/$conversationId/media-messages',
-      data: {
-        'clientMessageId': const Uuid().v4(),
-        'kind': normalizedKind,
-        'caption': caption.trim(),
-        'attachments': [
-          {
-            'objectId': objectId,
-            'fileName': uploaded['fileName']?.toString() ?? fileName,
-            'contentType': uploaded['contentType']?.toString() ?? contentType,
-            'size': uploaded['size'] ?? bytes.length,
-            'sha256': uploaded['sha256']?.toString() ?? '',
-            'width': uploaded['width'],
-            'height': uploaded['height'],
-            'coverObjectId': cover['objectId']?.toString() ?? '',
-            'coverWidth': coverWidth ?? cover['width'],
-            'coverHeight': coverHeight ?? cover['height'],
-            'durationSeconds': uploaded['durationSeconds'],
-          },
-        ],
-      },
-      options: Options(contentType: Headers.jsonContentType),
-    );
-    final message = ImMessage.fromJson(response.data ?? <String, Object?>{});
-    if (normalizedKind == 'video' &&
-        coverBytes != null &&
-        coverBytes.isNotEmpty &&
-        message.attachments.isNotEmpty) {
-      final attachment = message.attachments.first;
-      await writeImVideoPreviewCache(
-        imVideoPreviewCacheKey(
-          attachmentId: attachment.id,
-          sha256Value: attachment.sha256,
-          coverObjectId: attachment.coverObjectId,
-        ),
-        coverBytes,
+    final clientMessageId = const Uuid().v4();
+    final stored = <ImOutboxStoredFile>[];
+    try {
+      final mediaFile = await _outboxFiles.writeBytes(
+        accountId: session.userId,
+        clientMessageId: clientMessageId,
+        role: 'media',
+        fileName: fileName,
+        contentType: contentType,
+        bytes: bytes,
       );
+      stored.add(mediaFile);
+      ImOutboxStoredFile? coverFile;
+      if (normalizedKind == 'video' &&
+          coverBytes != null &&
+          coverBytes.isNotEmpty) {
+        coverFile = await _outboxFiles.writeBytes(
+          accountId: session.userId,
+          clientMessageId: clientMessageId,
+          role: 'cover',
+          fileName: '${path.basenameWithoutExtension(fileName)}-cover.jpg',
+          contentType: 'image/jpeg',
+          bytes: coverBytes,
+          width: coverWidth,
+          height: coverHeight,
+        );
+        stored.add(coverFile);
+      }
+      return await _store.enqueueMedia(
+        accountId: session.userId,
+        senderId: session.userId,
+        conversationId: conversationId,
+        clientMessageId: clientMessageId,
+        kind: normalizedKind,
+        mediaFile: mediaFile,
+        coverFile: coverFile,
+        caption: caption,
+      );
+    } catch (_) {
+      await _outboxFiles.deleteAll(session.userId, stored);
+      rethrow;
     }
-    await _store.mergeMessages(session.userId, conversationId, [message]);
-    await refreshBootstrap();
-    return message;
+  }
+
+  Future<ImMessage> sendMediaStream({
+    required String conversationId,
+    required String kind,
+    required String fileName,
+    required int length,
+    required Stream<List<int>> Function() openRead,
+    required String contentType,
+    Uint8List? coverBytes,
+    int? coverWidth,
+    int? coverHeight,
+    String caption = '',
+  }) async {
+    final normalizedKind = kind.trim().toLowerCase();
+    if (!const {'video', 'audio'}.contains(normalizedKind)) {
+      throw ArgumentError('仅支持视频或音频消息');
+    }
+    if (length <= 0 || length > 536870912) {
+      throw ArgumentError('媒体文件必须非空且不超过 512 MB');
+    }
+    final session = await _session();
+    final clientMessageId = const Uuid().v4();
+    final stored = <ImOutboxStoredFile>[];
+    try {
+      final mediaFile = await _outboxFiles.writeStream(
+        accountId: session.userId,
+        clientMessageId: clientMessageId,
+        role: 'media',
+        fileName: fileName,
+        contentType: contentType,
+        clearLength: length,
+        source: openRead(),
+      );
+      stored.add(mediaFile);
+      ImOutboxStoredFile? coverFile;
+      if (normalizedKind == 'video' &&
+          coverBytes != null &&
+          coverBytes.isNotEmpty) {
+        coverFile = await _outboxFiles.writeBytes(
+          accountId: session.userId,
+          clientMessageId: clientMessageId,
+          role: 'cover',
+          fileName: '${path.basenameWithoutExtension(fileName)}-cover.jpg',
+          contentType: 'image/jpeg',
+          bytes: coverBytes,
+          width: coverWidth,
+          height: coverHeight,
+        );
+        stored.add(coverFile);
+      }
+      return await _store.enqueueMedia(
+        accountId: session.userId,
+        senderId: session.userId,
+        conversationId: conversationId,
+        clientMessageId: clientMessageId,
+        kind: normalizedKind,
+        mediaFile: mediaFile,
+        coverFile: coverFile,
+        caption: caption,
+      );
+    } catch (_) {
+      await _outboxFiles.deleteAll(session.userId, stored);
+      rethrow;
+    }
+  }
+
+  Future<Uint8List?> readQueuedMediaPreview(String attachmentId) async {
+    final local = parseImOutboxSyntheticFileId(attachmentId);
+    if (local == null) return null;
+    final session = await _session();
+    final item = await _store.outboxItem(session.userId, local.clientMessageId);
+    if (item == null) return null;
+    final covers = item.mediaFiles.where((file) => file.role == 'cover');
+    if (covers.isEmpty) return null;
+    return _outboxFiles.readBytes(
+      accountId: session.userId,
+      clientMessageId: local.clientMessageId,
+      file: covers.first,
+    );
+  }
+
+  Future<Uint8List> _readQueuedFile(
+    String clientMessageId,
+    String token,
+  ) async {
+    final session = await _session();
+    final item = await _store.outboxItem(session.userId, clientMessageId);
+    if (item == null) throw StateError('排队中的媒体记录已不存在');
+    final matches = item.mediaFiles.where((file) => file.token == token);
+    if (matches.isEmpty) throw StateError('排队中的媒体文件已不存在');
+    return _outboxFiles.readBytes(
+      accountId: session.userId,
+      clientMessageId: clientMessageId,
+      file: matches.first,
+    );
   }
 
   Future<Uint8List> downloadMediaAttachment(
@@ -3376,6 +4613,10 @@ final class ImRepository {
     bool cover = false,
   }) async {
     if (attachmentId.trim().isEmpty) throw StateError('媒体附件无效');
+    final local = parseImOutboxSyntheticFileId(attachmentId);
+    if (local != null) {
+      return _readQueuedFile(local.clientMessageId, local.token);
+    }
     final dio = await _client.forIm();
     final response = await dio.get<List<int>>(
       '/api/im/media-attachments/$attachmentId',
@@ -3398,16 +4639,30 @@ final class ImRepository {
       clientMessageId: clientMessageId,
       memberId: memberId,
     );
-    await flushOutbox();
-    final messages = await _store.readMessages(session.userId, conversationId);
-    return messages.firstWhere(
-      (message) => message.clientMessageId == clientMessageId,
-      orElse: () => local,
-    );
+    return local;
   }
 
   Future<ImDownloadedAttachment> downloadAttachment(ImMessage message) async {
     if (message.id.isEmpty) throw StateError('附件消息无效');
+    if (message.clientMessageId.trim().isNotEmpty) {
+      final session = await _session();
+      final item = await _store.outboxItem(
+        session.userId,
+        message.clientMessageId,
+      );
+      final files = item?.mediaFiles.where((file) => file.role == 'file');
+      if (item != null && files != null && files.length == 1) {
+        return ImDownloadedAttachment(
+          fileName: files.single.fileName,
+          bytes: await _outboxFiles.readBytes(
+            accountId: session.userId,
+            clientMessageId: item.clientMessageId,
+            file: files.single,
+          ),
+          contentType: files.single.contentType,
+        );
+      }
+    }
     final dio = await _client.forIm();
     final response = await dio.get<List<int>>(
       '/api/im/messages/${message.id}/attachment',
@@ -3423,14 +4678,22 @@ final class ImRepository {
   }
 
   Future<List<ImMember>> groupManagers(String conversationId) async {
-    final dio = await _client.forIm();
+    final session = await _session();
+    final presence = memberPresence?.call();
+    final request = presence?.beginRequest();
+    final dio = await _client.forIm(forSession: session);
     final response = await dio.get<List<Object?>>(
       '/api/im/groups/$conversationId/managers',
     );
-    return (response.data ?? const <Object?>[])
+    final members = (response.data ?? const <Object?>[])
         .whereType<Map>()
         .map((item) => ImMember.fromJson(item.cast<String, Object?>()))
         .toList();
+    return _sessionStore.withCurrentSession(session, () async {
+      if (presence != null && request != null)
+        presence.observe(session, request, members);
+      return members;
+    });
   }
 
   Future<List<ImMember>> addGroupMembers(
@@ -3510,7 +4773,10 @@ final class ImRepository {
     if (AppEnvironment.demoMode) {
       return PreviewData.groupMutedMembers(conversationId);
     }
-    final dio = await _client.forIm();
+    final session = await _session();
+    final presence = memberPresence?.call();
+    final request = presence?.beginRequest();
+    final dio = await _client.forIm(forSession: session);
     final response = await dio.get<Map<String, Object?>>(
       '/api/im/groups/$conversationId/management/muted-members',
       queryParameters: {
@@ -3518,10 +4784,19 @@ final class ImRepository {
         'pageSize': pageSize.clamp(1, 100),
       },
     );
-    return ImGroupManagementPage<ImMutedGroupMember>.fromJson(
+    final result = ImGroupManagementPage<ImMutedGroupMember>.fromJson(
       response.data ?? const <String, Object?>{},
       ImMutedGroupMember.fromJson,
     );
+    return _sessionStore.withCurrentSession(session, () async {
+      if (presence != null && request != null)
+        presence.observe(
+          session,
+          request,
+          result.items.map((item) => item.member),
+        );
+      return result;
+    });
   }
 
   Future<ImGroupManagementPage<ImMember>> groupManagersPage(
@@ -3532,7 +4807,10 @@ final class ImRepository {
     if (AppEnvironment.demoMode) {
       return PreviewData.groupManagersPage(conversationId);
     }
-    final dio = await _client.forIm();
+    final session = await _session();
+    final presence = memberPresence?.call();
+    final request = presence?.beginRequest();
+    final dio = await _client.forIm(forSession: session);
     final response = await dio.get<Map<String, Object?>>(
       '/api/im/groups/$conversationId/management/managers',
       queryParameters: {
@@ -3540,10 +4818,15 @@ final class ImRepository {
         'pageSize': pageSize.clamp(1, 100),
       },
     );
-    return ImGroupManagementPage<ImMember>.fromJson(
+    final result = ImGroupManagementPage<ImMember>.fromJson(
       response.data ?? const <String, Object?>{},
       ImMember.fromJson,
     );
+    return _sessionStore.withCurrentSession(session, () async {
+      if (presence != null && request != null)
+        presence.observe(session, request, result.items);
+      return result;
+    });
   }
 
   Future<ImGroupManagementPage<ImGroupJoinRequest>> groupJoinRequests(
@@ -3775,7 +5058,10 @@ final class ImRepository {
   }
 
   Future<List<ImSearchResult>> searchMembers(String keyword) async {
-    final dio = await _client.forIm();
+    final session = await _session();
+    final presence = memberPresence?.call();
+    final request = presence?.beginRequest();
+    final dio = await _client.forIm(forSession: session);
     late final Response<Map<String, Object?>> response;
     try {
       response = await dio.post<Map<String, Object?>>(
@@ -3796,31 +5082,91 @@ final class ImRepository {
     if ((member['id'] ?? member['Id'])?.toString().trim().isEmpty ?? true) {
       return const <ImSearchResult>[];
     }
-    return [
-      ImSearchResult.fromJson(<String, Object?>{...member, 'type': 'member'}),
-    ];
+    return _sessionStore.withCurrentSession(session, () async {
+      if (presence != null && request != null) {
+        presence.observe(session, request, [ImMember.fromJson(member)]);
+      }
+      return [
+        ImSearchResult.fromJson(<String, Object?>{...member, 'type': 'member'}),
+      ];
+    });
   }
 
   Future<ImConversationPresence> conversationPresence(
-    String conversationId,
-  ) async {
-    final dio = await _client.forIm();
+    String conversationId, {
+    MobileSession? forSession,
+    CancelToken? cancelToken,
+  }) async {
+    final session = forSession ?? await _session();
+    final presence = memberPresence?.call();
+    final request = presence?.beginRequest();
+    final dio = await _client.forIm(forSession: session);
+    final startedAt = DateTime.now();
     final response = await dio.get<Map<String, Object?>>(
       '/api/im/conversations/$conversationId/presence',
+      cancelToken: cancelToken,
     );
-    return ImConversationPresence.fromJson(
+    final result = ImConversationPresence.fromJson(
       response.data ?? <String, Object?>{},
     );
+    if (result.conversationId != conversationId ||
+        (result.type != 'direct' && result.type != 'group')) {
+      throw const FormatException('Invalid conversation presence response');
+    }
+    imPresenceDiagnostics.response(
+      result,
+      status: response.statusCode,
+      host: response.realUri.host,
+      startedAt: startedAt,
+    );
+    return _sessionStore.withCurrentSession(session, () async {
+      if (cancelToken?.isCancelled == true) throw cancelToken!.cancelError!;
+      if (presence != null && request != null && result.type == 'direct') {
+        final selfId =
+            await _store.readCurrentMemberId(session.userId) ?? session.userId;
+        final members = await _store.readConversationMembers(
+          session.userId,
+          conversationId,
+        );
+        if (cancelToken?.isCancelled == true) throw cancelToken!.cancelError!;
+        final peers = members
+            .where(
+              (member) => member.id != selfId && member.id != session.userId,
+            )
+            .toList();
+        // Only a known, unambiguous direct-member identity may update a person.
+        // A group total or a title match is never a peer presence observation.
+        if (peers.length == 1 &&
+            members.any(
+              (member) => member.id == selfId || member.id == session.userId,
+            )) {
+          presence.observe(session, request, [
+            ImMember(
+              id: peers.single.id,
+              username: peers.single.username,
+              displayName: peers.single.displayName,
+              isOnline: result.peerOnline,
+              presenceKnown: result.peerPresenceKnown,
+              lastSeenAt: result.peerLastSeenAt,
+            ),
+          ]);
+        }
+      }
+      return result;
+    });
   }
 
   Future<void> enterConversation(String conversationId) async {
     final dio = await _client.forIm();
+    _readDiagnostics.action('active_enter_request', conversationId);
     await dio.put<void>('/api/im/conversations/$conversationId/active');
   }
 
   Future<void> leaveActiveConversation() async {
     final dio = await _client.forIm();
+    _readDiagnostics.action('active_leave_request', '');
     await dio.delete<void>('/api/im/conversations/active');
+    _readDiagnostics.action('active_leave_confirmed', '');
   }
 
   Future<void> requestFriend(String memberId, String greeting) async {
@@ -3967,42 +5313,86 @@ final class ImRepository {
   }
 
   Future<ImMessageReadReceipt> messageReadReceipts(String messageId) async {
+    final session = await _session();
     final dio = await _client.forIm();
     final response = await dio.get<Map<String, Object?>>(
       '/api/im/messages/$messageId/read-receipts',
     );
-    return ImMessageReadReceipt.fromJson(
+    final receipt = ImMessageReadReceipt.fromJson(
       response.data ?? const <String, Object?>{},
     );
+    if (receipt.messageId != messageId) {
+      throw const FormatException('Message receipt identity mismatch');
+    }
+    await _store.recordMessageReadReceipt(session.userId, receipt);
+    return receipt;
   }
 
   Future<int> flushOutbox() async =>
       (await flushOutboxDetailed()).deliveredCount;
+
+  Future<int> resumeNetworkOutbox() async {
+    final session = await _session();
+    return _store.resumeNetworkOutbox(session.userId);
+  }
 
   Future<ImOutboxFlushResult> flushOutboxDetailed() async {
     final session = await _session();
     final items = await _store.dueOutbox(session.userId);
     var delivered = 0;
     final conversationIds = <String>{};
+    final waitingConversations = <String>{};
     for (final item in items) {
+      if (waitingConversations.contains(item.conversationId)) continue;
       try {
-        final message = await _postMessage(item);
-        await _store.markOutboxSent(
-          session.userId,
-          item.clientMessageId,
-          message,
-        );
-        delivered += 1;
-        conversationIds.add(item.conversationId);
-      } catch (error) {
-        await _store.markOutboxFailed(
-          session.userId,
-          item,
-          _compactError(error),
-        );
-        conversationIds.add(item.conversationId);
-        if (_isTransientOutboxFailure(error)) break;
+        try {
+          await _requireOutboxSession(session);
+          final message = await _postMessage(session, item);
+          await _sessionStore.withCurrentSession(
+            session,
+            () => _store.markOutboxSent(
+              session.userId,
+              item.clientMessageId,
+              message,
+            ),
+          );
+          await _outboxFiles.deleteAll(session.userId, item.mediaFiles);
+          delivered += 1;
+          conversationIds.add(item.conversationId);
+        } catch (error) {
+          await _requireOutboxSession(session);
+          if (error is SessionChangedException ||
+              _isOutboxSessionFailure(error)) {
+            rethrow;
+          }
+          imUploadDiagnostics.failure(error);
+          final retryScheduled = isTransientImOutboxFailure(error);
+          await _sessionStore.withCurrentSession(
+            session,
+            () => _store.markOutboxFailed(
+              session.userId,
+              item,
+              imOutboxFailureText(error),
+              retryScheduled: retryScheduled,
+              retryOnConnectionChange: isTransportImOutboxFailure(error),
+            ),
+          );
+          conversationIds.add(item.conversationId);
+          if (retryScheduled) {
+            waitingConversations.add(item.conversationId);
+            // Endpoint failures must not stall other chats; a transport outage
+            // stops the batch to avoid one timeout per queued conversation.
+            if (error is DioException && error.response == null) break;
+          }
+        }
+      } on SessionChangedException {
+        // Keep the stable IDs and encrypted files for the original login to
+        // replay. Never publish an old batch's conversation IDs to a new login.
+        return ImOutboxFlushResult(deliveredCount: 0, conversationIds: {});
       }
+    }
+    if ((await _sessionStore.readSession())?.isSameSession(session) != true) {
+      return ImOutboxFlushResult(deliveredCount: 0, conversationIds: {});
     }
     return ImOutboxFlushResult(
       deliveredCount: delivered,
@@ -4010,16 +5400,39 @@ final class ImRepository {
     );
   }
 
-  Future<ImMessage> _postMessage(ImOutboxItem item) async {
+  Future<void> _requireOutboxSession(MobileSession session) =>
+      _sessionStore.withCurrentSession(session, () async {});
+
+  bool _isOutboxSessionFailure(Object error) {
+    if (error is! DioException) return false;
+    final response = error.response;
+    final data = response?.data;
+    final code = data is Map
+        ? (data['code'] ?? data['Code'])?.toString().trim().toLowerCase()
+        : null;
+    return response?.statusCode == 401 ||
+        (response?.statusCode == 409 && code == 'session_replaced');
+  }
+
+  Future<ImMessage> _postMessage(
+    MobileSession session,
+    ImOutboxItem item,
+  ) async {
     return switch (item.kind) {
-      'file' => _postAttachmentMessage(item),
-      'contact' => _postContactCardMessage(item),
-      _ => _postTextMessage(item),
+      'file' => _postAttachmentMessage(session, item),
+      'contact' => _postContactCardMessage(session, item),
+      'image' => _postImageMessage(session, item),
+      'video' || 'audio' => _postMediaMessage(session, item),
+      _ => _postTextMessage(session, item),
     };
   }
 
-  Future<ImMessage> _postTextMessage(ImOutboxItem item) async {
-    final dio = await _client.forIm();
+  Future<ImMessage> _postTextMessage(
+    MobileSession session,
+    ImOutboxItem item,
+  ) async {
+    final dio = await _client.forIm(forSession: session);
+    await _requireOutboxSession(session);
     final response = await dio.post<Map<String, Object?>>(
       '/api/im/conversations/${item.conversationId}/messages',
       data: <String, Object?>{
@@ -4034,24 +5447,166 @@ final class ImRepository {
     return ImMessage.fromJson(response.data ?? <String, Object?>{});
   }
 
-  Future<ImMessage> _postAttachmentMessage(ImOutboxItem item) async {
-    final dio = await _client.forIm();
+  Future<ImMessage> _postAttachmentMessage(
+    MobileSession session,
+    ImOutboxItem item,
+  ) async {
+    final protectedFiles = item.mediaFiles.where((file) => file.role == 'file');
+    if (protectedFiles.length > 1) {
+      throw StateError('排队中的文件记录不完整');
+    }
+    final upload = protectedFiles.isEmpty
+        ? MultipartFile.fromBytes(
+            item.attachmentBytes,
+            filename: item.attachmentName,
+            contentType: DioMediaType.parse(item.attachmentContentType),
+          )
+        : await _storedMultipart(session.userId, item, protectedFiles.single);
+    final dio = await _client.forIm(forSession: session);
+    await _requireOutboxSession(session);
     final response = await dio.post<Map<String, Object?>>(
       '/api/im/conversations/${item.conversationId}/attachments',
       data: FormData.fromMap({
         'clientMessageId': item.clientMessageId,
-        'file': MultipartFile.fromBytes(
-          item.attachmentBytes,
-          filename: item.attachmentName,
-          contentType: DioMediaType.parse(item.attachmentContentType),
-        ),
+        'file': upload,
       }),
     );
     return ImMessage.fromJson(response.data ?? <String, Object?>{});
   }
 
-  Future<ImMessage> _postContactCardMessage(ImOutboxItem item) async {
-    final dio = await _client.forIm();
+  Future<ImMessage> _postImageMessage(
+    MobileSession session,
+    ImOutboxItem item,
+  ) async {
+    final images = item.mediaFiles
+        .where((file) => file.role == 'image')
+        .toList();
+    if (images.isEmpty || images.length > 9) {
+      throw StateError('排队中的图片记录不完整');
+    }
+    final files = <MultipartFile>[];
+    for (final image in images) {
+      files.add(await _storedMultipart(session.userId, item, image));
+    }
+    final dio = await _client.forIm(forSession: session);
+    await _requireOutboxSession(session);
+    final response = await dio.post<Map<String, Object?>>(
+      '/api/im/conversations/${item.conversationId}/images',
+      data: FormData.fromMap({
+        'clientMessageId': item.clientMessageId,
+        'caption': item.content.trim(),
+        'files': files,
+      }),
+    );
+    return ImMessage.fromJson(response.data ?? <String, Object?>{});
+  }
+
+  Future<ImMessage> _postMediaMessage(
+    MobileSession session,
+    ImOutboxItem item,
+  ) async {
+    final media = item.mediaFiles.where((file) => file.role == 'media');
+    if (media.length != 1) throw StateError('排队中的媒体记录不完整');
+    final mediaFile = media.single;
+    final dio = await _client.forIm(forSession: session);
+    final upload = await _storedMultipart(session.userId, item, mediaFile);
+    await _requireOutboxSession(session);
+    final uploadResponse = await dio.post<Map<String, Object?>>(
+      '/api/im/upload/${item.kind}',
+      data: FormData.fromMap({'file': upload}),
+    );
+    await _requireOutboxSession(session);
+    final uploaded = uploadResponse.data ?? <String, Object?>{};
+    final objectId = uploaded['objectId']?.toString() ?? '';
+    if (objectId.isEmpty) throw StateError('媒体上传未返回对象标识');
+
+    Map<String, Object?> cover = const {};
+    final covers = item.mediaFiles.where((file) => file.role == 'cover');
+    if (item.kind == 'video' && covers.isNotEmpty) {
+      try {
+        final coverUpload = await _storedMultipart(
+          session.userId,
+          item,
+          covers.first,
+        );
+        await _requireOutboxSession(session);
+        final coverResponse = await dio.post<Map<String, Object?>>(
+          '/api/im/upload/picture',
+          data: FormData.fromMap({'file': coverUpload}),
+        );
+        cover = coverResponse.data ?? const {};
+      } catch (error) {
+        await _requireOutboxSession(session);
+        if (error is SessionChangedException ||
+            _isOutboxSessionFailure(error)) {
+          rethrow;
+        }
+        imUploadDiagnostics.failure(error);
+        // A cover is optional and must not discard an uploaded video.
+      }
+    }
+
+    await _requireOutboxSession(session);
+    final response = await dio.post<Map<String, Object?>>(
+      '/api/im/conversations/${item.conversationId}/media-messages',
+      data: {
+        'clientMessageId': item.clientMessageId,
+        'kind': item.kind,
+        'caption': item.content.trim(),
+        'attachments': [
+          {
+            'objectId': objectId,
+            'fileName': uploaded['fileName']?.toString() ?? mediaFile.fileName,
+            'contentType':
+                uploaded['contentType']?.toString() ?? mediaFile.contentType,
+            'size': uploaded['size'] ?? mediaFile.length,
+            'sha256': uploaded['sha256']?.toString() ?? '',
+            'width': uploaded['width'],
+            'height': uploaded['height'],
+            'coverObjectId': cover['objectId']?.toString() ?? '',
+            'coverWidth': covers.isEmpty
+                ? cover['width']
+                : covers.first.width ?? cover['width'],
+            'coverHeight': covers.isEmpty
+                ? cover['height']
+                : covers.first.height ?? cover['height'],
+            'durationSeconds': uploaded['durationSeconds'],
+          },
+        ],
+      },
+      options: Options(contentType: Headers.jsonContentType),
+    );
+    return ImMessage.fromJson(response.data ?? <String, Object?>{});
+  }
+
+  Future<MultipartFile> _storedMultipart(
+    String accountId,
+    ImOutboxItem item,
+    ImOutboxStoredFile file,
+  ) async {
+    await _outboxFiles.verify(
+      accountId: accountId,
+      clientMessageId: item.clientMessageId,
+      file: file,
+    );
+    return MultipartFile.fromStream(
+      () => _outboxFiles.openRead(
+        accountId: accountId,
+        clientMessageId: item.clientMessageId,
+        file: file,
+      ),
+      file.length,
+      filename: file.fileName,
+      contentType: DioMediaType.parse(file.contentType),
+    );
+  }
+
+  Future<ImMessage> _postContactCardMessage(
+    MobileSession session,
+    ImOutboxItem item,
+  ) async {
+    final dio = await _client.forIm(forSession: session);
+    await _requireOutboxSession(session);
     final response = await dio.post<Map<String, Object?>>(
       '/api/im/conversations/${item.conversationId}/contact-cards',
       data: {
@@ -4066,11 +5621,12 @@ final class ImRepository {
   Future<ImSyncPullResult> pullEvents({
     int waitSeconds = 25,
     CancelToken? cancelToken,
+    void Function(ImSyncPullResult result)? onCommitted,
   }) async {
     final session = await _session();
     final syncDeviceId = session.syncDeviceId;
     final cursor = await _store.lastEventSequence(session.userId, syncDeviceId);
-    final dio = await _client.forIm();
+    final dio = await _client.forIm(forSession: session);
     final acked = await _store.lastAckedEventSequence(
       session.userId,
       syncDeviceId,
@@ -4078,6 +5634,9 @@ final class ImRepository {
     if (cursor > acked) {
       await _ackEvents(dio, cursor, cancelToken: cancelToken);
       await _store.markEventsAcked(session.userId, syncDeviceId, cursor);
+    }
+    if ((await _sessionStore.readSession())?.isSameSession(session) != true) {
+      return ImSyncPullResult.empty(cursor);
     }
     final response = await dio.get<Map<String, Object?>>(
       '/api/im/sync/events',
@@ -4088,6 +5647,9 @@ final class ImRepository {
       },
       cancelToken: cancelToken,
     );
+    if ((await _sessionStore.readSession())?.isSameSession(session) != true) {
+      return ImSyncPullResult.empty(cursor);
+    }
     final body = response.data ?? <String, Object?>{};
     final rawEvents = body['events'];
     final events = rawEvents is List
@@ -4103,7 +5665,11 @@ final class ImRepository {
       return ImSyncPullResult.empty(cursor);
     }
 
-    final bootstrap = await _fetchBootstrap();
+    final bootstrap = await _fetchBootstrap(forSession: session);
+    if ((await _sessionStore.readSession())?.isSameSession(session) != true) {
+      return ImSyncPullResult.empty(cursor);
+    }
+    _readDiagnostics.events(events, bootstrap.currentMember.id, session.userId);
     await _store.applySyncBatch(
       accountId: session.userId,
       deviceId: syncDeviceId,
@@ -4114,12 +5680,24 @@ final class ImRepository {
       cursor,
       (latest, event) => event.sequence > latest ? event.sequence : latest,
     );
-    await _ackEvents(dio, latestSequence, cancelToken: cancelToken);
-    await _store.markEventsAcked(session.userId, syncDeviceId, latestSequence);
-    return ImSyncPullResult.fromEvents(
+    final result = ImSyncPullResult.fromEvents(
       latestSequence: latestSequence,
       events: events.where((event) => event.sequence > cursor).toList(),
     );
+    if ((await _sessionStore.readSession())?.isSameSession(session) != true) {
+      return ImSyncPullResult.empty(latestSequence);
+    }
+    // Durable content is already available to the UI. A slow/failed ACK must
+    // not hide it until a later reconciliation; ACK errors still propagate to
+    // the coordinator for retry/auth handling, without advancing acked state.
+    if (result.changed) onCommitted?.call(result);
+    await beforeEventAck?.call(latestSequence, events);
+    if ((await _sessionStore.readSession())?.isSameSession(session) != true) {
+      return ImSyncPullResult.empty(latestSequence);
+    }
+    await _ackEvents(dio, latestSequence, cancelToken: cancelToken);
+    await _store.markEventsAcked(session.userId, syncDeviceId, latestSequence);
+    return result;
   }
 
   Future<void> _ackEvents(Dio dio, int sequence, {CancelToken? cancelToken}) =>
@@ -4133,21 +5711,40 @@ final class ImRepository {
   Future<void> markRead(String conversationId, int sequence) async {
     if (sequence <= 0) return;
     final session = await _session();
-    final dio = await _client.forIm();
-    await dio.post<void>(
-      '/api/im/conversations/$conversationId/read',
-      data: {'sequence': sequence},
-      options: Options(contentType: Headers.jsonContentType),
+    _readDiagnostics.action(
+      'visible_read_request',
+      conversationId,
+      sequence: sequence,
     );
-    await _store.markConversationRead(session.userId, conversationId, sequence);
+    await _imReadRequest<void>(
+      session,
+      '/api/im/conversations/$conversationId/read',
+      method: 'POST',
+      data: {'sequence': sequence},
+    );
+    await _sessionStore.withCurrentSession(
+      session,
+      () =>
+          _store.markConversationRead(session.userId, conversationId, sequence),
+    );
+    _readDiagnostics.action(
+      'visible_read_confirmed',
+      conversationId,
+      sequence: sequence,
+    );
     try {
-      final mentions = await unreadMentions(conversationId: conversationId);
+      final mentions = await unreadMentions(
+        conversationId: conversationId,
+        forSession: session,
+      );
       final visibleIds = mentions
           .where((item) => (item['sequence'] as int) <= sequence)
           .map((item) => item['messageId'] as String)
           .where((id) => id.isNotEmpty)
           .toList();
-      if (visibleIds.isNotEmpty) await markMentionsRead(visibleIds);
+      if (visibleIds.isNotEmpty) {
+        await markMentionsRead(visibleIds, forSession: session);
+      }
     } on DioException {
       // Conversation read state is authoritative even when the mention
       // projection is temporarily unavailable; foreground sync retries it.
@@ -4158,9 +5755,11 @@ final class ImRepository {
     String? conversationId,
     int afterSequence = 0,
     int take = 100,
+    MobileSession? forSession,
   }) async {
-    final dio = await _client.forIm();
-    final response = await dio.get<List<Object?>>(
+    final session = forSession ?? await _session();
+    final items = await _imReadRequest<List<Object?>>(
+      session,
       '/api/im/mentions/unread',
       queryParameters: {
         'afterSequence': afterSequence < 0 ? 0 : afterSequence,
@@ -4169,7 +5768,7 @@ final class ImRepository {
           'conversationId': conversationId,
       },
     );
-    return (response.data ?? const <Object?>[]).whereType<Map>().map((item) {
+    return (items ?? const <Object?>[]).whereType<Map>().map((item) {
       final value = item.cast<String, Object?>();
       return <String, Object>{
         'messageId': value['messageId']?.toString() ?? '',
@@ -4183,18 +5782,53 @@ final class ImRepository {
     }).toList();
   }
 
-  Future<int> markMentionsRead(List<String> messageIds) async {
+  Future<int> markMentionsRead(
+    List<String> messageIds, {
+    MobileSession? forSession,
+  }) async {
     if (messageIds.isEmpty || messageIds.length > 500) {
       throw ArgumentError('一次需处理 1 到 500 条 @ 消息');
     }
-    final dio = await _client.forIm();
-    final response = await dio.post<Map<String, Object?>>(
+    final session = forSession ?? await _session();
+    final result = await _imReadRequest<Map<String, Object?>>(
+      session,
       '/api/im/mentions/read',
+      method: 'POST',
       data: {'messageIds': messageIds},
-      options: Options(contentType: Headers.jsonContentType),
     );
-    final affected = response.data?['affected'];
+    final affected = result?['affected'];
     return affected is num ? affected.toInt() : 0;
+  }
+
+  // History, profile and visible-read/mention chains retain their original login. Never
+  // hold the session lock over a network wait, and discard late failures too.
+  Future<T?> _imReadRequest<T>(
+    MobileSession session,
+    String path, {
+    String method = 'GET',
+    Object? data,
+    Map<String, Object?>? queryParameters,
+  }) async {
+    await _sessionStore.withCurrentSession(session, () async {});
+    final dio = await _client.forIm(forSession: session);
+    try {
+      await _sessionStore.withCurrentSession(session, () async {});
+      final response = await dio.request<T>(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: Options(method: method, contentType: Headers.jsonContentType),
+      );
+      return await _sessionStore.withCurrentSession(
+        session,
+        () async => response.data,
+      );
+    } on DioException {
+      await _sessionStore.withCurrentSession(session, () async {});
+      rethrow;
+    } finally {
+      dio.close();
+    }
   }
 
   Future<void> registerPushDevice({
@@ -4202,6 +5836,7 @@ final class ImRepository {
     required String provider,
     required String token,
     String privacyMode = 'summary',
+    MobileSession? forSession,
   }) async {
     if (AppEnvironment.demoMode) {
       final current = PreviewData.demoPushDevice;
@@ -4216,7 +5851,10 @@ final class ImRepository {
       );
       return;
     }
-    final dio = await _client.forIm();
+    final session = forSession ?? await _sessionStore.readSession();
+    if (session == null) throw const SessionChangedException();
+    await _requireOutboxSession(session);
+    final dio = await _client.forIm(forSession: session);
     await dio.put<void>(
       '/api/im/push/devices/current',
       data: {
@@ -4227,9 +5865,10 @@ final class ImRepository {
       },
       options: Options(contentType: Headers.jsonContentType),
     );
+    await _requireOutboxSession(session);
   }
 
-  Future<void> unregisterPushDevice() async {
+  Future<void> unregisterPushDevice({MobileSession? forSession}) async {
     if (AppEnvironment.demoMode) {
       final current = PreviewData.demoPushDevice;
       if (current != null) {
@@ -4245,31 +5884,59 @@ final class ImRepository {
       }
       return;
     }
-    final dio = await _client.forIm();
+    final session = forSession ?? await _sessionStore.readSession();
+    if (session == null) throw const SessionChangedException();
+    await _requireOutboxSession(session);
+    final dio = await _client.forIm(forSession: session);
     await dio.delete<void>('/api/im/push/devices/current');
   }
+}
 
-  static String _compactError(Object error) {
-    if (error is DioException) {
-      final status = error.response?.statusCode;
-      if (status != null) return '消息服务请求失败（HTTP $status）';
-      return switch (error.type) {
-        DioExceptionType.connectionTimeout ||
-        DioExceptionType.sendTimeout ||
-        DioExceptionType.receiveTimeout => '网络超时，等待自动重试',
-        DioExceptionType.connectionError => '网络不可用，等待自动重试',
-        _ => '消息发送失败，等待自动重试',
-      };
-    }
-    return '消息发送失败，等待自动重试';
-  }
-
-  static bool _isTransientOutboxFailure(Object error) {
-    if (error is! DioException) return true;
+String imOutboxFailureText(Object error) {
+  if (error is DioException) {
     final status = error.response?.statusCode;
-    if (status != null) return status >= 500 || status == 408 || status == 429;
-    return true;
+    if (status != null) {
+      // Return a fixed operation label, never the request URL, headers or body.
+      final route = Uri.tryParse(error.requestOptions.path)?.path ?? '';
+      final operation = switch (route) {
+        '/api/im/upload/video' => '视频上传',
+        '/api/im/upload/audio' => '音频上传',
+        '/api/im/upload/picture' => '封面上传',
+        final value when value.endsWith('/media-messages') => '媒体消息提交',
+        final value when value.endsWith('/images') => '图片发送',
+        final value when value.endsWith('/attachments') => '文件发送',
+        final value when value.endsWith('/messages') => '消息发送',
+        _ => '消息服务请求',
+      };
+      return '$operation失败（HTTP $status）';
+    }
+    return switch (error.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.receiveTimeout => '网络超时，等待自动重试',
+      DioExceptionType.connectionError => '网络不可用，等待自动重试',
+      _ => '消息发送失败，等待自动重试',
+    };
   }
+  return '消息发送失败，等待自动重试';
+}
+
+bool isTransientImOutboxFailure(Object error) {
+  if (error is! DioException) return true;
+  final status = error.response?.statusCode;
+  if (status != null) return status >= 500 || status == 408 || status == 429;
+  return true;
+}
+
+bool isTransportImOutboxFailure(Object error) {
+  if (error is! DioException || error.response != null) return false;
+  return switch (error.type) {
+    DioExceptionType.connectionTimeout ||
+    DioExceptionType.sendTimeout ||
+    DioExceptionType.receiveTimeout ||
+    DioExceptionType.connectionError => true,
+    _ => false,
+  };
 }
 
 final class ImDownloadedAttachment {

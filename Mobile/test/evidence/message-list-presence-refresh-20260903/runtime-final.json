@@ -1,0 +1,20 @@
+[
+  {
+    "serial": "emulator-5556",
+    "pid": "32046",
+    "unhandled": 0,
+    "overflow": 0,
+    "fatal": 0,
+    "wifi": "1",
+    "mobileData": "1"
+  },
+  {
+    "serial": "emulator-5558",
+    "pid": "15585",
+    "unhandled": 0,
+    "overflow": 0,
+    "fatal": 0,
+    "wifi": "1",
+    "mobileData": "1"
+  }
+]

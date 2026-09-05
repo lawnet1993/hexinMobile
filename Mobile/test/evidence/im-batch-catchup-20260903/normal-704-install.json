@@ -1,0 +1,22 @@
+[
+  "Performing Streamed Install",
+  "Success",
+  {
+    "at": "2026-09-03T08:37:31.8060723+08:00",
+    "serial": "emulator-5556",
+    "normalApkHash": "E874F608E5BFABCB34F8C0F2B5BB5AFD7CB428F4AE0CBBEDCD71D7C306F4153D",
+    "installedApkHash": "E874F608E5BFABCB34F8C0F2B5BB5AFD7CB428F4AE0CBBEDCD71D7C306F4153D",
+    "normalApkMatches": true,
+    "pid": ""
+  },
+  "Performing Streamed Install",
+  "Success",
+  {
+    "at": "2026-09-03T08:37:36.3262113+08:00",
+    "serial": "emulator-5558",
+    "normalApkHash": "E874F608E5BFABCB34F8C0F2B5BB5AFD7CB428F4AE0CBBEDCD71D7C306F4153D",
+    "installedApkHash": "E874F608E5BFABCB34F8C0F2B5BB5AFD7CB428F4AE0CBBEDCD71D7C306F4153D",
+    "normalApkMatches": true,
+    "pid": ""
+  }
+]

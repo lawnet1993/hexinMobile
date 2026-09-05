@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-09-03T02:29:27.9219520+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-NO-MATCH",
+  "bootstrapStatus": 200,
+  "requestId": null,
+  "pageStatus": 200,
+  "pageRequestId": null,
+  "hasMore": false,
+  "requests": [
+    {
+      "id": "5303a348-ddea-40e0-938a-3ed2b7fd3486",
+      "detailStatus": 200,
+      "requestId": null,
+      "markerMatched": false
+    }
+  ],
+  "matchCount": 0
+}

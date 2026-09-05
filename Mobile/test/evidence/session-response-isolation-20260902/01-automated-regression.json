@@ -1,0 +1,33 @@
+{
+  "date": "2026-09-02",
+  "testFile": "test/session_response_isolation_test.dart",
+  "beforeFix": {
+    "passed": 0,
+    "failed": 2,
+    "failure": "A delayed command 401 cleared the subsequently saved session, including same-account re-login. Expected a newer session; actual session was null."
+  },
+  "afterFix": {
+    "targetedPassed": 14,
+    "targetedFailed": 0,
+    "fullSuitePassed": 376,
+    "fullSuiteFailed": 0,
+    "analyzerIssues": 0,
+    "cases": [
+      "late 401 after different-account login",
+      "late 401 after same-account login",
+      "current concurrent 401 terminates once, preserves credential and installation",
+      "stale and current session_replaced",
+      "network failure, 5xx, unrelated 409 preserve session",
+      "missing or mismatched request credentials do not invalidate session",
+      "atomic compare-clear and compare-replace preserve newer login",
+      "request snapshot credentials remain pinned through interceptor",
+      "stopped command startup ignores in-flight 401",
+      "late refresh after a newer login",
+      "late refresh after logout",
+      "concurrent refresh single-flight success",
+      "refresh 503 preserves session",
+      "refresh rejected with 401 terminates current session"
+    ]
+  },
+  "boundary": "Deterministic local tests do not establish the cause of the earlier observed real-device logout. Refresh-token cases model compatibility behavior; this test does not establish current server response fields."
+}

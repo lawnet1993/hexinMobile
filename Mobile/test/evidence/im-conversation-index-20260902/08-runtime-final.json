@@ -1,0 +1,35 @@
+{
+  "checkedAt": "2026-09-02T19:58:25.3679178+08:00",
+  "version": "    versionCode=2 minSdk=24 targetSdk=36\n    versionName=1.0.1",
+  "indexLogs": [
+    "09-02 19:57:47.519 13004 13004 I flutter : MOBILE_IM_INDEX {\"status\":200,\"received\":4,\"changed\":false}",
+    "09-02 19:58:12.981 13004 13004 I flutter : MOBILE_IM_INDEX {\"status\":200,\"received\":4,\"changed\":false}"
+  ],
+  "fatalOrFlutterErrors": 0,
+  "wifi": "0",
+  "mobileData": "1",
+  "apkSha256": "737F031586866E5620169B62412FE52F51AB93F9CF02E246569634EAFE14174A",
+  "chatReopens": [
+    {
+      "round": 1,
+      "checkedAt": "2026-09-02T19:58:13.6299685+08:00",
+      "targetCount": 1,
+      "bounds": "[51,1899][927,2160]",
+      "oldBeginningVisible": false
+    },
+    {
+      "round": 2,
+      "checkedAt": "2026-09-02T19:58:21.9381533+08:00",
+      "targetCount": 1,
+      "bounds": "[51,1899][927,2160]",
+      "oldBeginningVisible": false
+    },
+    {
+      "round": 3,
+      "checkedAt": "2026-09-02T19:58:30.2276699+08:00",
+      "targetCount": 1,
+      "bounds": "[51,1899][927,2160]",
+      "oldBeginningVisible": false
+    }
+  ]
+}

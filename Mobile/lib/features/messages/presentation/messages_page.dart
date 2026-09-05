@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/config/app_environment.dart';
 import '../../../shared/errors/mobile_error_text.dart';
+import '../../../shared/formatters/mobile_date_time.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/data/im_presence_projection.dart';
+import '../../collaboration/data/im_presence_diagnostics.dart';
+import '../../collaboration/data/im_member_presence.dart';
 import '../../collaboration/domain/collaboration_models.dart';
+import 'message_list_presence.dart';
 
 class MessagesPage extends ConsumerStatefulWidget {
   const MessagesPage({super.key});
@@ -30,7 +35,12 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
       useSafeArea: true,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _NewConversationSheet(bootstrap: data),
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: _NewConversationSheet(bootstrap: data),
+      ),
     );
     if (draft == null || !mounted) return;
     setState(() => _creating = true);
@@ -45,8 +55,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('发起会话失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('发起会话失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _creating = false);
@@ -175,21 +186,40 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
                       if (items.isEmpty) {
                         return EmptyState(
                           icon: Icons.chat_bubble_outline_rounded,
-                          title: query.isEmpty ? '暂无会话' : '没有匹配的会话',
+                          title: query.isNotEmpty
+                              ? '没有匹配的会话'
+                              : switch (_tab) {
+                                  1 => '暂无未读消息',
+                                  2 => '暂无未读提及',
+                                  3 => '暂无群聊',
+                                  _ => '暂无会话',
+                                },
                         );
                       }
                       return RefreshIndicator(
                         onRefresh: () =>
                             ref.refresh(imBootstrapProvider.future),
-                        child: ListView.separated(
-                          itemCount: items.length,
-                          separatorBuilder: (_, _) => const Divider(indent: 62),
-                          itemBuilder: (context, index) => _ConversationTile(
-                            item: items[index],
-                            currentMember: data.currentMember,
-                            contacts: data.contacts,
-                            presenceAvailable: presenceAvailable,
-                          ),
+                        child: MessageListPresence(
+                          builder: (context, track, failed) =>
+                              ListView.separated(
+                                itemCount: items.length,
+                                separatorBuilder: (_, _) =>
+                                    const Divider(indent: 62),
+                                itemBuilder: (context, index) {
+                                  final item = items[index];
+                                  final tile = _ConversationTile(
+                                    item: item,
+                                    currentMember: data.currentMember,
+                                    contacts: data.contacts,
+                                    presenceAvailable:
+                                        presenceAvailable &&
+                                        !failed.contains(item.id),
+                                  );
+                                  return item.isDirect
+                                      ? track(item.id, tile)
+                                      : tile;
+                                },
+                              ),
                         ),
                       );
                     },
@@ -471,6 +501,33 @@ class _ConversationTile extends ConsumerWidget {
             contacts: contacts,
           )
         : null;
+    final observation = item.isDirect
+        ? ref.watch(
+            imPresenceProjectionProvider.select((values) => values[item.id]),
+          )
+        : null;
+    final memberObservation = ref.watch(
+      imMemberPresenceProjectionProvider.select((values) => values[peer?.id]),
+    );
+    final online = resolveDirectPeerPresence(
+      transportAvailable: presenceAvailable,
+      member: peer,
+      directoryMember: contacts
+          .where((member) => member.id == peer?.id)
+          .firstOrNull,
+      observation: observation,
+      memberObservation: memberObservation,
+      allowPreviewStatus: AppEnvironment.demoMode,
+    ).online;
+    if (item.isDirect) {
+      imPresenceDiagnostics.render(
+        item.id,
+        displayedOnline: online,
+        transportAvailable: presenceAvailable,
+        member: memberObservation,
+        conversation: observation,
+      );
+    }
     return InkWell(
       onTap: () => context.push('/chat/${item.id}'),
       child: Padding(
@@ -481,9 +538,9 @@ class _ConversationTile extends ConsumerWidget {
               key: ValueKey('message-conversation-semantics-${item.id}'),
               label: item.isGroup
                   ? '群聊'
-                  : !presenceAvailable
+                  : online == null
                   ? '单聊，状态未知'
-                  : peer?.isOnline == true
+                  : online
                   ? '单聊，对方在线'
                   : '单聊，对方离线',
               child: item.isGroup
@@ -506,7 +563,7 @@ class _ConversationTile extends ConsumerWidget {
                       key: ValueKey('message-direct-avatar-${item.id}'),
                       name: title,
                       radius: 18,
-                      online: presenceAvailable ? peer?.isOnline : null,
+                      online: online,
                       avatarKey: peer?.avatarKey ?? '',
                       avatarDataUrl: peer?.avatarDataUrl ?? '',
                       backgroundColor: const Color(0xFFE8F6F2),
@@ -555,14 +612,45 @@ class _ConversationTile extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    item.preview,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.secondaryText,
-                    ),
+                  Row(
+                    children: [
+                      if (item.localPreviewStatus ==
+                              ImLocalMessageStatus.pending ||
+                          item.localPreviewStatus ==
+                              ImLocalMessageStatus.failed) ...[
+                        Tooltip(
+                          message:
+                              item.localPreviewStatus ==
+                                  ImLocalMessageStatus.failed
+                              ? '发送失败'
+                              : '等待发送',
+                          child: Icon(
+                            item.localPreviewStatus ==
+                                    ImLocalMessageStatus.failed
+                                ? Icons.error_outline_rounded
+                                : Icons.schedule_rounded,
+                            size: 12,
+                            color:
+                                item.localPreviewStatus ==
+                                    ImLocalMessageStatus.failed
+                                ? Theme.of(context).colorScheme.error
+                                : AppColors.secondaryText,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                      ],
+                      Expanded(
+                        child: Text(
+                          item.preview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.secondaryText,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -571,9 +659,7 @@ class _ConversationTile extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  item.updatedAt == null
-                      ? ''
-                      : DateFormat('HH:mm').format(item.updatedAt!),
+                  compactListDateTimeLabel(item.updatedAt),
                   style: const TextStyle(
                     fontSize: 10.5,
                     color: AppColors.secondaryText,

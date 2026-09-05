@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
@@ -944,9 +945,11 @@ String _attendanceError(Object error) {
   if (error is DioException && error.response?.data is Map) {
     final data = error.response!.data as Map;
     final message = data['message']?.toString() ?? '';
-    if (message.trim().isNotEmpty) return message;
+    if (message.trim().isNotEmpty) {
+      return mobileErrorText(Exception(message), fallback: '操作失败，请稍后重试');
+    }
   }
-  return error.toString().replaceFirst('Exception: ', '');
+  return mobileErrorText(error, fallback: '操作失败，请稍后重试');
 }
 
 final class _CorrectionDraft {

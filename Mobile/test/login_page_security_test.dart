@@ -6,6 +6,67 @@ import 'package:hexing_terminal_mobile/features/auth/application/auth_controller
 import 'package:hexing_terminal_mobile/features/auth/presentation/login_page.dart';
 
 void main() {
+  testWidgets('会话退出原因持续显示且不重复弹提示', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_RememberedAuthController.new),
+      ],
+    );
+    addTearDown(container.dispose);
+    final notices = container.read(sessionTerminationNoticeProvider.notifier);
+    notices.showOnce('当前移动端已在另一台设备登录，请重新登录');
+    notices.showOnce('登录已失效或已到期，请重新登录');
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: LoginPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 12));
+    expect(find.byKey(const Key('login-session-notice')), findsOneWidget);
+    expect(find.text('当前移动端已在另一台设备登录，请重新登录'), findsOneWidget);
+    expect(find.text('登录已失效或已到期，请重新登录'), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(container.read(sessionTerminationNoticeProvider), isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('重新提交登录时清除旧会话提示而不暴露记住密码', (tester) async {
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_RememberedAuthController.new),
+      ],
+    );
+    addTearDown(container.dispose);
+    container
+        .read(sessionTerminationNoticeProvider.notifier)
+        .showOnce('登录已失效或已到期，请重新登录');
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: LoginPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final submit = find.widgetWithText(FilledButton, '登录');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('login-session-notice')), findsNothing);
+    expect(find.text('not-rendered-test-password'), findsNothing);
+    expect(
+      (container.read(
+        authControllerProvider.notifier,
+      ) as _RememberedAuthController).submittedPassword,
+      'not-rendered-test-password',
+    );
+  });
+
   testWidgets('记住的密码不回填到输入框', (tester) async {
     final container = ProviderContainer(
       overrides: [

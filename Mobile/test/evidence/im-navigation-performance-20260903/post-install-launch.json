@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-09-03T03:04:38+08:00",
+  "source": "am start -W tool result during first launch after install",
+  "status": "ok",
+  "launchState": "COLD",
+  "totalTimeMs": 10617,
+  "waitTimeMs": 10762,
+  "sampleCount": 1,
+  "interpretation": "Slow emulator activity launch; not Flutter frame time or evidence of root cause."
+}

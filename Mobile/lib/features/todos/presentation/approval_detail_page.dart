@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -10,11 +12,16 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/config/app_environment.dart';
+import '../../../core/storage/secure_session_store.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/application/oa_catalog_sync_coordinator.dart';
 import '../../collaboration/domain/collaboration_models.dart';
+import '../../auth/application/auth_controller.dart';
 import 'approval_request_page.dart';
 
 class ApprovalDetailPage extends ConsumerStatefulWidget {
@@ -26,13 +33,104 @@ class ApprovalDetailPage extends ConsumerStatefulWidget {
   ConsumerState<ApprovalDetailPage> createState() => _ApprovalDetailPageState();
 }
 
-class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
+final approvalDetailAutoRefreshProvider = Provider<bool>((ref) => true);
+final approvalAttachmentTempDirectoryProvider = Provider<Future<Directory> Function()>((ref) => getTemporaryDirectory);
+final approvalAttachmentExternalOpenerProvider = Provider<Future<OpenResult> Function(String)>((ref) => (file) => OpenFilex.open(file));
+
+class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
+    with WidgetsBindingObserver {
   bool _submitting = false;
+  bool _openingAttachment = false;
+  CancelToken? _attachmentDownload;
+  bool _interacting = false;
   bool _ccReadAttempted = false;
+  bool _autoRefreshScheduled = false;
+  Future<void>? _detailRefresh;
+  Timer? _reconcileTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleReconcile();
+  }
+
+  @override
+  void dispose() {
+    _attachmentDownload?.cancel('approval-detail-closed');
+    _reconcileTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _reconcileVisibleDetail();
+    } else {
+      _reconcileTimer?.cancel();
+    }
+  }
+
+  void _scheduleReconcile() {
+    _reconcileTimer?.cancel();
+    if (!mounted || !ref.read(approvalDetailAutoRefreshProvider)) return;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+    _reconcileTimer = Timer(
+      const Duration(seconds: 30),
+      _reconcileVisibleDetail,
+    );
+  }
+
+  void _reconcileVisibleDetail() {
+    if (!mounted || !ref.read(approvalDetailAutoRefreshProvider)) return;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+    final request = ref
+        .read(oaApprovalRequestProvider(widget.approvalId))
+        .value;
+    if (request != null &&
+        const {
+          'approved',
+          'completed',
+          'rejected',
+          'withdrawn',
+          'terminated',
+          'canceled',
+          'cancelled',
+        }.contains(request.status.toLowerCase())) {
+      return;
+    }
+    if (_submitting || !(ModalRoute.of(context)?.isCurrent ?? true)) {
+      _scheduleReconcile();
+      return;
+    }
+    // Some deployments do not fan out later workflow events to an already
+    // processed approver. Reconcile only this visible unfinished request, not
+    // every list row. Event-driven refreshes reset the interval below.
+    _refreshDetail(showFailure: false, background: true);
+  }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(oaApprovalRevisionProvider(widget.approvalId), (before, after) {
+      if (before == after) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _refreshDetail(showFailure: false);
+      });
+    });
     final value = ref.watch(oaApprovalRequestProvider(widget.approvalId));
+    final syncAvailability = ref.watch(oaSyncAvailabilityProvider);
+    final autoRefresh = ref.watch(approvalDetailAutoRefreshProvider);
+    if (autoRefresh &&
+        syncAvailability == OaSyncAvailability.available &&
+        !_autoRefreshScheduled) {
+      _autoRefreshScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _refreshDetail(showFailure: false);
+      });
+    }
     return value.when(
       loading: () => const Scaffold(
         backgroundColor: Colors.white,
@@ -49,11 +147,14 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
               ref.invalidate(oaApprovalRequestProvider(widget.approvalId)),
         ),
       ),
-      data: _buildDetail,
+      data: (request) => _buildDetail(request, syncAvailability),
     );
   }
 
-  Widget _buildDetail(OaApprovalRequest request) {
+  Widget _buildDetail(
+    OaApprovalRequest request,
+    OaSyncAvailability syncAvailability,
+  ) {
     _markUnreadCopyAfterOpen(request);
     final task = request.operableTask;
     final oaBootstrap = ref.watch(oaBootstrapProvider).value;
@@ -65,23 +166,32 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
         imBootstrap.currentMember.id: imBootstrap.currentMember,
       for (final member in members) member.id: member,
     };
+    final actionsAvailable = syncAvailability == OaSyncAvailability.available;
     final canApprove =
-        task != null && request.allowedActions.contains('approve');
-    final canReject = task != null && request.allowedActions.contains('reject');
+        actionsAvailable &&
+        task != null &&
+        request.allowedActions.contains('approve');
+    final canReject =
+        actionsAvailable &&
+        task != null &&
+        request.allowedActions.contains('reject');
     final secondaryActions = <String>[
-      for (final action in const [
-        'transfer',
-        'add_sign',
-        'return',
-        'remind',
-        'withdraw',
-      ])
-        if (request.allowedActions.contains(action)) action,
+      if (actionsAvailable)
+        for (final action in const [
+          'transfer',
+          'add_sign',
+          'return',
+          'remind',
+          'withdraw',
+        ])
+          if (request.allowedActions.contains(action)) action,
     ];
-    final canResubmit = _canResubmit(
-      request,
-      currentMemberId: oaBootstrap?.currentMemberId ?? '',
-    );
+    final canResubmit =
+        actionsAvailable &&
+        _canResubmit(
+          request,
+          currentMemberId: oaBootstrap?.currentMemberId ?? '',
+        );
     final resubmitTarget = canResubmit
         ? _resolveResubmitTarget(request, oaBootstrap, applicationCatalog)
         : null;
@@ -90,12 +200,7 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
     return Scaffold(
       appBar: AppBar(centerTitle: true, title: const Text('审批详情')),
       body: RefreshIndicator(
-        onRefresh: () async {
-          await ref
-              .read(oaRepositoryProvider)
-              .refreshApprovalRequest(widget.approvalId);
-          ref.invalidate(oaApprovalRequestProvider(widget.approvalId));
-        },
+        onRefresh: () => _refreshDetail(showFailure: true),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
@@ -108,6 +213,13 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
               ),
             ),
             const SizedBox(height: 8),
+            if (syncAvailability != OaSyncAvailability.available) ...[
+              _ApprovalDetailSyncStrip(
+                availability: syncAvailability,
+                onRetry: () => _refreshDetail(showFailure: true),
+              ),
+              const SizedBox(height: 8),
+            ],
             MobileSurface(
               key: const Key('approval-request-content'),
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
@@ -116,8 +228,7 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
                 children: [
                   const _SectionTitle('申请内容'),
                   const SizedBox(height: 5),
-                  ..._formRows(request)
-                      .map((item) => _DetailRow(item.label, item.value)),
+                  _DetailFields(_formRows(request)),
                   if (request.attachments.isNotEmpty) ...[
                     const SizedBox(height: 9),
                     const _SectionTitle('附件'),
@@ -188,12 +299,19 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
                   color: Colors.white,
                   border: Border(top: BorderSide(color: AppColors.border)),
                 ),
-                child: FilledButton.icon(
-                  key: const Key('approval-resubmit'),
-                  onPressed: () => _startAgain(request, resubmitTarget),
-                  style: _compactApprovalButtonStyle(),
-                  icon: const Icon(Icons.replay_rounded, size: 18),
-                  label: const Text('再次发起'),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  heightFactor: 1,
+                  child: SizedBox(
+                    width: 112,
+                    child: FilledButton.icon(
+                      key: const Key('approval-resubmit'),
+                      onPressed: () => _startAgain(request, resubmitTarget),
+                      style: _compactApprovalButtonStyle(),
+                      icon: const Icon(Icons.replay_rounded, size: 16),
+                      label: const Text('再次发起'),
+                    ),
+                  ),
                 ),
               ),
             )
@@ -206,55 +324,46 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
                   border: Border(top: BorderSide(color: AppColors.border)),
                 ),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     if (secondaryActions.isNotEmpty) ...[
                       Tooltip(
                         message: '更多操作',
                         child: OutlinedButton.icon(
                           key: const Key('approval-more-actions'),
-                          onPressed: _submitting
+                          onPressed: _submitting || _interacting
                               ? null
-                              : () async {
-                                  final action =
-                                      await _showSecondaryActionsSheet(
-                                        context,
-                                        secondaryActions,
-                                      );
-                                  if (action == null || !mounted) return;
-                                  await _runSecondaryAction(
-                                    request,
-                                    task,
-                                    action,
-                                    members,
-                                  );
-                                },
+                              : () => _chooseSecondaryAction(
+                                  request, task, secondaryActions, members),
                           style: _compactApprovalButtonStyle().copyWith(
                             minimumSize: const WidgetStatePropertyAll(
-                              Size(80, 42),
+                              Size(80, 34),
                             ),
                           ),
-                          icon: const Icon(Icons.more_horiz_rounded, size: 18),
+                          icon: const Icon(Icons.more_horiz_rounded, size: 16),
                           label: const Text('更多'),
                         ),
                       ),
                       const SizedBox(width: 6),
                     ],
                     if (canReject)
-                      Expanded(
+                      SizedBox(
+                        width: 88,
                         child: OutlinedButton.icon(
-                          onPressed: _submitting
+                          onPressed: _submitting || _interacting
                               ? null
                               : () => _review(request, task, false),
                           style: _compactApprovalButtonStyle(),
-                          icon: const Icon(Icons.close_rounded, size: 18),
+                          icon: const Icon(Icons.close_rounded, size: 16),
                           label: const Text('驳回'),
                         ),
                       ),
                     if (canReject && canApprove) const SizedBox(width: 8),
                     if (canApprove)
-                      Expanded(
+                      SizedBox(
+                        width: 88,
                         child: FilledButton.icon(
-                          onPressed: _submitting
+                          onPressed: _submitting || _interacting
                               ? null
                               : () => _review(request, task, true),
                           icon: _submitting
@@ -265,7 +374,7 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Icon(Icons.check_rounded, size: 18),
+                              : const Icon(Icons.check_rounded, size: 16),
                           style: _compactApprovalButtonStyle(),
                           label: const Text('同意'),
                         ),
@@ -276,6 +385,71 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
             )
           : null,
     );
+  }
+
+  Future<void> _refreshDetail({
+    required bool showFailure,
+    bool background = false,
+  }) {
+    return _detailRefresh ??=
+        _refreshUntilCurrent(
+          showFailure: showFailure,
+          background: background,
+        ).whenComplete(() {
+          _detailRefresh = null;
+          _scheduleReconcile();
+        });
+  }
+
+  Future<void> _refreshUntilCurrent({
+    required bool showFailure,
+    required bool background,
+  }) async {
+    _autoRefreshScheduled = true;
+    final account = ref.read(collaborationAccountScopeProvider);
+    final controller = ref.read(oaSyncAvailabilityControllerProvider.notifier);
+    // A routine consistency check must not flash a loading strip or disable
+    // the current controls. A real failure still marks the snapshot stale.
+    if (!background) controller.markConnecting();
+    try {
+      // Keep the existing content visible. If another event arrives during the
+      // request, follow up once for the newest revision, never in parallel.
+      while (mounted) {
+        final revision = ref.read(
+          oaApprovalRevisionProvider(widget.approvalId),
+        );
+        await ref.read(oaApprovalRequestRefresherProvider)(widget.approvalId);
+        if (!mounted ||
+            ref.read(collaborationAccountScopeProvider) != account) {
+          return;
+        }
+        ref.invalidate(oaApprovalRequestProvider(widget.approvalId));
+        if (revision ==
+            ref.read(oaApprovalRevisionProvider(widget.approvalId))) {
+          break;
+        }
+      }
+      if (!mounted) return;
+      controller.markAvailable();
+    } on SessionChangedException {
+      // A renewed login may be the same account; the old attempt must not
+      // overwrite availability established by the new runtime.
+      return;
+    } catch (error) {
+      if (!mounted || ref.read(collaborationAccountScopeProvider) != account) {
+        return;
+      }
+      _autoRefreshScheduled = false;
+      controller.markUnavailable();
+      if (!mounted || !showFailure) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(mobileErrorText(error, fallback: '暂时无法同步审批详情')),
+          ),
+        );
+    }
   }
 
   void _startAgain(
@@ -315,10 +489,13 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
       try {
         await ref.read(markApprovalCcReadActionProvider)(widget.approvalId);
         if (!mounted) return;
+        ref.read(oaCatalogSyncCoordinatorProvider).catchUpAfterMutation();
         ref.invalidate(oaApprovalRequestProvider(widget.approvalId));
         ref.invalidate(oaBootstrapProvider);
         ref.invalidate(oaNotificationsProvider);
         ref.invalidate(oaNotificationPageProvider);
+      } on SessionChangedException {
+        return;
       } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context)
@@ -328,16 +505,34 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
   }
 
   Future<void> _openAttachment(OaApprovalAttachment attachment) async {
+    if (_openingAttachment) return;
+    final session = ref.read(authControllerProvider).value;
+    if (session == null) return;
+    final temporaryDirectory = ref.read(approvalAttachmentTempDirectoryProvider);
+    final openExternal = ref.read(approvalAttachmentExternalOpenerProvider);
+    final cancel = _attachmentDownload = CancelToken();
+    _openingAttachment = true;
+    Directory? downloadedDirectory;
+    var handedOff = false;
+    bool canOpen() => !cancel.isCancelled && _sameActionSession(session) &&
+        ModalRoute.of(context)?.isCurrent == true;
     try {
       if (attachment.isPreviewableImage) {
         final bytes = await ref
             .read(oaRepositoryProvider)
-            .downloadAttachmentPreview(attachment.id);
-        if (!mounted) return;
+            .downloadAttachmentPreview(attachment.id,
+                expectedSession: session, cancelToken: cancel);
+        if (!mounted || !canOpen()) return;
         await Navigator.of(context).push<void>(
           MaterialPageRoute<void>(
             fullscreenDialog: true,
-            builder: (context) => Scaffold(
+            builder: (context) => Consumer(builder: (context, ref, _) {
+              final current = ref.watch(authControllerProvider).value;
+              if (current?.isSameSession(session) != true) {
+                return Scaffold(appBar: AppBar(title: const Text('附件预览')),
+                    body: const Center(child: Text('登录状态已变化，请重新打开附件')));
+              }
+              return Scaffold(
               backgroundColor: Colors.black,
               body: SafeArea(
                 child: Stack(
@@ -361,29 +556,109 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
                   ],
                 ),
               ),
-            ),
+              );
+            }),
           ),
         );
         return;
       }
       final bytes = await ref
           .read(oaRepositoryProvider)
-          .downloadAttachment(attachment.id);
-      final directory = await getTemporaryDirectory();
+          .downloadAttachment(attachment.id,
+              expectedSession: session, cancelToken: cancel);
+      if (!mounted || !canOpen()) return;
+      final directory = await temporaryDirectory();
+      if (!mounted || !canOpen()) return;
+      final scope = sha256.convert(utf8.encode('${session.oaApiUrl}\n${session.userId}')).toString();
+      final accountDirectory = await Directory(path.join(directory.path, 'oa-attachments', scope)).create(recursive: true);
+      if (!mounted || !canOpen()) return;
+      downloadedDirectory = await accountDirectory.createTemp('open-');
       final target = File(
-        path.join(directory.path, path.basename(attachment.fileName)),
+        path.join(downloadedDirectory.path, path.basename(attachment.fileName)),
       );
       await target.writeAsBytes(bytes, flush: true);
-      final result = await OpenFilex.open(target.path);
-      if (result.type != ResultType.done && mounted) {
+      if (!mounted || !canOpen()) return;
+      final result = await openExternal(target.path);
+      handedOff = result.type == ResultType.done;
+      if (result.type != ResultType.done && mounted && canOpen()) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(result.message)));
       }
+    } on SessionChangedException {
+      return;
     } catch (error) {
-      if (mounted) {
+      if (mounted && canOpen()) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('附件打开失败：$error')));
+            .showSnackBar(SnackBar(content: Text(mobileErrorText(error, fallback: '附件打开失败，请稍后重试'))));
       }
+    } finally {
+      _openingAttachment = false;
+      if (identical(_attachmentDownload, cancel)) _attachmentDownload = null;
+      // Only remove the unique directory created by this attempt. Files already
+      // handed to another app must remain readable while that app opens them.
+      if (!handedOff && downloadedDirectory != null) {
+        try { await downloadedDirectory.delete(recursive: true); } catch (_) {}
+      }
+    }
+  }
+
+  bool _sameActionSession(MobileSession? expected) {
+    if (!mounted) return false;
+    final current = ref.read(authControllerProvider).value;
+    return expected == null ? current == null : current?.isSameSession(expected) == true;
+  }
+
+  bool _canContinueAction(
+    MobileSession? expected,
+    OaApprovalRequest original,
+    OaApprovalTask? task,
+    String action, {
+    bool sending = false,
+  }) {
+    if (!mounted) return false;
+    String? notice;
+    if (!_sameActionSession(expected) ||
+        (sending && expected == null && !AppEnvironment.demoMode)) {
+      notice = '登录状态已更新，请重新打开审批';
+    } else if (ref.read(oaSyncAvailabilityProvider) != OaSyncAvailability.available) {
+      notice = '当前连接不可用，请联网后重新操作';
+    } else {
+      final latest = ref.read(oaApprovalRequestProvider(original.id)).value;
+      final sameTask = task == null || latest?.tasks.any((candidate) =>
+          candidate.id == task.id && candidate.version == task.version &&
+          candidate.assigneeId == task.assigneeId && candidate.canOperate) == true;
+      if (latest == null || latest.id != original.id ||
+          latest.requesterId != original.requesterId ||
+          !latest.allowedActions.contains(action) || !sameTask) {
+        notice = '审批状态已更新，请重新确认';
+      }
+    }
+    if (notice == null) return true;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(notice)));
+    return false;
+  }
+
+  Future<void> _chooseSecondaryAction(
+    OaApprovalRequest request,
+    OaApprovalTask? task,
+    List<String> actions,
+    List<ImMember> members,
+  ) async {
+    if (_interacting || _submitting) return;
+    final session = ref.read(authControllerProvider).value;
+    setState(() => _interacting = true);
+    try {
+      final action = await _showSecondaryActionsSheet(context, actions);
+      if (action == null || !mounted || !_canContinueAction(session, request,
+          const {'transfer', 'add_sign', 'return'}.contains(action) ? task : null,
+          action)) {
+        return;
+      }
+      await _runSecondaryAction(request, task, action, members, session);
+    } finally {
+      if (mounted) setState(() => _interacting = false);
     }
   }
 
@@ -392,8 +667,13 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
     OaApprovalTask? task,
     String action,
     List<ImMember> members,
+    MobileSession? expectedSession,
   ) async {
-    Future<OaApprovalRequest>? operation;
+    Future<OaApprovalRequest> Function()? operation;
+    bool canContinue({bool sending = false}) => _canContinueAction(
+      expectedSession, request,
+      const {'transfer', 'add_sign', 'return'}.contains(action) ? task : null,
+      action, sending: sending);
     if (action == 'transfer' || action == 'add_sign') {
       if (task == null) return;
       final member = await _showMemberPicker(
@@ -401,28 +681,29 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
         action == 'transfer' ? '选择转交人' : '选择加签人',
         members.where((item) => item.id != task.assigneeId).toList(),
       );
-      if (member == null || !mounted) return;
+      if (member == null || !mounted || !canContinue()) return;
       if (action == 'transfer') {
         final reason = await _showReasonSheet(context, title: '转交原因');
         if (reason == null) return;
-        operation = ref
+        operation = () => ref
             .read(oaRepositoryProvider)
             .transferApproval(
               requestId: request.id,
               task: task,
               newAssigneeId: member.id,
               reason: reason,
+              expectedSession: expectedSession,
             );
       } else {
         final mode = await _showAddSignMode(context);
-        if (mode == null || !mounted) return;
+        if (mode == null || !mounted || !canContinue()) return;
         final comment = await _showReasonSheet(
           context,
           title: '加签说明',
           required: false,
         );
         if (comment == null) return;
-        operation = ref
+        operation = () => ref
             .read(oaRepositoryProvider)
             .addSignApproval(
               requestId: request.id,
@@ -430,21 +711,24 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
               addedAssigneeId: member.id,
               mode: mode,
               comment: comment,
+              expectedSession: expectedSession,
             );
       }
     } else if (action == 'return') {
       if (task == null) return;
       final reason = await _showReasonSheet(context, title: '退回原因');
       if (reason == null) return;
-      operation = ref
+      operation = () => ref
           .read(oaRepositoryProvider)
-          .returnApproval(requestId: request.id, task: task, reason: reason);
+          .returnApproval(requestId: request.id, task: task, reason: reason,
+              expectedSession: expectedSession);
     } else if (action == 'withdraw') {
       final reason = await _showReasonSheet(context, title: '撤回原因');
       if (reason == null) return;
-      operation = ref
+      operation = () => ref
           .read(oaRepositoryProvider)
-          .withdrawApproval(requestId: request.id, reason: reason);
+          .withdrawApproval(requestId: request.id, reason: reason,
+              expectedSession: expectedSession);
     } else if (action == 'remind') {
       final comment = await _showReasonSheet(
         context,
@@ -452,21 +736,25 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
         required: false,
       );
       if (comment == null) return;
-      operation = ref
+      operation = () => ref
           .read(oaRepositoryProvider)
-          .remindApproval(requestId: request.id, comment: comment);
+          .remindApproval(requestId: request.id, comment: comment,
+              expectedSession: expectedSession);
     }
-    if (operation == null || !mounted) return;
+    if (operation == null || !canContinue(sending: true)) return;
     setState(() => _submitting = true);
     try {
-      await operation;
+      await operation();
+      if (!_sameActionSession(expectedSession)) return;
       _invalidateRequest(request.id);
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('${_actionLabel(action)}成功')));
       }
+    } on SessionChangedException {
+      return;
     } catch (error) {
-      if (mounted) {
+      if (mounted && _sameActionSession(expectedSession)) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(_errorMessage(error))));
       }
@@ -476,6 +764,7 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
   }
 
   void _invalidateRequest(String requestId) {
+    ref.read(oaCatalogSyncCoordinatorProvider).catchUpAfterMutation();
     ref.invalidate(oaApprovalRequestProvider(requestId));
     ref.invalidate(oaBootstrapProvider);
     ref.invalidate(oaNotificationsProvider);
@@ -487,10 +776,16 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
     OaApprovalTask task,
     bool approve,
   ) async {
-    final draft = await _showReviewSheet(context, approve);
-    if (draft == null || !mounted) return;
-    setState(() => _submitting = true);
+    if (_interacting || _submitting) return;
+    final session = ref.read(authControllerProvider).value;
+    setState(() => _interacting = true);
     try {
+      final draft = await _showReviewSheet(context, approve);
+      if (draft == null || !mounted || !_canContinueAction(session, request, task,
+          approve ? 'approve' : 'reject', sending: true)) {
+        return;
+      }
+      setState(() => _submitting = true);
       final updatedRequest = await ref
           .read(oaRepositoryProvider)
           .reviewApproval(
@@ -499,7 +794,9 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
             expectedTaskVersion: task.version,
             decision: approve ? 'approved' : 'rejected',
             comment: draft.comment,
+            expectedSession: session,
           );
+      if (!_sameActionSession(session)) return;
       _invalidateRequest(request.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -513,14 +810,78 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage> {
           ),
         );
       }
+    } on SessionChangedException {
+      return;
     } catch (error) {
-      if (mounted) {
+      if (mounted && _sameActionSession(session)) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(_errorMessage(error))));
       }
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _interacting = false;
+        });
+      }
     }
+  }
+}
+
+class _ApprovalDetailSyncStrip extends StatelessWidget {
+  const _ApprovalDetailSyncStrip({
+    required this.availability,
+    required this.onRetry,
+  });
+
+  final OaSyncAvailability availability;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final connecting = availability == OaSyncAvailability.connecting;
+    return Container(
+      key: const Key('approval-detail-sync-strip'),
+      height: 36,
+      padding: const EdgeInsets.only(left: 10, right: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            connecting ? Icons.sync_rounded : Icons.cloud_off_outlined,
+            size: 17,
+            color: AppColors.secondaryText,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              connecting ? '正在核对最新审批状态' : '当前显示本机审批快照',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.secondaryText,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          if (!connecting)
+            TextButton(
+              key: const Key('approval-detail-sync-retry'),
+              onPressed: onRetry,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(76, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('重新同步'),
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -618,17 +979,71 @@ class _SectionTitle extends StatelessWidget {
   );
 }
 
+class _DetailFields extends StatelessWidget {
+  const _DetailFields(this.fields);
+
+  final List<_FieldValue> fields;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final style = DefaultTextStyle.of(context).style
+          .merge(const TextStyle(fontSize: 13, color: AppColors.secondaryText));
+      final labelLimit = (constraints.maxWidth * .4).clamp(84.0, 144.0);
+      final widths = <double>[];
+      var columnWidth = 84.0;
+      for (final field in fields) {
+        final painter = TextPainter(
+          text: TextSpan(text: field.label, style: style),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        final width = painter.width.ceilToDouble();
+        painter.dispose();
+        widths.add(width);
+        if (width + 12 <= labelLimit && width + 12 > columnWidth) {
+          columnWidth = width + 12;
+        }
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < fields.length; i++)
+            _DetailRow(
+              fields[i].label,
+              fields[i].value,
+              multiline: fields[i].multiline,
+              labelWidth: columnWidth,
+              stackLabel: widths[i] + 12 > labelLimit,
+            ),
+        ],
+      );
+    },
+  );
+}
+
 class _DetailRow extends StatelessWidget {
-  const _DetailRow(this.label, this.value);
+  const _DetailRow(
+    this.label,
+    this.value, {
+    required this.labelWidth,
+    required this.stackLabel,
+    required this.multiline,
+  });
 
   final String label;
   final String value;
+  final double labelWidth;
+  final bool stackLabel;
+  final bool multiline;
 
   @override
   Widget build(BuildContext context) {
     final displayValue = value.isEmpty ? '-' : value;
     final isContinuousLongValue =
-        displayValue.length >= 28 && !RegExp(r'\s').hasMatch(displayValue);
+        !multiline &&
+        displayValue.length >= 28 &&
+        !RegExp(r'\s').hasMatch(displayValue);
     final valueText = Text(
       displayValue,
       key: ValueKey<String>('approval-detail-value-$label'),
@@ -637,32 +1052,37 @@ class _DetailRow extends StatelessWidget {
       overflow: isContinuousLongValue ? TextOverflow.ellipsis : null,
       style: TextStyle(fontSize: isContinuousLongValue ? 13 : 14),
     );
+    final labelText = Text(
+      label,
+      style: const TextStyle(fontSize: 13, color: AppColors.secondaryText),
+    );
+    final content = isContinuousLongValue && displayValue.length <= 48
+        ? FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: valueText,
+          )
+        : valueText;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 84,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.secondaryText,
-              ),
+      child: stackLabel
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [labelText, const SizedBox(height: 4), content],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: labelWidth,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: labelText,
+                  ),
+                ),
+                Expanded(child: content),
+              ],
             ),
-          ),
-          Expanded(
-            child: isContinuousLongValue && displayValue.length <= 48
-                ? FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: valueText,
-                  )
-                : valueText,
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1140,7 +1560,7 @@ Future<ImMember?> _showMemberPicker(
               member.departmentName.toLowerCase().contains(keyword);
         }).toList();
         final listHeight = filtered.isEmpty
-            ? 96.0
+            ? 72.0
             : (filtered.length * 52.0).clamp(52.0, 286.0);
         return SafeArea(
           top: false,
@@ -1198,9 +1618,23 @@ Future<ImMember?> _showMemberPicker(
                   const SizedBox(height: 8),
                   Expanded(
                     child: filtered.isEmpty
-                        ? const EmptyState(
-                            icon: Icons.person_search_outlined,
-                            title: '没有可选成员',
+                        ? Center(
+                            child: SingleChildScrollView(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                child: Text(
+                                  query.isEmpty ? '暂无可选成员' : '未找到匹配成员',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.secondaryText,
+                                  ),
+                                ),
+                              ),
+                            ),
                           )
                         : ListView.builder(
                             itemCount: filtered.length,
@@ -1426,6 +1860,10 @@ List<_FieldValue> _formRows(OaApprovalRequest request) {
           _isSchemaConfigurationValue(value, field)
               ? '-'
               : _displayValue(value),
+          multiline:
+              const {'textarea', 'multiline', 'richtext'}.contains(type) ||
+              field['multiline'] == true ||
+              (field['rows'] is num && (field['rows'] as num) > 1),
         ),
       );
     }
@@ -1584,12 +2022,7 @@ Map<String, Object?> _resubmissionData(OaApprovalRequest request) {
   return data;
 }
 
-ButtonStyle _compactApprovalButtonStyle() => const ButtonStyle(
-  minimumSize: WidgetStatePropertyAll(Size.fromHeight(42)),
-  padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
-  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 14)),
-  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-);
+ButtonStyle _compactApprovalButtonStyle() => compactMobileActionStyle;
 
 String _requestNumber(OaApprovalRequest request) {
   final createdAt = request.createdAt;
@@ -1675,7 +2108,7 @@ String approvalReviewSuccessMessage({
 
 String _actionLabel(String action) => switch (action.toLowerCase()) {
   'transfer' => '转交',
-  'add_sign' => '加签',
+  'add_sign' || 'add_signed' => '加签',
   'return' => '退回',
   'remind' => '催办',
   'withdraw' => '撤回',
@@ -1713,14 +2146,17 @@ String _errorMessage(Object error) {
     if (data is Map) {
       for (final key in const ['message', 'detail', 'title', 'error']) {
         final value = data[key]?.toString().trim() ?? '';
-        if (value.isNotEmpty) return value;
+        if (value.isNotEmpty) {
+          return mobileErrorText(Exception(value), fallback: '操作失败，请稍后重试');
+        }
       }
     }
     final message = error.message?.trim() ?? '';
-    if (message.isNotEmpty) return message;
+    if (message.isNotEmpty) {
+      return mobileErrorText(Exception(message), fallback: '操作失败，请稍后重试');
+    }
   }
-  final message = error.toString().replaceFirst('Exception: ', '').trim();
-  return message.isEmpty ? '操作失败，请稍后重试' : message;
+  return mobileErrorText(error, fallback: '操作失败，请稍后重试');
 }
 
 final class _ReviewDraft {
@@ -1730,8 +2166,9 @@ final class _ReviewDraft {
 }
 
 final class _FieldValue {
-  const _FieldValue(this.label, this.value);
+  const _FieldValue(this.label, this.value, {this.multiline = false});
 
   final String label;
   final String value;
+  final bool multiline;
 }

@@ -1,0 +1,103 @@
+{
+  "checkedAt": "2026-09-02T10:59:59.675524Z",
+  "account": "test02",
+  "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+  "detailHttpStatus": 200,
+  "status": "withdrawn",
+  "version": 4,
+  "updatedAt": "2026-09-02T10:40:13.909769Z",
+  "notifications": {
+    "httpStatus": 200,
+    "hasMore": false,
+    "items": [
+      {
+        "id": "ea72f7f2-6954-474b-b35a-7bd8321fea70",
+        "type": "approval.task.created",
+        "isRead": true,
+        "readAt": "2026-09-02T10:59:12.003726Z",
+        "createdAt": "2026-09-02T10:37:43.748779Z"
+      }
+    ]
+  },
+  "server": {
+    "latestSequence": 139,
+    "complete": true,
+    "typeCounts": {
+      "attendance.exception.detected": 2,
+      "approval.task.created": 3,
+      "oa.notification.created": 3,
+      "oa.notification.read": 2
+    },
+    "matchingEvents": [
+      {
+        "sequence": 118,
+        "id": "454609a2-f693-4361-b49e-bb2306e8190f",
+        "type": "oa.notification.created",
+        "createdAt": "2026-09-02T10:37:43.748779Z",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "sequence": 139,
+        "id": "2a0484d6-3881-42fc-8411-303aead10f5b",
+        "type": "oa.notification.read",
+        "createdAt": "2026-09-02T10:59:12.003726Z",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc",
+        "payloadFields": [
+          "ReadAt",
+          "RequestId",
+          "NotificationId"
+        ]
+      }
+    ]
+  },
+  "local": {
+    "cursors": [
+      {
+        "state_key": "last-event-sequence",
+        "value": "139",
+        "updated_at": "2026-09-02T10:59:08.663279Z"
+      }
+    ],
+    "eventCount": 10,
+    "matchingEvents": [
+      {
+        "sequence": 118,
+        "id": "454609a2-f693-4361-b49e-bb2306e8190f",
+        "type": "oa.notification.created",
+        "createdAt": "2026-09-02T10:37:43.748779Z",
+        "appliedAt": "2026-09-02T10:37:56.197826Z",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc"
+      },
+      {
+        "sequence": 139,
+        "id": "2a0484d6-3881-42fc-8411-303aead10f5b",
+        "type": "oa.notification.read",
+        "createdAt": "2026-09-02T10:59:12.003726Z",
+        "appliedAt": "2026-09-02T10:59:08.663279Z",
+        "requestId": "523f15b1-6bf7-464e-a647-6390fdebf0fc"
+      }
+    ]
+  },
+  "localReadReceipts": [
+    {
+      "notification_id": "ea72f7f2-6954-474b-b35a-7bd8321fea70",
+      "read_at": "2026-09-02T10:53:57.414729Z",
+      "state": "sent",
+      "attempts": 5
+    }
+  ]
+}

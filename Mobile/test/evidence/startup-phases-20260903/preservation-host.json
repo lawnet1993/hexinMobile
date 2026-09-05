@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-09-03T03:23:45.1378943+08:00",
+  "imMessageLedgerSame": true,
+  "groupMessagesSame": true,
+  "outboxIdentitiesSame": true,
+  "draftsSame": true,
+  "readReceiptsSame": true,
+  "imCursorsSame": true,
+  "oaCursorSame": true,
+  "draftCount": 2,
+  "readReceiptCount": 9,
+  "outboxCount": 2
+}

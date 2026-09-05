@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-09-05T03:37:47+08:00",
+  "mobile": {
+    "mode": "http_long_poll",
+    "phone": {
+      "account": "test01",
+      "heartbeatStatus": 204,
+      "appliedSequence": 2363,
+      "acknowledgedSequence": 2363,
+      "cursorHealth": "healthy"
+    },
+    "emulator": {
+      "account": "test03",
+      "heartbeatStatus": 204,
+      "appliedSequence": 2364,
+      "acknowledgedSequence": 2364,
+      "cursorHealth": "healthy"
+    }
+  },
+  "desktopGateway": {
+    "imRest": "http://api.sfhkh.com:80",
+    "imGrpc": "http://api.sfhkh.com:7273",
+    "oaRest": "http://api.sfhkh.com:80",
+    "oaGrpc": "http://gw02.sfjxd.com:9080",
+    "tcpSamples": 3,
+    "apiPort80ReachableSamples": 3,
+    "apiPort443ReachableSamples": 0,
+    "apiPort7273ReachableSamples": 0,
+    "desktopEstablishedRemotePorts": [80]
+  },
+  "verification": {
+    "flutterTestsPassed": 1366,
+    "flutterAnalyzeIssues": 0,
+    "apkSha256": "9A8604285129351103BE71CD1AD7C374359E291FEDAB5EC368838FDEE4BF911E",
+    "phoneInstall": "success",
+    "emulatorInstall": "success",
+    "fatalOrFlutterErrors": 0
+  }
+}

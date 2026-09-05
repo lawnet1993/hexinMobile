@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
@@ -6,8 +8,10 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/device/mobile_device_identity.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/notifications/mobile_push_registration.dart';
+import '../../../core/storage/secure_session_store.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../core/updates/client_update_repository.dart';
@@ -17,8 +21,14 @@ import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../collaboration/application/mobile_device_authorization_coordinator.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/data/im_member_presence.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 import '../../network/application/tunnel_controller.dart';
+
+final accountSecurityDeviceIdentityProvider =
+    FutureProvider<MobileDeviceIdentity>(
+      (ref) => ref.watch(mobileDeviceIdentityProvider).resolve(),
+    );
 
 class AccountSecurityPage extends ConsumerStatefulWidget {
   const AccountSecurityPage({super.key});
@@ -29,27 +39,12 @@ class AccountSecurityPage extends ConsumerStatefulWidget {
 }
 
 class _AccountSecurityPageState extends ConsumerState<AccountSecurityPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _current = TextEditingController();
-  final _next = TextEditingController();
-  final _confirm = TextEditingController();
-  bool _submitting = false;
-  bool _currentObscure = true;
-  bool _nextObscure = true;
-  bool _confirmObscure = true;
-
-  @override
-  void dispose() {
-    _current.dispose();
-    _next.dispose();
-    _confirm.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(authControllerProvider).value;
     final member = ref.watch(imBootstrapProvider).value?.currentMember;
+    final realtimeAvailability = ref.watch(imRealtimeAvailabilityProvider);
+    final identity = ref.watch(accountSecurityDeviceIdentityProvider);
     return _SettingsScaffold(
       title: '账户与安全',
       children: [
@@ -57,127 +52,351 @@ class _AccountSecurityPageState extends ConsumerState<AccountSecurityPage> {
           title: '终端账户',
           children: [
             _ValueRow(label: '账号', value: session?.username ?? '-'),
-            _ValueRow(label: '设备 ID', value: _shortId(session?.deviceId)),
             _ValueRow(
-              label: '当前状态',
-              value: session == null
-                  ? '会话已失效'
-                  : member?.isOnline == true
-                  ? '已验证·在线'
-                  : '已验证·离线',
+              label: '当前设备',
+              value: identity.when(
+                data: _accountSecurityDeviceLabel,
+                loading: () => '当前移动设备',
+                error: (_, _) => '当前移动设备',
+              ),
+            ),
+            _ValueRow(
+              label: '登录状态',
+              value: _accountSecurityLoginStatus(
+                hasSession: session != null,
+                realtimeAvailability: realtimeAvailability,
+                memberOnline: watchMemberPresence(ref, member, transportAvailable:
+                    realtimeAvailability == ImRealtimeAvailability.available).online,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         _SettingsSection(
-          title: '修改登录密码',
-          child: Form(
-            key: _formKey,
-            child: Padding(
-              key: const Key('change-password-form-content'),
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PasswordField(
-                    fieldKey: const Key('current-password-field'),
-                    controller: _current,
-                    label: '当前密码',
-                    obscure: _currentObscure,
-                    onToggleObscure: () =>
-                        setState(() => _currentObscure = !_currentObscure),
-                  ),
-                  const SizedBox(height: 8),
-                  _PasswordField(
-                    fieldKey: const Key('new-password-field'),
-                    controller: _next,
-                    label: '新密码',
-                    obscure: _nextObscure,
-                    onToggleObscure: () =>
-                        setState(() => _nextObscure = !_nextObscure),
-                    validateLength: true,
-                  ),
-                  const SizedBox(height: 8),
-                  _PasswordField(
-                    fieldKey: const Key('confirm-password-field'),
-                    controller: _confirm,
-                    label: '再次输入新密码',
-                    obscure: _confirmObscure,
-                    onToggleObscure: () =>
-                        setState(() => _confirmObscure = !_confirmObscure),
-                    confirm: _next,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '修改后将退出登录，请使用新密码重新登录',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: AppColors.secondaryText,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: SizedBox(
-                      key: const Key('change-password-submit'),
-                      width: 132,
-                      height: 40,
-                      child: FilledButton(
-                        onPressed: _submitting ? null : _changePassword,
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        child: Text(_submitting ? '提交中…' : '确认修改'),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          children: [
+            ListTile(
+              key: const Key('open-change-password'),
+              dense: true,
+              minTileHeight: 48,
+              title: const Text('修改登录密码', style: TextStyle(fontSize: 14)),
+              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+              onTap: _openChangePassword,
             ),
-          ),
+          ],
         ),
       ],
     );
   }
 
+  Future<void> _openChangePassword() => showModalBottomSheet<void>(
+    context: context,
+    useRootNavigator: true,
+    useSafeArea: true,
+    isScrollControlled: true,
+    showDragHandle: false,
+    builder: (_) => const _ChangePasswordSheet(),
+  );
+}
+
+String _accountSecurityLoginStatus({
+  required bool hasSession,
+  required ImRealtimeAvailability realtimeAvailability,
+  required bool? memberOnline,
+}) {
+  if (!hasSession) return '已失效';
+  return switch (realtimeAvailability) {
+    ImRealtimeAvailability.connecting => '已登录·同步中',
+    ImRealtimeAvailability.unavailable => '已登录·同步中断',
+    ImRealtimeAvailability.available => switch (memberOnline) {
+      true => '已登录·在线',
+      false => '已登录·离线',
+      null => '已登录',
+    },
+  };
+}
+
+String _accountSecurityDeviceLabel(MobileDeviceIdentity identity) {
+  final rawName = identity.name.trim();
+  final normalized = rawName.toLowerCase();
+  final name =
+      normalized.contains('sdk_gphone') || normalized.contains('emulator')
+      ? 'Android 模拟器'
+      : rawName.isEmpty
+      ? '当前移动设备'
+      : rawName;
+  final operatingSystem = identity.operatingSystem.trim();
+  return operatingSystem.isEmpty ? name : '$name · $operatingSystem';
+}
+
+class _ChangePasswordSheet extends ConsumerStatefulWidget {
+  const _ChangePasswordSheet();
+
+  @override
+  ConsumerState<_ChangePasswordSheet> createState() =>
+      _ChangePasswordSheetState();
+}
+
+class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  final _confirm = TextEditingController();
+  final _nextFocus = FocusNode();
+  final _confirmFocus = FocusNode();
+  bool _submitting = false;
+  bool _currentObscure = true;
+  bool _nextObscure = true;
+  bool _confirmObscure = true;
+  bool _validationAttempted = false;
+  String? _submitError;
+
+  bool get _canSubmit =>
+      _current.text.isNotEmpty &&
+      _next.text.isNotEmpty &&
+      _confirm.text.isNotEmpty &&
+      !_submitting;
+
+  @override
+  void initState() {
+    super.initState();
+    _current.addListener(_handleFieldChange);
+    _next.addListener(_handleFieldChange);
+    _confirm.addListener(_handleFieldChange);
+  }
+
+  void _handleFieldChange() {
+    if (!mounted) return;
+    setState(() => _submitError = null);
+  }
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    _confirm.dispose();
+    _nextFocus.dispose();
+    _confirmFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_submitting,
+    child: SafeArea(
+    top: false,
+    child: AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            key: const Key('change-password-form-content'),
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '修改登录密码',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: _submitting
+                        ? null
+                        : () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 19),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              _PasswordField(
+                fieldKey: const Key('current-password-field'),
+                onSubmitted: (_) => _nextFocus.requestFocus(),
+                enabled: !_submitting,
+                validateOnChange: _validationAttempted,
+                textInputAction: TextInputAction.next,
+                controller: _current,
+                label: '当前密码',
+                obscure: _currentObscure,
+                onToggleObscure: () =>
+                    setState(() => _currentObscure = !_currentObscure),
+              ),
+              const SizedBox(height: 8),
+              _PasswordField(
+                fieldKey: const Key('new-password-field'),
+                focusNode: _nextFocus,
+                onSubmitted: (_) => _confirmFocus.requestFocus(),
+                enabled: !_submitting,
+                validateOnChange: _validationAttempted,
+                textInputAction: TextInputAction.next,
+                controller: _next,
+                label: '新密码',
+                obscure: _nextObscure,
+                onToggleObscure: () =>
+                    setState(() => _nextObscure = !_nextObscure),
+                validateLength: true,
+              ),
+              const SizedBox(height: 8),
+              _PasswordField(
+                fieldKey: const Key('confirm-password-field'),
+                focusNode: _confirmFocus,
+                enabled: !_submitting,
+                validateOnChange: _validationAttempted,
+                controller: _confirm,
+                label: '再次输入新密码',
+                obscure: _confirmObscure,
+                onToggleObscure: () =>
+                    setState(() => _confirmObscure = !_confirmObscure),
+                confirm: _next,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '修改成功后，其他设备需重新登录',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: AppColors.secondaryText,
+                ),
+              ),
+              if (_submitError != null) ...[
+                const SizedBox(height: 6),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    _submitError!,
+                    key: const Key('change-password-error'),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.error,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                  key: const Key('change-password-submit'),
+                  width: 118,
+                  height: 36,
+                  child: FilledButton(
+                    onPressed: _canSubmit ? _changePassword : null,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      _submitting ? '提交中…' : '确认修改',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+    ),
+  );
+
   Future<void> _changePassword() async {
+    if (_submitting) return;
+    setState(() => _validationAttempted = true);
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final session = ref.read(authControllerProvider).value;
     if (session == null) return;
-    setState(() => _submitting = true);
+    final oldPassword = _current.text;
+    final newPassword = _next.text;
+    final sessionStore = ref.read(secureSessionStoreProvider);
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _submitting = true;
+      _submitError = null;
+    });
     try {
       await ref
           .read(dioProvider)
           .post<void>(
             '/api/client/change-password',
+            options: Options(
+              followRedirects: false,
+              headers: {
+                'Authorization': 'Bearer ${session.accessToken}',
+                'X-Device-Id': session.deviceId,
+              },
+            ),
             data: {
               'deviceId': session.deviceId,
-              'currentPassword': _current.text,
-              'newPassword': _next.text,
+              'currentPassword': oldPassword,
+              'newPassword': newPassword,
             },
-          );
-      if (!mounted) return;
+          )
+          .timeout(const Duration(seconds: 12));
+      // A successful server change remains successful even if local cleanup
+      // fails. Never encourage retrying a password already accepted remotely.
+      var credentialCleanupFailed = false;
+      try {
+        await sessionStore.clearCredentialIfMatches(session.username, oldPassword);
+      } catch (_) {
+        credentialCleanupFailed = true;
+      }
+      if (!mounted || !_isCurrentSession(session)) return;
+      setState(() => _submitting = false);
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('密码已修改，请重新登录')));
-      await ref
-          .read(authControllerProvider.notifier)
-          .logout(clearCredential: true);
-    } on DioException catch (error) {
-      if (!mounted) return;
-      final data = error.response?.data;
-      final message = data is Map
-          ? (data['message'] ?? data['error'])?.toString()
-          : null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message?.isNotEmpty == true ? message! : '密码修改失败'),
-        ),
-      );
+          .showSnackBar(SnackBar(content: Text(credentialCleanupFailed
+              ? '密码已修改，本机登录信息清理失败，请关闭记住密码'
+              : '密码已修改，其他设备需重新登录')));
+      Navigator.pop(context);
+    } catch (error) {
+      if (!mounted || !_isCurrentSession(session)) return;
+      setState(() {
+        _submitError = _passwordChangeError(error);
+      });
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
+
+  bool _isCurrentSession(MobileSession expected) =>
+      ref.read(authControllerProvider).value?.isSameSession(expected) == true;
+}
+
+String _passwordChangeError(Object error) {
+  // Losing the response is not proof that the write never reached the server.
+  if (error is TimeoutException ||
+      (error is DioException &&
+          (error.response?.statusCode == 408 ||
+              (error.response?.statusCode ?? 0) >= 500 ||
+              (error.response == null && error.type != DioExceptionType.connectionTimeout &&
+                  error.type != DioExceptionType.badCertificate)))) {
+    return '修改结果尚未确认，请稍后核实，勿重复提交';
+  }
+  if (error is DioException && error.response != null) {
+    return mobileActionErrorText('修改未完成', error,
+        fallback: '请检查当前密码和新密码后重试');
+  }
+  return '修改未完成，请检查连接后重试';
 }
 
 class NotificationSettingsPage extends ConsumerStatefulWidget {
@@ -209,8 +428,9 @@ class _NotificationSettingsPageState
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('设置失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('设置失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -221,64 +441,156 @@ class _NotificationSettingsPageState
   Widget build(BuildContext context) {
     final pushDevice = ref.watch(imPushDeviceProvider);
     final runtimeToken = ref.watch(mobilePushRuntimeTokenProvider);
+    final syncState = ref.watch(imRealtimeAvailabilityProvider);
+    final syncConnecting = syncState == ImRealtimeAvailability.connecting;
+    final syncUnavailable = syncState == ImRealtimeAvailability.unavailable;
     return _SettingsScaffold(
-      title: '消息通知',
+      title: '通知设置',
       children: [
         _SettingsSection(
-          title: '移动推送',
-          child: pushDevice.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.all(22),
-              child: Center(child: CircularProgressIndicator()),
+          title: '应用内通知',
+          children: [
+            const KeyedSubtree(
+              key: Key('in-app-notification-sources'),
+              child: _ValueRow(label: '通知中心', value: '消息、审批与公告'),
             ),
-            error: (error, _) => Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                children: [
-                  Text('推送状态加载失败：$error'),
-                  TextButton(
-                    onPressed: () => ref.invalidate(imPushDeviceProvider),
-                    child: const Text('重试'),
+            KeyedSubtree(
+              key: const Key('in-app-notification-sync'),
+              child: _ValueRow(
+                label: '同步状态',
+                value: syncConnecting
+                    ? '正在连接'
+                    : syncUnavailable
+                    ? '连接恢复后同步'
+                    : '实时同步',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SettingsSection(
+          title: '系统推送',
+          child: syncConnecting
+              ? const _PushLoadingTile()
+              : syncUnavailable
+              ? _PushSyncUnavailableTile(
+                  onRetry: () => ref.invalidate(imPushDeviceProvider),
+                )
+              : pushDevice.when(
+                  loading: () => const _PushLoadingTile(),
+                  error: (error, _) => _PushErrorTile(
+                    errorText: mobileActionErrorText('推送状态加载失败', error),
+                    onRetry: () => ref.invalidate(imPushDeviceProvider),
                   ),
-                ],
-              ),
-            ),
-            data: (device) => runtimeToken.when(
-              loading: () => const Padding(
-                padding: EdgeInsets.all(22),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (_, _) => const _PushUnavailableTile(),
-              data: (token) => device == null || token == null
-                  ? const _PushUnavailableTile()
-                  : Column(
-                      children: [
-                        _ValueRow(
-                          label: '推送状态',
-                          value: device.isEnabled ? '已启用' : '已停用',
-                        ),
-                        const Divider(height: 1, indent: 14),
-                        _ChoiceRow(
-                          label: '锁屏内容',
-                          value: _privacyLabel(device.privacyMode),
-                          values: const ['仅显示摘要', '显示消息详情', '不显示内容'],
-                          onSelected: _saving
-                              ? (_) {}
-                              : (value) => _updatePrivacy(_privacyMode(value)),
-                        ),
-                        const Divider(height: 1, indent: 14),
-                        _ValueRow(
-                          label: '推送通道',
-                          value: '${token.platform} · ${token.provider}',
-                        ),
-                      ],
+                  data: (device) => runtimeToken.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.all(22),
+                      child: Center(child: CircularProgressIndicator()),
                     ),
-            ),
-          ),
+                    error: (_, _) => const _PushUnavailableTile(),
+                    data: (token) => device == null || token == null
+                        ? const _PushUnavailableTile()
+                        : Column(
+                            children: [
+                              _ValueRow(
+                                label: '推送状态',
+                                value: device.isEnabled ? '已启用' : '已停用',
+                              ),
+                              const Divider(height: 1, indent: 14),
+                              _ChoiceRow(
+                                label: '锁屏内容',
+                                value: _privacyLabel(device.privacyMode),
+                                values: const ['仅显示摘要', '显示消息详情', '不显示内容'],
+                                onSelected: _saving
+                                    ? (_) {}
+                                    : (value) =>
+                                          _updatePrivacy(_privacyMode(value)),
+                              ),
+                              const Divider(height: 1, indent: 14),
+                              _ValueRow(
+                                label: '推送通道',
+                                value: '${token.platform} · ${token.provider}',
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
         ),
       ],
     );
   }
+}
+
+class _PushLoadingTile extends StatelessWidget {
+  const _PushLoadingTile();
+
+  @override
+  Widget build(BuildContext context) => const ListTile(
+    key: Key('push-settings-loading'),
+    dense: true,
+    minTileHeight: 52,
+    contentPadding: EdgeInsets.symmetric(horizontal: 14),
+    leading: SizedBox.square(
+      dimension: 18,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    ),
+    title: Text('正在同步推送设置', style: TextStyle(fontSize: 13.5)),
+  );
+}
+
+class _PushSyncUnavailableTile extends StatelessWidget {
+  const _PushSyncUnavailableTile({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    key: const Key('push-settings-sync-unavailable'),
+    dense: true,
+    minTileHeight: 52,
+    contentPadding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
+    leading: const Icon(
+      Icons.cloud_off_outlined,
+      size: 19,
+      color: AppColors.secondaryText,
+    ),
+    title: const Text(
+      '暂时无法同步推送设置',
+      style: TextStyle(fontSize: 13, color: AppColors.secondaryText),
+    ),
+    trailing: TextButton(onPressed: onRetry, child: const Text('重试')),
+  );
+}
+
+class _PushErrorTile extends StatelessWidget {
+  const _PushErrorTile({required this.errorText, required this.onRetry});
+
+  final String errorText;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    label: errorText,
+    child: ExcludeSemantics(
+      child: ListTile(
+        key: const Key('push-settings-error'),
+        dense: true,
+        minTileHeight: 52,
+        contentPadding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
+        leading: const Icon(
+          Icons.error_outline_rounded,
+          size: 19,
+          color: AppColors.error,
+        ),
+        title: const Text(
+          '推送状态加载失败',
+          style: TextStyle(fontSize: 13, color: AppColors.secondaryText),
+        ),
+        trailing: TextButton(onPressed: onRetry, child: const Text('重试')),
+      ),
+    ),
+  );
 }
 
 class _PushUnavailableTile extends StatelessWidget {
@@ -418,8 +730,9 @@ class _LoginDevicesPageState extends ConsumerState<LoginDevicesPage> {
       ref.invalidate(imDeviceAuthorizationsProvider);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('撤销失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('撤销失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _revokingId = null);
@@ -431,9 +744,9 @@ class _LoginDevicesPageState extends ConsumerState<LoginDevicesPage> {
     final session = ref.watch(authControllerProvider).value;
     final devices = ref.watch(imDeviceAuthorizationsProvider);
     final currentDevice = ref.watch(currentMobileDeviceAuthorizationProvider);
-    final syncUnavailable =
-        ref.watch(imRealtimeAvailabilityProvider) !=
-        ImRealtimeAvailability.available;
+    final syncState = ref.watch(imRealtimeAvailabilityProvider);
+    final syncConnecting = syncState == ImRealtimeAvailability.connecting;
+    final syncUnavailable = syncState == ImRealtimeAvailability.unavailable;
     final loadedItems = devices.value ?? const <ImDeviceAuthorization>[];
     final visibleItems = loadedItems.isNotEmpty
         ? loadedItems
@@ -444,13 +757,14 @@ class _LoginDevicesPageState extends ConsumerState<LoginDevicesPage> {
       title: '登录设备',
       children: [
         _SettingsSection(
-          title: '已授权设备',
+          title: visibleItems.isEmpty ? null : '已授权设备',
           child: visibleItems.isNotEmpty
               ? Column(
                   children: [
-                    if (syncUnavailable)
+                    if (syncConnecting || syncUnavailable)
                       _DeviceSyncUnavailable(
                         cached: true,
+                        connecting: syncConnecting,
                         loading: _registering,
                         onRetry: _retryDevices,
                       ),
@@ -467,27 +781,20 @@ class _LoginDevicesPageState extends ConsumerState<LoginDevicesPage> {
                   ],
                 )
               : devices.when(
-                  loading: () => syncUnavailable
-                      ? _DeviceSyncUnavailable(
-                          loading: _registering,
-                          onRetry: _retryDevices,
-                        )
-                      : const Padding(
-                          padding: EdgeInsets.all(18),
-                          child: Center(
-                            child: SizedBox.square(
-                              dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        ),
-                  error: (error, _) => _DeviceSyncUnavailable(
-                    message: mobileErrorText(error, fallback: '设备状态同步失败'),
+                  loading: () => _DeviceSyncUnavailable(
+                    connecting: !syncUnavailable,
                     loading: _registering,
                     onRetry: _retryDevices,
                   ),
-                  data: (_) => syncUnavailable
+                  error: (error, _) => _DeviceSyncUnavailable(
+                    message: mobileErrorText(error, fallback: '设备状态同步失败'),
+                    connecting: syncConnecting,
+                    loading: _registering,
+                    onRetry: _retryDevices,
+                  ),
+                  data: (_) => syncConnecting || syncUnavailable
                       ? _DeviceSyncUnavailable(
+                          connecting: syncConnecting,
                           loading: _registering,
                           onRetry: _retryDevices,
                         )
@@ -512,41 +819,56 @@ class _DeviceSyncUnavailable extends StatelessWidget {
     required this.loading,
     required this.onRetry,
     this.cached = false,
+    this.connecting = false,
     this.message,
   });
 
   final bool cached;
+  final bool connecting;
   final String? message;
   final bool loading;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-    child: Row(
-      children: [
-        const Icon(
-          Icons.cloud_off_outlined,
-          size: 19,
-          color: AppColors.secondaryText,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            message ?? (cached ? '离线 · 显示缓存' : '暂时无法同步设备'),
-            style: const TextStyle(
-              fontSize: 12.5,
+  Widget build(BuildContext context) {
+    final active = connecting || loading;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      child: Row(
+        children: [
+          if (active)
+            const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 1.8),
+            )
+          else
+            const Icon(
+              Icons.cloud_off_outlined,
+              size: 19,
               color: AppColors.secondaryText,
             ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message ??
+                  (active
+                      ? cached
+                            ? '正在同步 · 显示缓存'
+                            : '正在同步设备'
+                      : cached
+                      ? '离线 · 显示缓存'
+                      : '暂时无法同步设备'),
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppColors.secondaryText,
+              ),
+            ),
           ),
-        ),
-        TextButton(
-          onPressed: loading ? null : onRetry,
-          child: Text(loading ? '重试中…' : '重试'),
-        ),
-      ],
-    ),
-  );
+          if (!active) TextButton(onPressed: onRetry, child: const Text('重试')),
+        ],
+      ),
+    );
+  }
 }
 
 class _AuthorizeCurrentDevice extends StatelessWidget {
@@ -656,8 +978,9 @@ class _AppearanceLanguagePageState
       await ref.read(themeModeProvider.notifier).setThemeMode(mode);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('主题保存失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('主题保存失败', error))),
+        );
       }
     }
   }
@@ -674,8 +997,9 @@ class _AppearanceLanguagePageState
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('语言更新失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('语言更新失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -750,7 +1074,7 @@ class HelpFeedbackPage extends ConsumerWidget {
           ExpansionTile(
             title: Text('无法收到消息提醒'),
             childrenPadding: EdgeInsets.fromLTRB(16, 0, 16, 14),
-            children: [Text('请确认系统通知权限已开启，并在“消息通知”中启用对应提醒。')],
+            children: [Text('请确认系统通知权限已开启，并在“通知设置”中启用对应提醒。')],
           ),
           ExpansionTile(
             title: Text('审批数据没有更新'),
@@ -766,11 +1090,12 @@ class HelpFeedbackPage extends ConsumerWidget {
       ),
       SizedBox(height: 12),
       _SettingsSection(
-        title: '反馈渠道',
-        children: [_ValueRow(label: '联系方式', value: '请联系企业管理员')],
+        title: '反馈与诊断',
+        children: [
+          _ValueRow(label: '联系方式', value: '请联系企业管理员'),
+          _DiagnosticsAction(),
+        ],
       ),
-      SizedBox(height: 8),
-      _DiagnosticsAction(),
     ],
   );
 }
@@ -779,13 +1104,20 @@ class _DiagnosticsAction extends ConsumerWidget {
   const _DiagnosticsAction();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Align(
-    alignment: Alignment.centerLeft,
-    child: OutlinedButton.icon(
-      onPressed: () => _copy(context, ref),
-      icon: const Icon(Icons.copy_all_outlined, size: 17),
-      label: const Text('复制诊断信息'),
+  Widget build(BuildContext context, WidgetRef ref) => ListTile(
+    key: const Key('copy-diagnostics-entry'),
+    dense: true,
+    minTileHeight: 48,
+    title: const Text('诊断信息', style: TextStyle(fontSize: 14)),
+    trailing: const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.copy_all_outlined, size: 17, color: AppColors.primary),
+        SizedBox(width: 5),
+        Text('复制', style: TextStyle(fontSize: 13, color: AppColors.primary)),
+      ],
     ),
+    onTap: () => _copy(context, ref),
   );
 
   Future<void> _copy(BuildContext context, WidgetRef ref) async {
@@ -833,23 +1165,23 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     builder: (context, snapshot) => _SettingsScaffold(
       title: '关于合兴智联',
       children: [
-        const SizedBox(height: 16),
-        const Icon(Icons.shield_rounded, size: 58, color: AppColors.primary),
-        const SizedBox(height: 10),
-        const Center(
-          child: Text(
-            '合兴智联',
-            style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
-          ),
+        const Column(
+          key: Key('about-brand-block'),
+          children: [
+            Icon(Icons.shield_rounded, size: 40, color: AppColors.primary),
+            SizedBox(height: 4),
+            Text(
+              '合兴智联',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            SizedBox(height: 2),
+            Text(
+              '安全访问 · 高效协同',
+              style: TextStyle(fontSize: 12.5, color: AppColors.secondaryText),
+            ),
+            SizedBox(height: 12),
+          ],
         ),
-        const SizedBox(height: 4),
-        const Center(
-          child: Text(
-            '安全访问 · 高效协同',
-            style: TextStyle(color: AppColors.secondaryText),
-          ),
-        ),
-        const SizedBox(height: 24),
         _SettingsSection(
           children: [
             _ValueRow(label: '版本', value: snapshot.data?.version ?? '获取中'),
@@ -1054,6 +1386,11 @@ class _PasswordField extends StatelessWidget {
     required this.onToggleObscure,
     this.validateLength = false,
     this.confirm,
+    this.enabled = true,
+    this.validateOnChange = false,
+    this.textInputAction = TextInputAction.done,
+    this.focusNode,
+    this.onSubmitted,
   });
   final Key fieldKey;
   final TextEditingController controller;
@@ -1062,23 +1399,52 @@ class _PasswordField extends StatelessWidget {
   final VoidCallback onToggleObscure;
   final bool validateLength;
   final TextEditingController? confirm;
+  final bool enabled;
+  final bool validateOnChange;
+  final TextInputAction textInputAction;
+  final FocusNode? focusNode;
+  final ValueChanged<String>? onSubmitted;
   @override
   Widget build(BuildContext context) => TextFormField(
     key: fieldKey,
     controller: controller,
+    focusNode: focusNode,
+    onFieldSubmitted: onSubmitted,
+    enabled: enabled,
+    textInputAction: textInputAction,
+    enableSuggestions: false,
+    autocorrect: false,
+    autovalidateMode: validateOnChange ? AutovalidateMode.always : AutovalidateMode.disabled,
     obscureText: obscure,
+    style: const TextStyle(fontSize: 14),
     decoration: InputDecoration(
-      labelText: label,
+      hintText: label,
       isDense: true,
+      filled: true,
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest
+          .withValues(alpha: .55),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      border: const OutlineInputBorder(
+        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      enabledBorder: const OutlineInputBorder(
+        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      focusedBorder: const OutlineInputBorder(
+        borderSide: BorderSide(color: AppColors.primary, width: 1),
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
       suffixIconConstraints: const BoxConstraints.tightFor(
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
       ),
       suffixIcon: IconButton(
         tooltip: obscure ? '显示$label' : '隐藏$label',
-        onPressed: onToggleObscure,
+        onPressed: enabled ? onToggleObscure : null,
         padding: EdgeInsets.zero,
-        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+        constraints: const BoxConstraints.tightFor(width: 36, height: 36),
         visualDensity: VisualDensity.compact,
         icon: Icon(
           obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -1096,12 +1462,4 @@ class _PasswordField extends StatelessWidget {
       return null;
     },
   );
-}
-
-String _shortId(String? value) {
-  final text = value?.trim() ?? '';
-  if (text.isEmpty) return '-';
-  return text.length > 16
-      ? '${text.substring(0, 8)}…${text.substring(text.length - 6)}'
-      : text;
 }

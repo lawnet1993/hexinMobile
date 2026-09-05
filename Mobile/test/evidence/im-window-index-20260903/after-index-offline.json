@@ -1,0 +1,35 @@
+{
+  "checkedAt": "2026-09-03T07:30:01.4267264+08:00",
+  "serial": "emulator-5556",
+  "requested": 3,
+  "completed": 3,
+  "cycles": [
+    {
+      "iteration": 1,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 2,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 3,
+      "chatVerified": true,
+      "singleBackReturned": true
+    }
+  ],
+  "memory": [
+    {
+      "afterCycles": 0,
+      "sample": {
+        "pssKb": 202368,
+        "swapPssKb": 7855
+      }
+    }
+  ],
+  "sameProcess": true,
+  "pid": "23151",
+  "timingScope": "No frame or input-latency claim; each cycle verified by fresh UI hierarchy."
+}

@@ -1,0 +1,9 @@
+{
+  "StartedAtHostUtc": "2026-09-02T14:51:54.0580309Z",
+  "ObservedAtHostUtc": "2026-09-02T14:51:55.7945662Z",
+  "ElapsedSeconds": 1.7347941,
+  "CacheChanged": true,
+  "Sample": 2,
+  "PriorCatalog": "2026-09-02T14:51:10.627586Z",
+  "RecoveredCatalog": "2026-09-02T14:51:58.722125Z"
+}

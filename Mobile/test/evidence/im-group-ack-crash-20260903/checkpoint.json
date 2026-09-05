@@ -1,0 +1,12 @@
+{
+  "observedAt": "2026-09-03T05:59:11.3598851+08:00",
+  "processId": 7451,
+  "stage": "committed_before_ack",
+  "eventSequence": 289,
+  "messageSequence": 4,
+  "appliedCursor": 289,
+  "ackedCursor": 286,
+  "copies": 1,
+  "conversationType": "group",
+  "mentionsSelf": true
+}

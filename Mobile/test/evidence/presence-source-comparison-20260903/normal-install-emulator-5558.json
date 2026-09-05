@@ -1,0 +1,8 @@
+{
+  "at": "2026-09-03T05:50:03.4388368+08:00",
+  "serial": "emulator-5558",
+  "hash": "24A60B082004A4088E0BCF0F04D2D86455661143C191D754CA1325049ADD1157",
+  "diagnostic": false,
+  "installedHashMatches": true,
+  "activityStatus": "Starting: Intent { cmp=com.hexing.zhilian.hexing_terminal_mobile/.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity\nTotalTime: 7359\nWaitTime: 7364\nComplete"
+}

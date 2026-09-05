@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hexing_terminal_mobile/core/storage/im_cache_cipher.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/oa_local_store.dart';
+import 'package:hexing_terminal_mobile/features/todos/domain/approval_form_calculation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -102,6 +103,98 @@ void main() {
     expect(restored?.updatedAt, updatedAt);
   });
 
+  test(
+    'exact calculation values survive encrypted SQLite close and reopen',
+    () async {
+      final fields = [
+        const ApprovalFormCalculationField(
+          id: 'input',
+          label: '原始费用',
+          type: 'amount',
+        ),
+        const ApprovalFormCalculationField(
+          id: 'amount',
+          label: '请款金额',
+          type: 'amount',
+          calculation: ApprovalFormCalculation(
+            expression: 'input + 0.01',
+            scale: 2,
+            roundingMode: 'half_up',
+          ),
+        ),
+        const ApprovalFormCalculationField(
+          id: 'cost',
+          label: '成本',
+          type: 'amount',
+          calculation: ApprovalFormCalculation(
+            expression: 'amount - input',
+            scale: 2,
+            roundingMode: 'half_up',
+          ),
+        ),
+      ];
+      final result = evaluateApprovalFormCalculations(
+        fields: fields,
+        sourceValues: const {'input': '90071992547409.92'},
+      );
+      expect(result.errors, isEmpty);
+      await store.close();
+      final cipher = AesGcmImCacheCipher(
+        (_) async => List<int>.generate(32, (i) => i),
+      );
+      store = OaLocalStore.withOptions(
+        databaseFactoryFfi,
+        () async => '${directory.path}/oa.db',
+        cipher,
+      );
+      await store.saveDraft(
+        'precision-account',
+        OaApprovalDraft(
+          id: 'precision-draft',
+          applicationKey: 'precision',
+          templateId: 'precision',
+          workflowKey: 'precision',
+          title: 'AI-UAT 精度',
+          formData: result.values,
+          updatedAt: DateTime.utc(2026, 9, 3),
+        ),
+      );
+      await store.close();
+      final database = await databaseFactoryFfi.openDatabase(
+        '${directory.path}/oa.db',
+      );
+      final raw =
+          (await database.query('oa_approval_drafts')).single['form_data_json']
+              as String;
+      expect(cipher.isProtected(raw), isTrue);
+      expect(raw.contains('90071992547409.93'), isFalse);
+      await database.close();
+      store = OaLocalStore.withOptions(
+        databaseFactoryFfi,
+        () async => '${directory.path}/oa.db',
+        cipher,
+      );
+      final restored = await store.readDraftForTemplate(
+        'precision-account',
+        'precision',
+      );
+      expect(restored?.formData, result.values);
+      expect(restored?.formData['amount'], '90071992547409.93');
+      expect(restored?.formData['cost'], 0.01);
+      expect(
+        await store.readDraftForTemplate('different-account', 'precision'),
+        isNull,
+      );
+      expect(
+        evaluateApprovalFormCalculations(
+          fields: fields,
+          sourceValues: restored!.formData,
+        ).values,
+        result.values,
+      );
+    },
+  );
+
   test('version 1 draft database upgrades without losing old drafts', () async {
     await store.close();
     final databasePath = '${directory.path}/oa.db';
@@ -198,6 +291,39 @@ void main() {
     },
   );
 
+  test('sync health is account-scoped and counts unsent OA state', () async {
+    await store.applySyncBatch(
+      accountId: 'account-a',
+      events: [
+        OaSyncEvent(
+          id: 'event-7',
+          sequence: 7,
+          type: 'oa.approval.updated',
+          payloadJson: '{"requestId":"approval-7"}',
+          createdAt: DateTime.utc(2026, 9, 5),
+        ),
+      ],
+      refreshedCaches: const {},
+    );
+    await store.enqueue(
+      'account-a',
+      id: 'command-1',
+      idempotencyKey: 'command-1',
+      commandType: 'submit-approval',
+      payload: const {'title': 'AI-UAT'},
+    );
+    await store.enqueueNotificationRead('account-a', 'notice-1');
+
+    final accountA = await store.syncHealth('account-a');
+    final accountB = await store.syncHealth('account-b');
+    expect(accountA.appliedSequence, 7);
+    expect(accountA.pendingCommandCount, 1);
+    expect(accountA.pendingNotificationReadCount, 1);
+    expect(accountB.appliedSequence, 0);
+    expect(accountB.pendingCommandCount, 0);
+    expect(accountB.pendingNotificationReadCount, 0);
+  });
+
   test(
     'event inbox, refreshed projections and cursor advance atomically',
     () async {
@@ -213,7 +339,8 @@ void main() {
         events: [event, event],
         refreshedCaches: const {
           OaLocalStore.notificationsCacheKey: '[{"id":"notice-1"}]',
-          OaLocalStore.notificationPageCacheKey: '{"items":[{"id":"notice-1"}],"nextCursor":"cursor-2","hasMore":true}',
+          OaLocalStore.notificationPageCacheKey:
+              '{"items":[{"id":"notice-1"}],"nextCursor":"cursor-2","hasMore":true}',
         },
       );
 

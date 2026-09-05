@@ -1,0 +1,54 @@
+{
+  "passed": 12,
+  "total": 12,
+  "checks": [
+    {
+      "name": "exactly-100-native-clicks-with-no-replay",
+      "passed": true
+    },
+    {
+      "name": "m3-610-confirmed-unique-messages-and-original-510-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-existing-outbox-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-610-confirmed-unique-messages-and-original-510-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-existing-outbox-preserved",
+      "passed": true
+    },
+    {
+      "name": "sender-and-receiver-have-identical-canonical-ids",
+      "passed": true
+    },
+    {
+      "name": "receiver-outside-chat-retains-100-unread-while-sender-has-zero",
+      "passed": true
+    },
+    {
+      "name": "initial-native-failure-remains-recorded-without-resetting-read-state",
+      "passed": true
+    },
+    {
+      "name": "fixed-first-unread-visible-and-only-visible-range-is-persisted-read",
+      "passed": true
+    },
+    {
+      "name": "native-forward-scroll-reaches-latest-and-receipts-follow",
+      "passed": true
+    },
+    {
+      "name": "oa-drafts-notification-receipts-outbox-preserved",
+      "passed": true
+    },
+    {
+      "name": "normal-apks-match-running-processes-and-no-runtime-fatal",
+      "passed": true
+    }
+  ]
+}

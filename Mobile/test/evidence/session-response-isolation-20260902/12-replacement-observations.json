@@ -1,0 +1,29 @@
+{
+  "date": "2026-09-02",
+  "timezone": "Asia/Shanghai",
+  "source": "Actual Android UI plus sanitized MOBILE_SESSION_AUTH log metadata; no synthetic HTTP failures in the runtime test",
+  "m2LoginReplacesM1": {
+    "m2Test01HomeObservedAt": "19:13:18",
+    "m1MetadataObservedBefore": "19:13:35",
+    "m1Failure": {"source": "heartbeat", "status": 409, "action": "terminated"},
+    "m1FinalScreen": "05-m1-replaced.png",
+    "desktopBootstrapStatus": 200,
+    "desktopPageStatus": 200
+  },
+  "m1LoginReplacesM2": {
+    "m1Test01HomeObservedAt": "19:14:04",
+    "m2MetadataObservedAt": "19:14:16",
+    "m2Failures": [
+      {"source": "managed_commands", "status": 401, "action": "session_preserved"},
+      {"source": "heartbeat", "status": 409, "action": "terminated"}
+    ],
+    "m2FinalScreen": "07-m2-replaced.png"
+  },
+  "restoration": {"m1": "test01", "m2": "test02", "m2RestoredAt": "19:15:06"},
+  "notes": [
+    "Times are observation times, not server response timestamps.",
+    "The UI only showed one replacement notice on each device.",
+    "The first device log metadata was captured before its later process changed; final current-process logs need not retain that earlier event.",
+    "session_preserved identifies the request-scoped recovery branch; it does not prove all token-expiry or refresh scenarios."
+  ]
+}

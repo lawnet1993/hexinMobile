@@ -1,0 +1,8 @@
+{
+  "installedAt": "2026-09-03T06:29:46.1229701+08:00",
+  "serial": "emulator-5556",
+  "sha256": "42D4E8C4BC2943FECD29CE64DC27E5A8621868327CB6B08207A2B1F7DB567992",
+  "entry": "lib/main.dart",
+  "diagnosticFlag": true,
+  "normalPackageMustBeRestored": true
+}

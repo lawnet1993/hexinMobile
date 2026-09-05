@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-09-04T23:44:02.795118+08:00",
+  "cursor": [
+    {
+      "value": "541",
+      "updated_at": "2026-09-04T15:43:03.407589Z"
+    }
+  ],
+  "targetRead": [
+    {
+      "notification_id": "fc6afcf0-881f-4be7-a331-f737a082cf34",
+      "read_at": "2026-09-04T15:43:01.616079Z",
+      "state": "sent",
+      "attempts": 0
+    }
+  ],
+  "outboxCount": 0,
+  "draftCount": 0
+}

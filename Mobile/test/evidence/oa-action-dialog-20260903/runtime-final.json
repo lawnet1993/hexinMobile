@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-09-03T01:35:22.6046608+08:00",
+  "serial": "emulator-5556",
+  "entrypoint": "lib/main.dart",
+  "build": "profile",
+  "localSha256": "6A218AEF864BA3ADBB685A2726C246DC02C49F8BEAE9B0E0CC3DE08225A1F382",
+  "deviceSha256": "6a218aef864ba3adbb685a2726c246dc02c49f8beae9b0e0cc3de08225a1f382",
+  "running": true,
+  "wifi": "1",
+  "mobileData": "1",
+  "fatalCount": 0,
+  "flutterErrorCount": 0
+}

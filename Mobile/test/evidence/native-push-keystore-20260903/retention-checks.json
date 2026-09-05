@@ -1,0 +1,55 @@
+{
+  "checkedAt": "2026-09-03T07:11:48.2399650+08:00",
+  "passed": 12,
+  "total": 12,
+  "checks": [
+    {
+      "name": "m3-messageLedger",
+      "passed": true
+    },
+    {
+      "name": "m3-groupProjections",
+      "passed": true
+    },
+    {
+      "name": "m3-outbox-identities",
+      "passed": true
+    },
+    {
+      "name": "m3-oa-drafts",
+      "passed": true
+    },
+    {
+      "name": "m3-oa-readReceipts",
+      "passed": true
+    },
+    {
+      "name": "m3-oa-outbox",
+      "passed": true
+    },
+    {
+      "name": "m4-messageLedger",
+      "passed": true
+    },
+    {
+      "name": "m4-groupProjections",
+      "passed": true
+    },
+    {
+      "name": "m4-outbox-identities",
+      "passed": true
+    },
+    {
+      "name": "m4-oa-drafts",
+      "passed": true
+    },
+    {
+      "name": "m4-oa-readReceipts",
+      "passed": true
+    },
+    {
+      "name": "m4-oa-outbox",
+      "passed": true
+    }
+  ]
+}

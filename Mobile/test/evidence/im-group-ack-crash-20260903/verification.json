@@ -1,0 +1,16 @@
+{
+  "m3-original-group-messages-preserved": true,
+  "m3-four-unique-messages": true,
+  "m3-other-conversations-preserved": true,
+  "m3-outbox-identities-preserved": true,
+  "m3-read-and-mention-cleared": true,
+  "m4-original-group-messages-preserved": true,
+  "m4-four-unique-messages": true,
+  "m4-other-conversations-preserved": true,
+  "m4-outbox-identities-preserved": true,
+  "m4-read-and-mention-cleared": true,
+  "both-ledgers-match": true,
+  "oa-drafts-preserved": true,
+  "oa-readReceipts-preserved": true,
+  "oa-outbox-preserved": true
+}

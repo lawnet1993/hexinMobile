@@ -1,11 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
-import '../../collaboration/data/collaboration_repositories.dart';
 import '../domain/app_catalog.dart';
+import 'application_catalog_content.dart';
 
 class AllAppsPage extends ConsumerStatefulWidget {
   const AllAppsPage({super.key});
@@ -19,14 +21,6 @@ class _AllAppsPageState extends ConsumerState<AllAppsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final catalog = ref.watch(oaApplicationCatalogProvider).value;
-    final applications = MobileAppCatalog.fromCatalog(
-      catalog?.items ?? const [],
-    );
-    final entries = applications.where((item) {
-      return _query.isEmpty || item.title.contains(_query);
-    }).toList();
-    final groups = _groupByCategory(entries);
     return Scaffold(
       appBar: AppBar(centerTitle: true, title: const Text('全部应用')),
       body: ListView(
@@ -37,31 +31,19 @@ class _AllAppsPageState extends ConsumerState<AllAppsPage> {
             onChanged: (value) => setState(() => _query = value.trim()),
           ),
           const SizedBox(height: 6),
-          if (entries.isEmpty)
-            const MobileSurface(
-              padding: EdgeInsets.symmetric(vertical: 26),
-              child: Center(
-                child: Text(
-                  '暂无匹配应用',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.secondaryText,
-                  ),
-                ),
-              ),
-            )
-          else
-            MobileSurface(
+          ApplicationCatalogContent(
+            query: _query,
+            builder: (entries) => MobileSurface(
               key: const Key('all-app-catalog-surface'),
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
               child: Column(
                 children: [
-                  for (var index = 0; index < groups.length; index++) ...[
-                    _AppCategorySection(group: groups[index]),
-                  ],
+                  for (final group in _groupByCategory(entries))
+                    _AppCategorySection(group: group),
                 ],
               ),
             ),
+          ),
         ],
       ),
     );
@@ -111,11 +93,18 @@ class _AppGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GridView.builder(
+    // The surrounding page owns safe-area spacing. Repeating it for every
+    // category adds a navigation-bar-sized blank gap on real Android devices.
+    padding: EdgeInsets.zero,
+    primary: false,
     shrinkWrap: true,
     physics: const NeverScrollableScrollPhysics(),
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: 5,
-      mainAxisExtent: 58,
+      mainAxisExtent: math.max(
+        72,
+        37 + MediaQuery.textScalerOf(context).scale(10.5) * 1.1 * 3,
+      ),
       mainAxisSpacing: 0,
       crossAxisSpacing: 2,
     ),
@@ -141,6 +130,7 @@ class _AppGrid extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: MobileAppIcon(
+                  applicationKey: item.applicationKey,
                   iconKey: item.iconKey,
                   iconDataUrl: item.iconDataUrl,
                   fallback: item.icon,
@@ -151,12 +141,15 @@ class _AppGrid extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 item.title,
-                maxLines: 1,
+                key: Key(
+                  'all-app-label-${item.applicationKey.isEmpty ? item.title : item.applicationKey}',
+                ),
+                maxLines: 3,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 10.5,
-                  height: 1.05,
+                  height: 1.1,
                   color: AppColors.text,
                 ),
               ),

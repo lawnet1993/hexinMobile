@@ -1,0 +1,19 @@
+{
+  "serial": "emulator-5556",
+  "checkedAt": "2026-09-03T05:29:42.2295912+08:00",
+  "install": [
+    "Performing Streamed Install",
+    "Success"
+  ],
+  "hash": "d9944ab568c74a987c6d260805f278be01540ca63cb0bceafb9b1a692cdae55c",
+  "matches": true,
+  "launch": [
+    "Starting: Intent { cmp=com.hexing.zhilian.hexing_terminal_mobile/.MainActivity }",
+    "Status: ok",
+    "LaunchState: COLD",
+    "Activity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity",
+    "TotalTime: 3678",
+    "WaitTime: 3722",
+    "Complete"
+  ]
+}

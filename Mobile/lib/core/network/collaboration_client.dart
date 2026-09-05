@@ -12,16 +12,23 @@ final class CollaborationClient {
 
   final SecureSessionStore _sessionStore;
 
-  Future<Dio> forIm() =>
-      _create((session) => session.imApiUrl, servicePrefix: '/api/im');
-  Future<Dio> forOa() =>
-      _create((session) => session.oaApiUrl, servicePrefix: '/api/oa');
+  Future<Dio> forIm({MobileSession? forSession}) => _create(
+    (session) => session.imApiUrl,
+    servicePrefix: '/api/im',
+    forSession: forSession,
+  );
+  Future<Dio> forOa({MobileSession? forSession}) => _create(
+    (session) => session.oaApiUrl,
+    servicePrefix: '/api/oa',
+    forSession: forSession,
+  );
 
   Future<Dio> _create(
     String Function(MobileSession session) selectUrl, {
     required String servicePrefix,
+    MobileSession? forSession,
   }) async {
-    final session = await _sessionStore.readSession();
+    final session = forSession ?? await _sessionStore.readSession();
     if (session == null) {
       throw StateError('登录状态已失效，请重新登录');
     }

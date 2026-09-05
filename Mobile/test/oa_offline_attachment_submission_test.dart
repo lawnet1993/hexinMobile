@@ -42,7 +42,9 @@ void main() {
         request.response.headers.contentType = ContentType.json;
         if (attachmentAttempts == 1) {
           request.response.statusCode = HttpStatus.serviceUnavailable;
-          request.response.write('{"message":"temporarily offline"}');
+          request.response.write(
+            '{"message":"upstream https://private.invalid?token=synthetic-secret"}',
+          );
         } else {
           request.response.statusCode = HttpStatus.created;
           request.response.write(
@@ -130,6 +132,8 @@ void main() {
       );
 
       final queued = (await repository.outbox()).single;
+      expect(queued.lastError, '附件上传暂未完成（HTTP 503），将自动重试');
+      expect(queued.lastError, isNot(contains('synthetic-secret')));
       expect(calls, ['attachment:1']);
       expect(queued.payload['attachmentIds'], isEmpty);
       expect(queued.payload['pendingAttachments'], hasLength(1));

@@ -1,0 +1,38 @@
+{
+  "networkOffAt": "2026-09-03T05:47:02.2321494+08:00",
+  "profileLastOnlineAt": "2026-09-03T05:48:36.8820267+08:00",
+  "profileFirstOfflineAt": "2026-09-03T05:48:45.0737388+08:00",
+  "profileLastSeenAt": "2026-09-02T21:46:43.944475Z",
+  "firstListOfflineAt": "2026-09-03T05:49:08.7221071+08:00",
+  "firstCaptureDelaySeconds": 126.4899577,
+  "newOnlineResponsesAfterProfileOfflineBeforeRestore": 0,
+  "response": {
+    "sampledAt": "2026-09-02T21:49:05.269553Z",
+    "kind": "response",
+    "conversationId": "e51db063-4ed2-4a43-b7ff-bfbf32b1806d",
+    "conversationType": "direct",
+    "httpStatus": 200,
+    "host": "api.sfhkh.com",
+    "startedAt": "2026-09-02T21:49:05.107335Z",
+    "peerOnline": false,
+    "peerPresenceKnown": true,
+    "peerLastSeenAt": "2026-09-02T21:46:43.944475Z",
+    "onlineMemberCount": 0,
+    "serverTime": "2026-09-02T21:49:06.940205Z"
+  },
+  "render": {
+    "sampledAt": "2026-09-02T21:49:05.309577Z",
+    "kind": "render",
+    "conversationId": "e51db063-4ed2-4a43-b7ff-bfbf32b1806d",
+    "displayedOnline": false,
+    "transportAvailable": true,
+    "memberOnline": false,
+    "memberFresh": true,
+    "memberOrder": 25,
+    "memberLastSeenAt": "2026-09-02T21:46:43.944475Z",
+    "conversationOnline": false,
+    "conversationFresh": true,
+    "conversationServerTime": "2026-09-02T21:49:06.940205Z"
+  },
+  "responseToRenderMs": 40.024
+}

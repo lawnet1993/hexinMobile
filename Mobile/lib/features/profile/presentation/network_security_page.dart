@@ -7,6 +7,7 @@ import 'package:secure_tunnel/secure_tunnel.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/security/managed_security_repository.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../network/application/tunnel_controller.dart';
 
@@ -22,12 +23,17 @@ class NetworkSecurityPage extends ConsumerWidget {
       body: value.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _Failure(
-          message: error.toString(),
+          message: mobileErrorText(error),
           onRetry: () => ref.invalidate(tunnelControllerProvider),
         ),
         data: (data) {
           final connected = data.status.isConnected;
           final unavailable = data.status.phase == TunnelPhase.unavailable;
+          final statusColor = connected
+              ? AppColors.primary
+              : unavailable
+              ? AppColors.secondaryText
+              : AppColors.warning;
           final runtimeCoreVersion = data.runtime?.coreVersion ?? '';
           final installedCoreVersion = data.status.coreVersion.isEmpty
               ? runtimeCoreVersion
@@ -68,19 +74,13 @@ class NetworkSecurityPage extends ConsumerWidget {
                           width: 38,
                           height: 38,
                           decoration: BoxDecoration(
-                            color:
-                                (connected
-                                        ? AppColors.primary
-                                        : AppColors.warning)
-                                    .withValues(alpha: .1),
+                            color: statusColor.withValues(alpha: .1),
                             borderRadius: BorderRadius.circular(9),
                           ),
                           child: Icon(
-                            Icons.wifi_rounded,
+                            Icons.shield_outlined,
                             size: 22,
-                            color: connected
-                                ? AppColors.primary
-                                : AppColors.warning,
+                            color: statusColor,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -89,7 +89,7 @@ class NetworkSecurityPage extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                '连接状态',
+                                '站点安全连接',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -104,7 +104,7 @@ class NetworkSecurityPage extends ConsumerWidget {
                                   fontSize: 12,
                                   color: connected
                                       ? AppColors.success
-                                      : AppColors.warning,
+                                      : statusColor,
                                 ),
                               ),
                               if (!connected &&
@@ -128,14 +128,13 @@ class NetworkSecurityPage extends ConsumerWidget {
                     ),
                     const Divider(height: 18),
                     if (unavailable) ...[
+                      const _InfoRow('适用范围', '企业站点'),
                       _InfoRow(
-                        '安全组件',
+                        '站点组件',
                         installedCoreVersion.isEmpty
-                            ? '未安装'
+                            ? '未启用'
                             : installedCoreVersion,
                       ),
-                      if (runtimeLabel.isNotEmpty)
-                        _InfoRow('运行环境', runtimeLabel),
                     ] else ...[
                       _InfoRow(
                         '策略标识',
@@ -235,19 +234,19 @@ class NetworkSecurityPage extends ConsumerWidget {
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+          .showSnackBar(SnackBar(content: Text(mobileErrorText(error))));
     }
   }
 
   static String _phaseLabel(TunnelPhase phase) => switch (phase) {
-    TunnelPhase.connected => '安全连接正常',
-    TunnelPhase.preparing => '正在准备安全连接',
-    TunnelPhase.connecting => '正在建立安全连接',
-    TunnelPhase.reconnecting => '正在恢复安全连接',
-    TunnelPhase.stopping => '正在断开安全连接',
-    TunnelPhase.failed => '安全连接不可用',
-    TunnelPhase.disconnected => '安全连接未启用',
-    TunnelPhase.unavailable => '安全连接不可用',
+    TunnelPhase.connected => '站点安全连接正常',
+    TunnelPhase.preparing => '正在准备站点连接',
+    TunnelPhase.connecting => '正在建立站点连接',
+    TunnelPhase.reconnecting => '正在恢复站点连接',
+    TunnelPhase.stopping => '正在断开站点连接',
+    TunnelPhase.failed => '站点安全连接异常',
+    TunnelPhase.disconnected => '站点连接未启用',
+    TunnelPhase.unavailable => '当前未启用',
   };
 }
 
@@ -255,9 +254,9 @@ String _displayTunnelMessage(String value) {
   final message = value.trim();
   if (message.contains('mihomo') || message.contains('内核')) {
     if (message.contains('未包含') || message.contains('未安装')) {
-      return '当前安装包未包含移动端安全组件';
+      return '仅访问 IM 和 OA 时无需启用';
     }
-    return '移动端安全组件校验失败';
+    return '站点安全组件校验失败';
   }
   if (message.contains('Web') && message.contains('VPN')) {
     return '当前环境不支持安全连接';

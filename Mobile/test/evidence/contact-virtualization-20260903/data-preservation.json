@@ -1,0 +1,38 @@
+{
+  "checkedAt": "2026-09-03T04:45:30.5495807+08:00",
+  "serial": "emulator-5556",
+  "pid": "22136",
+  "messageLedgerUnchanged": true,
+  "groupMessagesUnchanged": true,
+  "outboxStableIdsUnchanged": true,
+  "outboxCount": 2,
+  "imCursor": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 236
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 236
+    }
+  ],
+  "oaCursor": [
+    {
+      "value": "458",
+      "updated_at": "2026-09-02T20:01:04.428449Z"
+    }
+  ],
+  "draftsUnchanged": true,
+  "draftCount": 2,
+  "readReceiptsUnchanged": true,
+  "readReceiptCount": 10,
+  "oaOutboxCount": 0,
+  "wifi": "1",
+  "mobileData": "1",
+  "unhandledExceptionCount": 0,
+  "renderFlexOverflowCount": 0,
+  "fatalExceptionCount": 0,
+  "runtimeScope": "Only current PID retained log buffers; not a whole-app crash or performance guarantee"
+}

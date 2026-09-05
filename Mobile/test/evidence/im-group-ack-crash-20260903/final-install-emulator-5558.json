@@ -1,0 +1,8 @@
+{
+  "at": "2026-09-03T06:04:42.4208372+08:00",
+  "serial": "emulator-5558",
+  "hash": "6F9720AE46895F9DEEB4BEB65812811BE28C0E57870472CD1460D4EDF4C4C245",
+  "installedHashMatches": true,
+  "target": "lib/main.dart",
+  "activityStatus": "Starting: Intent { cmp=com.hexing.zhilian.hexing_terminal_mobile/.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity\nTotalTime: 7421\nWaitTime: 7473\nComplete"
+}

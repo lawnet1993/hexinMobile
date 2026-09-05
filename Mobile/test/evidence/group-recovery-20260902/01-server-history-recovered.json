@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-09-02T19:20:05.7502441+08:00",
+  "bootstrap": 200,
+  "syncStatus": 200,
+  "latestSequence": 157,
+  "eventCount": 30,
+  "messageCreatedCount": 7,
+  "conversations": [
+    {
+      "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "type": "direct",
+      "unreadCount": 0,
+      "lastReadSequence": 6,
+      "lastMessageSequence": 6,
+      "messagesStatus": 200,
+      "contentType": "application/json; charset=utf-8",
+      "responseType": "Object[]",
+      "messageCount": 6,
+      "firstSequence": 1,
+      "lastSequence": 6
+    },
+    {
+      "id": "c4906953-10bd-4671-b984-c50ed3951349",
+      "type": "group",
+      "unreadCount": 33,
+      "lastReadSequence": 51,
+      "lastMessageSequence": 84,
+      "messagesStatus": 200,
+      "contentType": "application/json; charset=utf-8",
+      "responseType": "Object[]",
+      "messageCount": 50,
+      "firstSequence": 35,
+      "lastSequence": 84
+    }
+  ]
+}

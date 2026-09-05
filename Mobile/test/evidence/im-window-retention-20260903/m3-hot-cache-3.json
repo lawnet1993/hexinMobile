@@ -1,0 +1,88 @@
+{
+  "checkedAt": "2026-09-03T08:54:16.3284427+08:00",
+  "serial": "emulator-5556",
+  "pid": "29648",
+  "rejected": 0,
+  "events": [
+    {
+      "windows": 1,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 80
+    },
+    {
+      "windows": 0,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 160
+    },
+    {
+      "windows": 0,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 240
+    },
+    {
+      "windows": 0,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 320
+    },
+    {
+      "windows": 0,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 400
+    },
+    {
+      "windows": 0,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 480
+    },
+    {
+      "windows": 0,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 510
+    }
+  ]
+}

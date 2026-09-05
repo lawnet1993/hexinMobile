@@ -119,7 +119,26 @@ void main() {
       deviceAuthorizationSummary(
         const AsyncLoading<List<ImDeviceAuthorization>>(),
         currentDeviceId: 'android-device',
-        syncUnavailable: true,
+        syncState: ImRealtimeAvailability.unavailable,
+      ),
+      '暂时无法同步',
+    );
+  });
+
+  test('device summary distinguishes connecting from unavailable data', () {
+    expect(
+      deviceAuthorizationSummary(
+        const AsyncLoading<List<ImDeviceAuthorization>>(),
+        currentDeviceId: 'android-device',
+        syncState: ImRealtimeAvailability.connecting,
+      ),
+      '正在同步设备',
+    );
+    expect(
+      deviceAuthorizationSummary(
+        const AsyncData<List<ImDeviceAuthorization>>([]),
+        currentDeviceId: 'android-device',
+        syncState: ImRealtimeAvailability.unavailable,
       ),
       '暂时无法同步',
     );
@@ -145,7 +164,66 @@ void main() {
 
     expect(find.text('暂时无法同步设备'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
+    expect(find.text('已授权设备'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('login devices keeps connecting distinct from offline', (
+    tester,
+  ) async {
+    final never = Completer<List<ImDeviceAuthorization>>();
+    addTearDown(() {
+      if (!never.isCompleted) never.complete(const []);
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_TestAuthController.new),
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.connecting,
+          ),
+          imDeviceAuthorizationsProvider.overrideWith((ref) => never.future),
+        ],
+        child: const MaterialApp(home: LoginDevicesPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('正在同步设备'), findsOneWidget);
+    expect(find.text('暂时无法同步设备'), findsNothing);
+    expect(find.text('已授权设备'), findsNothing);
+    expect(find.text('重试'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('login devices labels a real authorization list', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_TestAuthController.new),
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.unavailable,
+          ),
+          imDeviceAuthorizationsProvider.overrideWith(
+            (ref) async => [
+              _device(
+                id: 'android-device',
+                name: 'realme RMX3366',
+                platform: 'android',
+              ),
+            ],
+          ),
+        ],
+        child: const MaterialApp(home: LoginDevicesPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('已授权设备'), findsOneWidget);
+    expect(find.text('realme RMX3366'), findsOneWidget);
+    expect(find.text('离线 · 显示缓存'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
 

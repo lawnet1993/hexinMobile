@@ -1,0 +1,404 @@
+{
+  "serial": "dd00d66d",
+  "before": {
+    "integrity": "ok",
+    "currentMembers": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "username": "test01"
+      }
+    ],
+    "messageLedger": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "11e39f24-ba2a-486c-ad11-5a8f2487378c",
+        "client_message_id": "021ef199-d29a-46aa-8e96-c56076fe31b3",
+        "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+        "sequence": 1,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T12:12:43.055033Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "67cc0bfe-b64e-42c5-a436-fff302e8ad3b",
+        "client_message_id": "068262bc-5049-40ee-b3c3-4a73c50f0ced",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 2,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T12:15:19.283317Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "03ecc845-25e5-4fe3-98fa-8a77281c2aa1",
+        "client_message_id": "9b244492-b352-4bf6-af37-5b31247e9b32",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 3,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T12:15:25.459954Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "114d4ea8-4124-4a5d-9f8a-8994a2a79fe7",
+        "client_message_id": "4174eccd-f9e9-4aec-ba0e-f602ce084107",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 4,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T13:16:40.263138Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "3f44c0f9-ba64-4eb8-b94d-e7dee5eed99e",
+        "client_message_id": "7092616b-3b9e-4fdb-bf41-fb50083b81c4",
+        "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+        "sequence": 5,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T13:43:11.481588Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "a8b658fb-c983-4f4f-92e7-5196528ae4fb",
+        "client_message_id": "441e5fa7-a85c-48ac-9ecb-35eb3fdad5f8",
+        "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+        "sequence": 6,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T15:54:49.857999Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "68b6cd70-a822-498c-9242-c09865210f5b",
+        "client_message_id": "13dc7539-f758-450e-a45d-ae151c846e14",
+        "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+        "sequence": 7,
+        "kind": "image",
+        "local_status": "sent",
+        "created_at": "2026-09-03T05:17:05.948003Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "4d277f77-b799-45ac-a1a7-6d6c375ebcc6",
+        "client_message_id": "c1bee507-132e-4e5f-addc-98f5c7581cf5",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 8,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:07:38.002343Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "18de6789-7497-4b34-8738-7734de9d10a0",
+        "client_message_id": "3d4ac2e5-2646-4b93-978e-2bfcb3e649c5",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 9,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:13:26.762681Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "9238309b-aa1e-4b11-b4b1-bb7c4a11f769",
+        "client_message_id": "e7c337c7-d393-4207-acf1-e792abc07738",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 10,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:13:47.666491Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "721797c0-9623-4367-87af-fb82324bceae",
+        "client_message_id": "ee70dccd-a966-485f-88a7-b730bf71a646",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 11,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:13:53.968187Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "06f666aa-ce59-4e84-9bf2-921fcce2895e",
+        "client_message_id": "e72c770a-db62-4ef5-b85f-a333291c93e7",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 12,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:16:27.100727Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "dd238a45-8f76-4b80-9ebf-608c4c8dd9c2",
+        "client_message_id": "3f99ef56-a217-4849-bbc2-ea48199d501c",
+        "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+        "sequence": 13,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:22:00.817674Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "47105bd0-9bd0-4e3e-a2de-00e110292051",
+        "client_message_id": "deabdd7f-fb59-41e0-8933-4438e07d3509",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 14,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:23:50.920782Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "4331d41d-5274-4fc5-999f-237ada7b4a35",
+        "client_message_id": "1070413d-93c4-4a28-b563-41c47c6fc17e",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 15,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:24:03.085945Z"
+      }
+    ],
+    "groupProjections": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "last_message_sequence": 15,
+        "last_read_sequence": 15,
+        "unread_count": 0,
+        "unread_mention_sequences_json": "[]"
+      }
+    ],
+    "recipientRead": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "last_recipient_read_sequence": 15
+      }
+    ],
+    "eventCursors": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "cursor_kind": "applied",
+        "sequence": 2324
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "cursor_kind": "acked",
+        "sequence": 2324
+      }
+    ],
+    "tableRowCounts": {
+      "im_members": 10,
+      "im_conversations": 7,
+      "im_messages": 122,
+      "im_outbox": 0,
+      "im_event_inbox": 23,
+      "im_sync_state": 21,
+      "im_conversation_members": 19,
+      "im_group_profiles": 3
+    },
+    "outbox": []
+  },
+  "after": {
+    "integrity": "ok",
+    "currentMembers": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "username": "test01"
+      }
+    ],
+    "messageLedger": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "11e39f24-ba2a-486c-ad11-5a8f2487378c",
+        "client_message_id": "021ef199-d29a-46aa-8e96-c56076fe31b3",
+        "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+        "sequence": 1,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T12:12:43.055033Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "67cc0bfe-b64e-42c5-a436-fff302e8ad3b",
+        "client_message_id": "068262bc-5049-40ee-b3c3-4a73c50f0ced",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 2,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T12:15:19.283317Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "03ecc845-25e5-4fe3-98fa-8a77281c2aa1",
+        "client_message_id": "9b244492-b352-4bf6-af37-5b31247e9b32",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 3,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T12:15:25.459954Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "114d4ea8-4124-4a5d-9f8a-8994a2a79fe7",
+        "client_message_id": "4174eccd-f9e9-4aec-ba0e-f602ce084107",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 4,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T13:16:40.263138Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "3f44c0f9-ba64-4eb8-b94d-e7dee5eed99e",
+        "client_message_id": "7092616b-3b9e-4fdb-bf41-fb50083b81c4",
+        "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+        "sequence": 5,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T13:43:11.481588Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "a8b658fb-c983-4f4f-92e7-5196528ae4fb",
+        "client_message_id": "441e5fa7-a85c-48ac-9ecb-35eb3fdad5f8",
+        "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+        "sequence": 6,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-02T15:54:49.857999Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "68b6cd70-a822-498c-9242-c09865210f5b",
+        "client_message_id": "13dc7539-f758-450e-a45d-ae151c846e14",
+        "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+        "sequence": 7,
+        "kind": "image",
+        "local_status": "sent",
+        "created_at": "2026-09-03T05:17:05.948003Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "4d277f77-b799-45ac-a1a7-6d6c375ebcc6",
+        "client_message_id": "c1bee507-132e-4e5f-addc-98f5c7581cf5",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 8,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:07:38.002343Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "18de6789-7497-4b34-8738-7734de9d10a0",
+        "client_message_id": "3d4ac2e5-2646-4b93-978e-2bfcb3e649c5",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 9,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:13:26.762681Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "9238309b-aa1e-4b11-b4b1-bb7c4a11f769",
+        "client_message_id": "e7c337c7-d393-4207-acf1-e792abc07738",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 10,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:13:47.666491Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "721797c0-9623-4367-87af-fb82324bceae",
+        "client_message_id": "ee70dccd-a966-485f-88a7-b730bf71a646",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 11,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:13:53.968187Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "06f666aa-ce59-4e84-9bf2-921fcce2895e",
+        "client_message_id": "e72c770a-db62-4ef5-b85f-a333291c93e7",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 12,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:16:27.100727Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "dd238a45-8f76-4b80-9ebf-608c4c8dd9c2",
+        "client_message_id": "3f99ef56-a217-4849-bbc2-ea48199d501c",
+        "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+        "sequence": 13,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:22:00.817674Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "47105bd0-9bd0-4e3e-a2de-00e110292051",
+        "client_message_id": "deabdd7f-fb59-41e0-8933-4438e07d3509",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 14,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:23:50.920782Z"
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "id": "4331d41d-5274-4fc5-999f-237ada7b4a35",
+        "client_message_id": "1070413d-93c4-4a28-b563-41c47c6fc17e",
+        "sender_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "sequence": 15,
+        "kind": "text",
+        "local_status": "sent",
+        "created_at": "2026-09-04T16:24:03.085945Z"
+      }
+    ],
+    "groupProjections": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "last_message_sequence": 15,
+        "last_read_sequence": 15,
+        "unread_count": 0,
+        "unread_mention_sequences_json": "[]"
+      }
+    ],
+    "recipientRead": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "last_recipient_read_sequence": 15
+      }
+    ],
+    "eventCursors": [
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "cursor_kind": "applied",
+        "sequence": 2324
+      },
+      {
+        "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+        "cursor_kind": "acked",
+        "sequence": 2324
+      }
+    ],
+    "tableRowCounts": {
+      "im_members": 10,
+      "im_conversations": 7,
+      "im_messages": 122,
+      "im_outbox": 0,
+      "im_event_inbox": 23,
+      "im_sync_state": 21,
+      "im_conversation_members": 19,
+      "im_group_profiles": 3
+    },
+    "outbox": []
+  },
+  "allOriginalMessageIdsAndSequencesPreserved": true
+}

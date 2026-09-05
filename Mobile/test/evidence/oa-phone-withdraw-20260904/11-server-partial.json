@@ -1,0 +1,302 @@
+{
+  "checkedAt": "2026-09-04T23:41:51.1129600+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260904-233900-PHONE-WITHDRAW",
+  "bootstrapStatus": 200,
+  "requestId": "44ac9eaa-7a04-45d5-92cd-f79b1bebc61b",
+  "pageStatus": 200,
+  "pageRequestId": "962003f8-3047-4121-86ba-ce2b03bc85b7",
+  "hasMore": false,
+  "requests": [
+    {
+      "id": "3b79ae54-2b23-422c-9ead-cb8153fdf4a8",
+      "detailStatus": 200,
+      "requestId": "22451cc0-62e5-4a39-98dd-d8b0064c49a3",
+      "markerMatched": true,
+      "status": "withdrawn",
+      "title": "Test Terminal 01的请假审批",
+      "requesterName": "Test Terminal 01",
+      "requesterDepartmentName": "公司总部",
+      "createdAt": "2026-09-04T15:39:59.249263Z",
+      "updatedAt": "2026-09-04T15:40:43.194222Z",
+      "allowedActions": [],
+      "templateVersion": 1,
+      "requestVersion": 2,
+      "workflowKey": "system.default.attendance.leave",
+      "clientRequestId": "52ffa163-5454-48c5-9195-9381838e925a",
+      "completedAt": "2026-09-04T15:40:43.194222Z",
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "4f5d8aba-d83c-4c53-be88-fcec1fbc1de0",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "canceled",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "78566b98-b997-4e71-9fd0-513e3d8b762d",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "3a23732d-35f5-8845-7860-d12b3a4844cf",
+          "assigneeName": "陆炳",
+          "assigneeDepartmentName": "公司总部",
+          "status": "canceled",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "bc9e20fc-ae63-41ab-bc25-2a404bd529b8",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "8e0b6fdd-4490-435a-9be5-5a345e3b3ebc",
+          "assigneeName": "宋扬",
+          "assigneeDepartmentName": "公司总部",
+          "status": "canceled",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "cff4e66a-ed62-4f71-b93c-861482e7155b",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "3a23747a-5421-2cfa-a239-69cf81eecd6c",
+          "assigneeName": "陆炳002",
+          "assigneeDepartmentName": "公司总部",
+          "status": "canceled",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "bb44a863-3aff-4510-909e-e5c411cabbae",
+          "action": "submitted",
+          "actorName": "Test Terminal 01",
+          "occurredAt": "2026-09-04T15:39:59.249263Z"
+        },
+        {
+          "id": "55959af4-def3-402b-9aca-a210819ce14d",
+          "action": "withdrawn",
+          "actorName": "Test Terminal 01",
+          "occurredAt": "2026-09-04T15:40:43.194222Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": [
+        {
+          "id": "a2e98977-c7ea-475c-b57e-f0fdd257a413",
+          "type": "approval.withdrawn",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-04T15:40:43.194222Z"
+        },
+        {
+          "id": "7f2c5161-242d-4822-90ef-af2357f4bd37",
+          "type": "approval.task.canceled",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-04T15:40:43.194222Z"
+        },
+        {
+          "id": "84b078da-e045-4304-a050-0aabf6c20d55",
+          "type": "approval.submitted",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-04T15:39:59.249263Z"
+        },
+        {
+          "id": "10944589-0eee-4677-b17b-d42a35924bbf",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-04T15:39:59.249263Z"
+        }
+      ]
+    },
+    {
+      "id": "4b57f546-639e-49b7-bc9f-4fbbc69f0496",
+      "detailStatus": 200,
+      "requestId": "c76aca59-6789-483a-9e29-b8afa541520d",
+      "markerMatched": true,
+      "status": "submitted",
+      "title": "Test Terminal 01的请假审批",
+      "requesterName": "Test Terminal 01",
+      "requesterDepartmentName": "公司总部",
+      "createdAt": "2026-09-04T15:41:11.109437Z",
+      "updatedAt": "2026-09-04T15:41:48.27645Z",
+      "allowedActions": [
+        "withdraw",
+        "remind"
+      ],
+      "templateVersion": 1,
+      "requestVersion": 2,
+      "workflowKey": "system.default.attendance.leave",
+      "clientRequestId": "c3c95734-887d-4f3c-af6b-afeaad1eff09",
+      "completedAt": null,
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "2d9949d5-a118-498f-8e27-1d68cecf54e4",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "3a23747a-5421-2cfa-a239-69cf81eecd6c",
+          "assigneeName": "陆炳002",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "c03960a3-76d9-4a6a-9897-97357a501730",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "3a23732d-35f5-8845-7860-d12b3a4844cf",
+          "assigneeName": "陆炳",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "cb6d3ab1-4aac-4b9c-b079-a663cdeb0a5b",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "8e0b6fdd-4490-435a-9be5-5a345e3b3ebc",
+          "assigneeName": "宋扬",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "ceb8668a-b8ae-4f8b-806f-d24c6ac39731",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "approved",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-04T15:41:48.27645Z"
+        }
+      ],
+      "actions": [
+        {
+          "id": "20fb7440-537b-4fcf-b470-afb6eb0409a5",
+          "action": "submitted",
+          "actorName": "Test Terminal 01",
+          "occurredAt": "2026-09-04T15:41:11.109437Z"
+        },
+        {
+          "id": "2b515efb-280b-4d72-aefc-7cb6526abbbc",
+          "action": "approved",
+          "actorName": "Test Terminal 01",
+          "occurredAt": "2026-09-04T15:41:48.27645Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": [
+        {
+          "id": "b30f0808-c339-4582-b4cf-5c3d345c6b93",
+          "type": "approval.updated",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-04T15:41:48.27645Z"
+        },
+        {
+          "id": "f0e37712-26e0-4918-a38f-1135db8624a2",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-04T15:41:11.109437Z"
+        },
+        {
+          "id": "89c5484d-96d9-4bfe-8072-c8798dd00e18",
+          "type": "approval.submitted",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-04T15:41:11.109437Z"
+        }
+      ]
+    }
+  ],
+  "matchCount": 2
+}

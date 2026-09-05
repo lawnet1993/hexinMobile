@@ -1,0 +1,35 @@
+{
+  "date": "2026-09-02",
+  "beforeFix": {
+    "command": "flutter test test/chat_page_type_test.dart --plain-name hot route reopen positions cached messages at the latest message",
+    "exitCode": 1,
+    "failure": "route open 1: latest cached message was not hit-testable"
+  },
+  "afterFix": {
+    "chatTests": 44,
+    "fullTests": 401,
+    "fullTestExitCode": 0,
+    "analyzeIssues": 0,
+    "gitDiffCheckExitCode": 0,
+    "goldensUpdated": false
+  },
+  "profile": {
+    "target": "lib/main.dart",
+    "platforms": ["android-arm64", "android-x64"],
+    "buildExitCode": 0,
+    "installedOn": ["M1"],
+    "installedSha256MatchesArtifact": true,
+    "sha256": "737F031586866E5620169B62412FE52F51AB93F9CF02E246569634EAFE14174A"
+  },
+  "historyReadingCheck": {
+    "checkedAt": "2026-09-02T19:59:11.6430451+08:00",
+    "visibleRowCount": 15,
+    "identicalVisibleRowsAndBounds": true,
+    "latestMessageVisible": false
+  },
+  "expandedWindowReopen": {
+    "checkedAt": "2026-09-02T20:00:20.0689716+08:00",
+    "targetMessageCount": 1,
+    "errorVisible": false
+  }
+}

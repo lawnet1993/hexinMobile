@@ -1,0 +1,38 @@
+{
+  "CheckedAt": "2026-09-02T18:42:14.2145725+08:00",
+  "EntryPoint": "lib/main.dart",
+  "ApkSha256": "2F21F2BFC2DA1C9BA13CF2A7DBA2E4E0869AA37B56ECD37B29FE284BA265F62E",
+  "Bytes": 82544963,
+  "TestsPassed": 353,
+  "AnalyzerIssues": 0,
+  "Devices": [
+    {
+      "Device": "dd00d66d",
+      "Pid": "11034",
+      "InstalledHash": "2f21f2bfc2da1c9ba13cf2a7dba2e4e0869aa37b56ecd37b29fe284ba265f62e",
+      "TargetedErrorMatches": 0,
+      "Wifi": "0",
+      "MobileData": "1",
+      "DefaultNetwork": [
+        "Active default network: 107"
+      ],
+      "Foreground": [
+        "    topResumedActivity=ActivityRecord{3b56d1a u0 com.hexing.zhilian.hexing_terminal_mobile/.MainActivity t808}"
+      ]
+    },
+    {
+      "Device": "emulator-5554",
+      "Pid": "8708",
+      "InstalledHash": "2f21f2bfc2da1c9ba13cf2a7dba2e4e0869aa37b56ecd37b29fe284ba265f62e",
+      "TargetedErrorMatches": 0,
+      "Wifi": "1",
+      "MobileData": "1",
+      "DefaultNetwork": [
+        "Active default network: 106"
+      ],
+      "Foreground": [
+        "    topResumedActivity=ActivityRecord{108657696 u0 com.hexing.zhilian.hexing_terminal_mobile/.MainActivity t222}"
+      ]
+    }
+  ]
+}

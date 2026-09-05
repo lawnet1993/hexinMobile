@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_environment.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/storage/secure_session_store.dart';
 import '../../auth/application/auth_controller.dart';
 
 final managedSitesRepositoryProvider = Provider<ManagedSitesRepository>((ref) {
@@ -17,24 +18,19 @@ final managedSitesProvider = FutureProvider<List<ManagedAccessSite>>((
   ref,
 ) async {
   if (AppEnvironment.demoMode) return const [];
-  final deviceId = ref.watch(
-    authControllerProvider.select((value) => value.value?.deviceId ?? ''),
-  );
+  final session = ref.watch(authControllerProvider).value;
+  final deviceId = session?.deviceId ?? '';
   if (deviceId.isEmpty) return const [];
   final repository = ref.read(managedSitesRepositoryProvider);
   try {
-    return await repository.sites(deviceId);
-  } on ManagedSitesSessionExpired {
-    final refreshed = await ref
-        .read(authControllerProvider.notifier)
-        .refreshSession();
-    if (refreshed == null) {
+    return await repository.sites(deviceId, forSession: session);
+  } on ManagedSitesSessionExpired catch (error) {
+    if (error.failure != null && ref.mounted) {
       await ref
           .read(authControllerProvider.notifier)
-          .terminateSession(message: '登录已失效或已到期，请重新登录');
-      throw const ManagedSitesSessionExpired();
+          .handleSessionFailure(error.failure!);
     }
-    return repository.sites(refreshed.deviceId);
+    rethrow;
   }
 }, retry: (_, _) => null);
 
@@ -43,20 +39,29 @@ final class ManagedSitesRepository {
 
   final Dio _dio;
 
-  Future<List<ManagedAccessSite>> sites(String deviceId) async {
+  Future<List<ManagedAccessSite>> sites(
+    String deviceId, {
+    MobileSession? forSession,
+  }) async {
     late final Response<List<Object?>> response;
     try {
       response = await _dio.get<List<Object?>>(
         '/api/client/sites',
         queryParameters: {'deviceId': deviceId},
         options: Options(
+          headers: forSession == null
+              ? null
+              : {
+                  'Authorization': 'Bearer ${forSession.accessToken}',
+                  'X-Device-Id': forSession.deviceId,
+                },
           connectTimeout: const Duration(seconds: 8),
           receiveTimeout: const Duration(seconds: 8),
         ),
       );
     } on DioException catch (error) {
       if (error.response?.statusCode == 401) {
-        throw const ManagedSitesSessionExpired();
+        throw ManagedSitesSessionExpired(error);
       }
       rethrow;
     }
@@ -69,7 +74,8 @@ final class ManagedSitesRepository {
 }
 
 final class ManagedSitesSessionExpired implements Exception {
-  const ManagedSitesSessionExpired();
+  const ManagedSitesSessionExpired([this.failure]);
+  final DioException? failure;
 
   @override
   String toString() => '授权站点会话校验失败，请下拉重试';

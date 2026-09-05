@@ -1,0 +1,7 @@
+{
+  "checkedAt": "2026-09-03T05:46:45.3431189+08:00",
+  "target": "gateway member profile",
+  "result": "Read-only test inspection failed: MethodInvocationException",
+  "httpStatus": null,
+  "usedForConclusion": false
+}

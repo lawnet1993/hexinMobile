@@ -5,6 +5,45 @@ import 'package:hexing_terminal_mobile/core/storage/secure_session_store.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('password change removes matching credential without removing session', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final store = SecureSessionStore();
+    const session = MobileSession(accessToken: 'fixture', deviceId: 'device',
+      userId: 'user', displayName: 'Fixture', username: 'user', policySignatureKey: '', imApiUrl: '', oaApiUrl: '');
+    await store.saveSession(session);
+    await store.saveCredential('user', 'fixture-old');
+    expect(await store.clearCredentialIfMatches('user', 'fixture-old'), isTrue);
+    expect(await store.readCredential(), isNull);
+    expect(await store.readSession(), same(session));
+  });
+
+  for (final entry in [('another-user', 'fixture-old'), ('user', 'fixture-new')]) {
+    test('password cleanup preserves nonmatching credential ${entry.$1}', () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final store = SecureSessionStore();
+      await store.saveCredential(entry.$1, entry.$2);
+      expect(await store.clearCredentialIfMatches('user', 'fixture-old'), isFalse);
+      final saved = await store.readCredential();
+      expect(saved?.username == entry.$1 && saved?.password == entry.$2, isTrue);
+    });
+  }
+
+  test('credential replacement racing cleanup cannot delete a newer password', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final store = SecureSessionStore();
+    await store.saveCredential('user', 'fixture-old');
+    await Future.wait([
+      store.saveCredential('user', 'fixture-new'),
+      store.clearCredentialIfMatches('user', 'fixture-old'),
+    ]);
+    expect((await store.readCredential())?.password == 'fixture-new', isTrue);
+    await Future.wait([
+      store.clearCredentialIfMatches('user', 'fixture-new'),
+      store.saveCredential('user', 'fixture-newer'),
+    ]);
+    expect((await store.readCredential())?.password == 'fixture-newer', isTrue);
+  });
+
   test('IM cache keys are stable, random and isolated per account', () async {
     FlutterSecureStorage.setMockInitialValues({});
     final store = SecureSessionStore();

@@ -1,0 +1,16 @@
+[
+  {
+    "device": "dd00d66d",
+    "pid": "20807",
+    "capturedAt": "2026-09-02T16:41:24.1424502+08:00",
+    "logLines": 37,
+    "fatalOrFlutterErrors": 0
+  },
+  {
+    "device": "emulator-5554",
+    "pid": "9871",
+    "capturedAt": "2026-09-02T16:41:24.2719684+08:00",
+    "logLines": 67,
+    "fatalOrFlutterErrors": 0
+  }
+]

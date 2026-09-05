@@ -1,0 +1,422 @@
+{
+  "checkedAt": "2026-09-02T17:42:09.4903153+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "bootstrapStatus": 200,
+  "bootstrapRequestId": null,
+  "sync": {
+    "status": 200,
+    "allow": [],
+    "requestId": null,
+    "fields": [
+      "events",
+      "latestSequence",
+      "serverTime"
+    ],
+    "latestSequence": 108,
+    "eventCount": 12,
+    "events": [
+      {
+        "id": "581a44ed-7f85-4f32-8684-ee759cc84de9",
+        "sequence": 1,
+        "type": "message.created",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "Id",
+          "Kind",
+          "reply",
+          "images",
+          "Content",
+          "replyTo",
+          "SenderId",
+          "Sequence",
+          "mentions",
+          "CreatedAt",
+          "readState",
+          "RecalledAt",
+          "senderRole",
+          "ContactCard",
+          "attachments",
+          "forwardBundle",
+          "forwardedFrom",
+          "AttachmentName",
+          "AttachmentSize",
+          "ConversationId",
+          "ClientMessageId",
+          "AttachmentSha256",
+          "AttachmentContentType"
+        ],
+        "messageId": "4a7204ab-2dc6-411d-9c92-0754eb306221",
+        "messageSequence": 1
+      },
+      {
+        "id": "e46abcdf-0f36-4772-b64e-60e6216854b4",
+        "sequence": 3,
+        "type": "conversation.read",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "ReaderId",
+          "Sequence",
+          "ConversationId"
+        ],
+        "messageId": null,
+        "messageSequence": null
+      },
+      {
+        "id": "98e64018-0bfc-40b0-87a9-42c140cdf703",
+        "sequence": 5,
+        "type": "message.created",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "Id",
+          "Kind",
+          "reply",
+          "images",
+          "Content",
+          "replyTo",
+          "SenderId",
+          "Sequence",
+          "mentions",
+          "CreatedAt",
+          "readState",
+          "RecalledAt",
+          "senderRole",
+          "ContactCard",
+          "attachments",
+          "forwardBundle",
+          "forwardedFrom",
+          "AttachmentName",
+          "AttachmentSize",
+          "ConversationId",
+          "ClientMessageId",
+          "AttachmentSha256",
+          "AttachmentContentType"
+        ],
+        "messageId": "dd4925a4-5298-4879-b826-59cedd0ec691",
+        "messageSequence": 2
+      },
+      {
+        "id": "7be05461-df10-4d34-a02a-8e1a34b78ce4",
+        "sequence": 8,
+        "type": "conversation.read",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "ReaderId",
+          "Sequence",
+          "ConversationId"
+        ],
+        "messageId": null,
+        "messageSequence": null
+      },
+      {
+        "id": "d1dcd5d4-80c8-4f5a-8c65-f1f1534acead",
+        "sequence": 9,
+        "type": "group.created",
+        "conversationId": null,
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "Id",
+          "Title",
+          "MemberIds"
+        ],
+        "messageId": null,
+        "messageSequence": null
+      },
+      {
+        "id": "892538f7-5c1e-485f-9fc7-7fd73bcc76c2",
+        "sequence": 13,
+        "type": "message.created",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "Id",
+          "Kind",
+          "reply",
+          "images",
+          "Content",
+          "replyTo",
+          "SenderId",
+          "Sequence",
+          "mentions",
+          "CreatedAt",
+          "readState",
+          "RecalledAt",
+          "senderRole",
+          "ContactCard",
+          "attachments",
+          "forwardBundle",
+          "forwardedFrom",
+          "AttachmentName",
+          "AttachmentSize",
+          "ConversationId",
+          "ClientMessageId",
+          "AttachmentSha256",
+          "AttachmentContentType"
+        ],
+        "messageId": "4dba4ab3-0ea4-4d26-b43a-84b107e4f1ad",
+        "messageSequence": 3
+      },
+      {
+        "id": "c19bef0a-9b52-4907-be6b-053ab4017305",
+        "sequence": 16,
+        "type": "conversation.read",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "ReaderId",
+          "Sequence",
+          "ConversationId"
+        ],
+        "messageId": null,
+        "messageSequence": null
+      },
+      {
+        "id": "1bd7cebd-6948-482e-98bc-06d864e71891",
+        "sequence": 17,
+        "type": "message.created",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "Id",
+          "Kind",
+          "reply",
+          "images",
+          "Content",
+          "replyTo",
+          "SenderId",
+          "Sequence",
+          "mentions",
+          "CreatedAt",
+          "readState",
+          "RecalledAt",
+          "senderRole",
+          "ContactCard",
+          "attachments",
+          "forwardBundle",
+          "forwardedFrom",
+          "AttachmentName",
+          "AttachmentSize",
+          "ConversationId",
+          "ClientMessageId",
+          "AttachmentSha256",
+          "AttachmentContentType"
+        ],
+        "messageId": "ad10343e-912c-4437-834b-8fc69939c736",
+        "messageSequence": 4
+      },
+      {
+        "id": "1ecc68ae-244d-4816-adfa-56639762430a",
+        "sequence": 19,
+        "type": "message.created",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "Id",
+          "Kind",
+          "reply",
+          "images",
+          "Content",
+          "replyTo",
+          "SenderId",
+          "Sequence",
+          "mentions",
+          "CreatedAt",
+          "readState",
+          "RecalledAt",
+          "senderRole",
+          "ContactCard",
+          "attachments",
+          "forwardBundle",
+          "forwardedFrom",
+          "AttachmentName",
+          "AttachmentSize",
+          "ConversationId",
+          "ClientMessageId",
+          "AttachmentSha256",
+          "AttachmentContentType"
+        ],
+        "messageId": "415a35ed-1725-4784-b18b-22a13fa43b5d",
+        "messageSequence": 5
+      },
+      {
+        "id": "46a754b5-1ffd-45ac-b492-5c5adea96c88",
+        "sequence": 22,
+        "type": "conversation.read",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "ReaderId",
+          "Sequence",
+          "ConversationId"
+        ],
+        "messageId": null,
+        "messageSequence": null
+      },
+      {
+        "id": "9f2ed749-99f6-45d7-84a5-d758e2ff35c4",
+        "sequence": 106,
+        "type": "message.created",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "Id",
+          "Kind",
+          "reply",
+          "images",
+          "Content",
+          "replyTo",
+          "SenderId",
+          "Sequence",
+          "mentions",
+          "CreatedAt",
+          "readState",
+          "RecalledAt",
+          "senderRole",
+          "ContactCard",
+          "attachments",
+          "forwardBundle",
+          "forwardedFrom",
+          "AttachmentName",
+          "AttachmentSize",
+          "ConversationId",
+          "ClientMessageId",
+          "AttachmentSha256",
+          "AttachmentContentType"
+        ],
+        "messageId": "1bb5bb2b-5050-4608-8bdc-5914ba6b4bc7",
+        "messageSequence": 6
+      },
+      {
+        "id": "55a8eda4-e297-4536-9e93-82577a2b4cb2",
+        "sequence": 108,
+        "type": "conversation.read",
+        "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+        "fields": [
+          "sequence",
+          "id",
+          "type",
+          "payloadJson",
+          "createdAt"
+        ],
+        "payloadFields": [
+          "ReaderId",
+          "Sequence",
+          "ConversationId"
+        ],
+        "messageId": null,
+        "messageSequence": null
+      }
+    ]
+  },
+  "currentUser": "test01",
+  "conversations": [
+    {
+      "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "title": "Test Terminal 01、Test Terminal 02",
+      "type": "direct",
+      "unreadCount": 0,
+      "lastMessageSequence": 6,
+      "lastReadSequence": 6,
+      "unreadMentionSequences": [],
+      "messagesStatus": 405,
+      "requestId": null,
+      "allow": [
+        "POST"
+      ],
+      "contentType": "",
+      "responseType": "null",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "c4906953-10bd-4671-b984-c50ed3951349",
+      "title": "AI-UAT-20260902-162326-GROUP",
+      "type": "group",
+      "unreadCount": 84,
+      "lastMessageSequence": 84,
+      "lastReadSequence": 0,
+      "unreadMentionSequences": [
+        1
+      ],
+      "messagesStatus": 405,
+      "requestId": null,
+      "allow": [
+        "POST"
+      ],
+      "contentType": "",
+      "responseType": "null",
+      "messageCount": 0,
+      "messages": []
+    }
+  ]
+}

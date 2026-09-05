@@ -1,0 +1,103 @@
+{
+  "checkedAt": "2026-09-03T09:10:22.9258862+08:00",
+  "serial": "emulator-5556",
+  "pid": "1329",
+  "rejected": 0,
+  "events": [
+    {
+      "rows": 80,
+      "cacheHits": 0,
+      "durationMicros": 49932
+    },
+    {
+      "rows": 50,
+      "cacheHits": 50,
+      "durationMicros": 8536
+    },
+    {
+      "rows": 80,
+      "cacheHits": 0,
+      "durationMicros": 16676
+    },
+    {
+      "rows": 160,
+      "cacheHits": 160,
+      "durationMicros": 14356
+    },
+    {
+      "rows": 50,
+      "cacheHits": 50,
+      "durationMicros": 3615
+    },
+    {
+      "rows": 80,
+      "cacheHits": 0,
+      "durationMicros": 20349
+    },
+    {
+      "rows": 80,
+      "cacheHits": 80,
+      "durationMicros": 16102
+    },
+    {
+      "rows": 240,
+      "cacheHits": 240,
+      "durationMicros": 33384
+    },
+    {
+      "rows": 80,
+      "cacheHits": 80,
+      "durationMicros": 38414
+    },
+    {
+      "rows": 320,
+      "cacheHits": 240,
+      "durationMicros": 23013
+    },
+    {
+      "rows": 50,
+      "cacheHits": 50,
+      "durationMicros": 2638
+    },
+    {
+      "rows": 80,
+      "cacheHits": 0,
+      "durationMicros": 5308
+    },
+    {
+      "rows": 80,
+      "cacheHits": 80,
+      "durationMicros": 13189
+    },
+    {
+      "rows": 400,
+      "cacheHits": 400,
+      "durationMicros": 33824
+    },
+    {
+      "rows": 80,
+      "cacheHits": 80,
+      "durationMicros": 24040
+    },
+    {
+      "rows": 480,
+      "cacheHits": 400,
+      "durationMicros": 33755
+    },
+    {
+      "rows": 50,
+      "cacheHits": 50,
+      "durationMicros": 16948
+    },
+    {
+      "rows": 30,
+      "cacheHits": 0,
+      "durationMicros": 15206
+    },
+    {
+      "rows": 510,
+      "cacheHits": 510,
+      "durationMicros": 24372
+    }
+  ]
+}

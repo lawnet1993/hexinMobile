@@ -1,15 +1,22 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/diagnostics/chat_open_diagnostics.dart';
 import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
+import '../../../shared/widgets/visible_refresh_scheduler.dart';
+import '../../../core/storage/secure_session_store.dart';
+import '../../auth/application/auth_controller.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/data/im_member_presence.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 
 typedef ContactPresenceRefresher = Future<void> Function();
@@ -26,6 +33,11 @@ final contactPresenceRefresherProvider = Provider<ContactPresenceRefresher>((
 final memberAccountSearcherProvider = Provider<MemberAccountSearcher>((ref) {
   return ref.read(imRepositoryProvider).searchMembers;
 });
+
+final contactConversationCreatorProvider =
+    Provider<Future<ImConversation> Function(String)>((ref) {
+      return ref.read(imRepositoryProvider).createDirect;
+    });
 
 enum _MemberSearchAction { message, friendRequest }
 
@@ -49,16 +61,16 @@ class ContactsPage extends ConsumerStatefulWidget {
 class _ContactsPageState extends ConsumerState<ContactsPage> {
   static const _contactPageSize = 30;
 
-  Timer? _presenceRefreshTimer;
+  late final VisibleRefreshScheduler _presenceRefreshScheduler;
   Future<void>? _presenceRefreshFuture;
+  bool _presenceRefreshFailed = true;
   final _contactsScrollController = ScrollController();
   String _query = '';
   String _selectedDepartmentId = '';
   int _visibleContactLimit = _contactPageSize;
   int _visibleContactTotal = 0;
   final Set<String> _expandedDepartmentIds = <String>{};
-  final Map<String, int> _departmentVisibleLimits = <String, int>{};
-  List<_DepartmentContactGroup> _visibleDepartmentGroups = const [];
+  final Set<String> _collapsedFlatDepartmentIds = <String>{};
   bool _organizationTreeActive = false;
   bool _contactAutoExpandScheduled = false;
   bool _openingConversation = false;
@@ -70,13 +82,18 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     super.initState();
     _mode = widget.initialMode;
     _contactsScrollController.addListener(_onContactsScroll);
-    _presenceRefreshTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => _refreshContactPresence(),
+    _presenceRefreshScheduler = VisibleRefreshScheduler(
+      _refreshContactPresence,
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_refreshContactPresence());
-    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _presenceRefreshScheduler.setVisible(
+      TickerMode.valuesOf(context).enabled &&
+          (ModalRoute.of(context)?.isCurrent ?? true),
+    );
   }
 
   @override
@@ -95,7 +112,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
   @override
   void dispose() {
-    _presenceRefreshTimer?.cancel();
+    _presenceRefreshScheduler.dispose();
     _contactsScrollController
       ..removeListener(_onContactsScroll)
       ..dispose();
@@ -106,8 +123,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     _visibleContactLimit = _contactPageSize;
     _visibleContactTotal = 0;
     _expandedDepartmentIds.clear();
-    _departmentVisibleLimits.clear();
-    _visibleDepartmentGroups = const [];
+    _collapsedFlatDepartmentIds.clear();
     _organizationTreeActive = false;
     _contactAutoExpandScheduled = false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -121,26 +137,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
         _contactsScrollController.position.extentAfter > 240) {
       return;
     }
-    if (_organizationTreeActive) {
-      _expandDepartmentWindows();
-    } else {
-      _expandContactWindow();
-    }
-  }
-
-  void _expandDepartmentWindows() {
-    final updates = <String, int>{};
-    for (final group in _visibleDepartmentGroups) {
-      if (!_expandedDepartmentIds.contains(group.id)) continue;
-      final current = _departmentVisibleLimits[group.id] ?? _contactPageSize;
-      if (current >= group.contacts.length) continue;
-      final next = current + _contactPageSize;
-      updates[group.id] = next < group.contacts.length
-          ? next
-          : group.contacts.length;
-    }
-    if (updates.isEmpty) return;
-    setState(() => _departmentVisibleLimits.addAll(updates));
+    if (!_organizationTreeActive) _expandContactWindow();
   }
 
   void _expandContactWindow() {
@@ -175,11 +172,24 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   }
 
   Future<void> _performContactPresenceRefresh() async {
+    final session = ref.read(authControllerProvider).value;
+    bool stillCurrent() {
+      if (!mounted) return false;
+      final current = ref.read(authControllerProvider).value;
+      return session == null
+          ? current == null
+          : current?.isSameSession(session) == true;
+    }
+
     try {
       await ref.read(contactPresenceRefresherProvider)();
-      if (mounted) ref.invalidate(imBootstrapProvider);
+      if (!stillCurrent()) return;
+      setState(() => _presenceRefreshFailed = false);
+      ref.invalidate(imBootstrapProvider);
+    } on SessionChangedException {
+      // An obsolete account request must not affect the new account's status.
     } catch (_) {
-      // Keep the last authoritative presence projection while offline.
+      if (stillCurrent()) setState(() => _presenceRefreshFailed = true);
     }
   }
 
@@ -200,8 +210,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('处理失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('处理失败', error))),
+        );
       }
     }
   }
@@ -233,8 +244,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('批量接受失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('批量接受失败', error))),
+        );
       }
     } finally {
       ref.invalidate(pendingFriendApplicationsProvider);
@@ -247,31 +259,38 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
   Future<void> _openConversation(ImMember member) async {
     if (_openingConversation) return;
-    final bootstrap = ref.read(imBootstrapProvider).value;
-    final existing = bootstrap == null
-        ? null
-        : existingDirectConversationForMember(bootstrap, member);
-    if (existing != null) {
-      if (mounted) {
-        context.push('/chat/${existing.id}', extra: existing);
-      }
-      return;
-    }
+    // Lock before the first await, including cached routes. Keep the lock until
+    // the chat is popped so queued taps cannot stack identical chat pages.
     _openingConversation = true;
+    final openTrace = ChatOpenDiagnostics.begin();
     try {
-      final conversation = await ref
-          .read(imRepositoryProvider)
-          .createDirect(member.id);
-      ref.invalidate(imBootstrapProvider);
-      if (mounted) {
-        context.push('/chat/${conversation.id}', extra: conversation);
+      FocusManager.instance.primaryFocus?.unfocus();
+      await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+      openTrace?.mark(ChatOpenStage.keyboardHidden);
+      if (!mounted) return;
+      final bootstrap = ref.read(imBootstrapProvider).value;
+      final existing = bootstrap == null
+          ? null
+          : existingDirectConversationForMember(bootstrap, member);
+      if (existing != null) {
+        openTrace?.bind(existing.id);
+        await context.push<void>('/chat/${existing.id}', extra: existing);
+        return;
       }
+      final conversation = await ref
+          .read(contactConversationCreatorProvider)(member.id);
+      if (!mounted) return;
+      ref.invalidate(imBootstrapProvider);
+      openTrace?.bind(conversation.id);
+      await context.push<void>('/chat/${conversation.id}', extra: conversation);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('发起单聊失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('发起单聊失败', error))),
+        );
       }
     } finally {
+      openTrace?.finish(ChatOpenEnd.routeClosed);
       _openingConversation = false;
     }
   }
@@ -282,8 +301,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       profile = await ref.read(imRepositoryProvider).memberProfile(member.id);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('资料加载失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('资料加载失败', error))),
+        );
       }
       return;
     }
@@ -309,13 +329,15 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('保存失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('保存失败', error))),
+        );
       }
     }
   }
 
   Future<void> _searchOutsideDirectory() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final currentMember = ref.read(imBootstrapProvider).value?.currentMember;
     final selection = await showModalBottomSheet<_MemberSearchSelection>(
       context: context,
@@ -364,8 +386,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('好友申请发送失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('好友申请发送失败', error))),
+        );
       }
     }
   }
@@ -375,6 +398,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     List<ImMember> members,
   ) async {
     if (departments.isEmpty) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     final selected = await showModalBottomSheet<String>(
       context: context,
       useRootNavigator: true,
@@ -400,7 +424,8 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     final directory = ref.watch(imDepartmentsProvider);
     final presenceAvailable =
         ref.watch(imRealtimeAvailabilityProvider) ==
-        ImRealtimeAvailability.available;
+            ImRealtimeAvailability.available &&
+        !_presenceRefreshFailed;
     final pickerMembers = value.value == null
         ? const <ImMember>[]
         : _uniqueMembers([
@@ -431,6 +456,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                 children: [
                   Expanded(
                     child: MobileSearchField(
+                      key: const Key('contacts-search-field'),
                       hintText: _mode == 3 ? '搜索群名称或消息' : '搜索姓名、部门或终端账号',
                       onChanged: (value) => setState(() {
                         _query = value.trim().toLowerCase();
@@ -624,8 +650,17 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                                     final group = groups[index];
                                     return _GroupConversationTile(
                                       conversation: group,
-                                      onTap: () =>
-                                          context.push('/chat/${group.id}'),
+                                      onTap: () async {
+                                        FocusManager.instance.primaryFocus
+                                            ?.unfocus();
+                                        await SystemChannels.textInput
+                                            .invokeMethod<void>(
+                                              'TextInput.hide',
+                                            );
+                                        if (context.mounted) {
+                                          context.push('/chat/${group.id}');
+                                        }
+                                      },
                                     );
                                   },
                                 ),
@@ -671,14 +706,14 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                                     _query,
                                   );
                             }).toList();
-                            if (contacts.isEmpty) {
+                            final organizationTreeActive =
+                                _mode == 0 && _query.isEmpty;
+                            if (contacts.isEmpty && !organizationTreeActive) {
                               return const EmptyState(
                                 icon: Icons.contacts_outlined,
                                 title: '暂无联系人',
                               );
                             }
-                            final organizationTreeActive =
-                                _mode == 0 && _query.isEmpty;
                             final shownContacts = organizationTreeActive
                                 ? contacts
                                 : contacts
@@ -701,8 +736,17 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                                     directoryItems,
                                     shownContacts,
                                   );
-                            _visibleDepartmentGroups =
-                                _flattenDepartmentContactGroups(departments);
+                            final rows = _visibleContactRows(
+                              departments,
+                              organizationTree: organizationTreeActive,
+                              expanded: _expandedDepartmentIds,
+                              collapsedFlat: _collapsedFlatDepartmentIds,
+                            );
+                            final rowIndices = <Key, int>{
+                              for (var i = 0; i < rows.length; i++) rows[i].key: i,
+                            };
+                            final hasMore = !organizationTreeActive &&
+                                contacts.length > shownContacts.length;
                             return RefreshIndicator(
                               onRefresh: () async {
                                 ref.invalidate(imDepartmentsProvider);
@@ -711,80 +755,55 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                                   ref.read(imDepartmentsProvider.future),
                                 ]);
                               },
-                              child: ListView(
+                              child: ListView.builder(
                                 key: const Key('contacts-page-scroll'),
                                 controller: _contactsScrollController,
-                                children: [
-                                  for (final entry in departments)
-                                    _DepartmentContacts(
-                                      key: ValueKey(
-                                        '$_mode:${organizationTreeActive ? 'tree' : 'flat'}:${entry.id}',
-                                      ),
-                                      departmentKey: entry.id,
-                                      department: entry.label,
-                                      depth: entry.depth,
-                                      contacts: entry.contacts,
-                                      childDepartments: entry.children,
-                                      totalContactCount:
-                                          entry.totalContactCount,
-                                      initiallyExpanded:
-                                          !organizationTreeActive ||
-                                          _expandedDepartmentIds.contains(
-                                            entry.id,
-                                          ),
-                                      visibleLimit: organizationTreeActive
-                                          ? (_departmentVisibleLimits[entry
-                                                    .id] ??
-                                                _contactPageSize)
-                                          : entry.contacts.length,
-                                      onExpansionChanged: organizationTreeActive
-                                          ? (departmentId, expanded) =>
-                                                setState(() {
-                                                  if (expanded) {
-                                                    _expandedDepartmentIds.add(
-                                                      departmentId,
-                                                    );
-                                                    _departmentVisibleLimits
-                                                        .putIfAbsent(
-                                                          departmentId,
-                                                          () =>
-                                                              _contactPageSize,
-                                                        );
-                                                  } else {
-                                                    _expandedDepartmentIds
-                                                        .remove(departmentId);
-                                                  }
-                                                })
-                                          : null,
+                                scrollCacheExtent: const ScrollCacheExtent.pixels(192),
+                                itemCount: rows.length + (hasMore ? 1 : 0),
+                                findChildIndexCallback: (key) => rowIndices[key],
+                                itemBuilder: (context, index) {
+                                  if (index == rows.length) {
+                                    return Padding(
+                                      key: const Key('contacts-page-footer'),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      child: Center(child: Text(
+                                        '继续上滑 · ${shownContacts.length}/${contacts.length}',
+                                        style: const TextStyle(color: AppColors.weakText, fontSize: 12),
+                                      )),
+                                    );
+                                  }
+                                  final row = rows[index];
+                                  final member = row.member;
+                                  if (member != null) {
+                                    return _ContactListMember(
+                                      key: row.key,
+                                      contact: member,
                                       currentMemberId: data.currentMember.id,
                                       presenceAvailable: presenceAvailable,
                                       showFriendActions: _mode == 1,
                                       onMessage: _openConversation,
                                       onRemark: _editRemark,
-                                      expandedDepartmentIds:
-                                          _expandedDepartmentIds,
-                                      departmentVisibleLimits:
-                                          _departmentVisibleLimits,
-                                      contactPageSize: _contactPageSize,
-                                    ),
-                                  if (!organizationTreeActive &&
-                                      contacts.length > shownContacts.length)
-                                    Padding(
-                                      key: const Key('contacts-page-footer'),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 10,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          '继续上滑 · ${shownContacts.length}/${contacts.length}',
-                                          style: const TextStyle(
-                                            color: AppColors.weakText,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
+                                    );
+                                  }
+                                  final department = row.department;
+                                  return _DepartmentHeader(
+                                    key: row.key,
+                                    department: department,
+                                    expanded: organizationTreeActive
+                                        ? _expandedDepartmentIds.contains(department.id)
+                                        : !_collapsedFlatDepartmentIds.contains(department.id),
+                                    onExpanded: (expanded) => setState(() {
+                                      final ids = organizationTreeActive
+                                          ? _expandedDepartmentIds
+                                          : _collapsedFlatDepartmentIds;
+                                      if (organizationTreeActive ? expanded : !expanded) {
+                                        ids.add(department.id);
+                                      } else {
+                                        ids.remove(department.id);
+                                      }
+                                    }),
+                                  );
+                                },
                               ),
                             );
                           },
@@ -1405,276 +1424,237 @@ List<_DepartmentContactGroup> _departmentTree(
   return result;
 }
 
-List<_DepartmentContactGroup> _flattenDepartmentContactGroups(
-  List<_DepartmentContactGroup> groups,
-) {
-  final result = <_DepartmentContactGroup>[];
-  void append(_DepartmentContactGroup group) {
-    result.add(group);
-    for (final child in group.children) {
-      append(child);
-    }
-  }
-
-  for (final group in groups) {
-    append(group);
-  }
-  return result;
+// Only the open tree is projected into rows. Member widgets (and their presence
+// subscriptions/avatars) are created by the outer sliver for the viewport.
+class _ContactListEntry {
+  const _ContactListEntry(this.department, [this.member]);
+  final _DepartmentContactGroup department;
+  final ImMember? member;
+  Key get key => ValueKey(member == null
+      ? 'department-group-${department.id}'
+      : 'contact-${department.id}-${member!.id}');
 }
 
-class _DepartmentContacts extends StatefulWidget {
-  const _DepartmentContacts({
+List<_ContactListEntry> _visibleContactRows(
+  List<_DepartmentContactGroup> departments, {
+  required bool organizationTree,
+  required Set<String> expanded,
+  required Set<String> collapsedFlat,
+}) {
+  final rows = <_ContactListEntry>[];
+  void append(_DepartmentContactGroup department) {
+    rows.add(_ContactListEntry(department));
+    final isExpanded = organizationTree
+        ? expanded.contains(department.id)
+        : !collapsedFlat.contains(department.id);
+    if (!isExpanded) return;
+    for (final child in department.children) {
+      append(child);
+    }
+    for (final member in department.contacts) {
+      rows.add(_ContactListEntry(department, member));
+    }
+  }
+  for (final department in departments) {
+    append(department);
+  }
+  return rows;
+}
+
+class _DepartmentHeader extends StatelessWidget {
+  const _DepartmentHeader({
     super.key,
-    required this.departmentKey,
     required this.department,
-    this.depth = 0,
-    required this.contacts,
-    this.childDepartments = const [],
-    required this.totalContactCount,
-    required this.initiallyExpanded,
-    required this.visibleLimit,
-    this.onExpansionChanged,
+    required this.expanded,
+    required this.onExpanded,
+  });
+  final _DepartmentContactGroup department;
+  final bool expanded;
+  final ValueChanged<bool> onExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final canExpand = department.children.isNotEmpty || department.contacts.isNotEmpty;
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        key: ValueKey('department-toggle-${department.id}-$expanded'),
+        initiallyExpanded: expanded,
+        onExpansionChanged: canExpand ? onExpanded : null,
+        showTrailingIcon: canExpand,
+        backgroundColor: Colors.transparent,
+        collapsedBackgroundColor: Colors.transparent,
+        shape: const Border(),
+        collapsedShape: const Border(),
+        minTileHeight: 44,
+        tilePadding: EdgeInsets.only(left: 12 + department.depth * 14, right: 8),
+        childrenPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.account_tree_outlined, size: 18, color: AppColors.primary),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                department.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${department.totalContactCount}',
+              style: const TextStyle(
+                color: AppColors.secondaryText,
+                fontSize: 11.5,
+              ),
+            ),
+          ],
+        ),
+        children: const [],
+      ),
+    );
+  }
+}
+
+class _ContactListMember extends ConsumerWidget {
+  const _ContactListMember({
+    super.key,
+    required this.contact,
     required this.currentMemberId,
     required this.presenceAvailable,
     required this.showFriendActions,
     required this.onMessage,
     required this.onRemark,
-    this.expandedDepartmentIds = const {},
-    this.departmentVisibleLimits = const {},
-    this.contactPageSize = 30,
   });
-
-  final String departmentKey;
-  final String department;
-  final int depth;
-  final List<ImMember> contacts;
-  final List<_DepartmentContactGroup> childDepartments;
-  final int totalContactCount;
-  final bool initiallyExpanded;
-  final int visibleLimit;
-  final void Function(String departmentId, bool expanded)? onExpansionChanged;
+  final ImMember contact;
   final String currentMemberId;
   final bool presenceAvailable;
   final bool showFriendActions;
   final ValueChanged<ImMember> onMessage;
   final ValueChanged<ImMember> onRemark;
-  final Set<String> expandedDepartmentIds;
-  final Map<String, int> departmentVisibleLimits;
-  final int contactPageSize;
 
   @override
-  State<_DepartmentContacts> createState() => _DepartmentContactsState();
-}
-
-class _DepartmentContactsState extends State<_DepartmentContacts> {
-  late bool _expanded = widget.initiallyExpanded;
-
-  @override
-  Widget build(BuildContext context) => Theme(
-    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-    child: ExpansionTile(
-      key: Key('department-group-${widget.departmentKey}'),
-      initiallyExpanded: widget.initiallyExpanded,
-      onExpansionChanged: (expanded) {
-        setState(() => _expanded = expanded);
-        widget.onExpansionChanged?.call(widget.departmentKey, expanded);
-      },
-      shape: const Border(),
-      collapsedShape: const Border(),
-      minTileHeight: 44,
-      tilePadding: EdgeInsets.only(left: 12 + widget.depth * 14, right: 8),
-      childrenPadding: EdgeInsets.zero,
-      leading: const Icon(
-        Icons.account_tree_outlined,
-        size: 18,
-        color: AppColors.primary,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isCurrentMember = contact.id == currentMemberId;
+    final presence = watchMemberPresence(ref, contact, transportAvailable: presenceAvailable);
+    return ListTile(
+      minTileHeight: 48,
+      contentPadding: const EdgeInsets.only(left: 14, right: 4),
+      leading: Semantics(
+        button: !isCurrentMember && contact.canStartDirect,
+        label: contact.canStartDirect
+            ? '联系${contact.displayName}'
+            : contact.displayName,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: !isCurrentMember && contact.canStartDirect
+              ? () => onMessage(contact)
+              : null,
+          child: InitialAvatar(
+            name: contact.displayName,
+            radius: 17,
+            online: presence.online,
+            avatarKey: contact.avatarKey,
+            avatarDataUrl: contact.avatarDataUrl,
+          ),
+        ),
       ),
       title: Row(
         children: [
-          Expanded(
+          Flexible(
             child: Text(
-              widget.department,
+              contact.displayName.isEmpty
+                  ? contact.username
+                  : contact.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Text(
-            '${widget.totalContactCount}',
-            style: const TextStyle(
-              color: AppColors.secondaryText,
-              fontSize: 11.5,
+          if (isCurrentMember) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F1FF),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                '我',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
+          ],
         ],
       ),
-      children: !_expanded
-          ? const []
-          : [
-              for (final child in widget.childDepartments)
-                _DepartmentContacts(
-                  key: ValueKey('tree:${child.id}'),
-                  departmentKey: child.id,
-                  department: child.label,
-                  depth: child.depth,
-                  contacts: child.contacts,
-                  childDepartments: child.children,
-                  totalContactCount: child.totalContactCount,
-                  initiallyExpanded: widget.expandedDepartmentIds.contains(
-                    child.id,
-                  ),
-                  visibleLimit:
-                      widget.departmentVisibleLimits[child.id] ??
-                      widget.contactPageSize,
-                  onExpansionChanged: widget.onExpansionChanged,
-                  currentMemberId: widget.currentMemberId,
-                  presenceAvailable: widget.presenceAvailable,
-                  showFriendActions: widget.showFriendActions,
-                  onMessage: widget.onMessage,
-                  onRemark: widget.onRemark,
-                  expandedDepartmentIds: widget.expandedDepartmentIds,
-                  departmentVisibleLimits: widget.departmentVisibleLimits,
-                  contactPageSize: widget.contactPageSize,
-                ),
-              ...widget.contacts.take(widget.visibleLimit).map((contact) {
-                final isCurrentMember = contact.id == widget.currentMemberId;
-                return ListTile(
-                  minTileHeight: 48,
-                  contentPadding: const EdgeInsets.only(left: 14, right: 4),
-                  leading: Semantics(
-                    button: !isCurrentMember && contact.canStartDirect,
-                    label: contact.canStartDirect
-                        ? '联系${contact.displayName}'
-                        : contact.displayName,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: !isCurrentMember && contact.canStartDirect
-                          ? () => widget.onMessage(contact)
-                          : null,
-                      child: InitialAvatar(
-                        name: contact.displayName,
-                        radius: 17,
-                        online: widget.presenceAvailable
-                            ? contact.isOnline
-                            : null,
-                        avatarKey: contact.avatarKey,
-                        avatarDataUrl: contact.avatarDataUrl,
+      subtitle: Text(
+        _contactPresenceLabel(
+          presence,
+        ),
+        style: TextStyle(
+          fontSize: 10.5,
+          color: presence.online == true
+              ? AppColors.success
+              : AppColors.weakText,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      trailing: isCurrentMember
+          ? null
+          : showFriendActions && contact.isFriend
+          ? IconButton(
+              tooltip: '联系人操作',
+              onPressed: () async {
+                final value = await showMobileChoiceSheet<String>(
+                  context,
+                  title: contact.displayName,
+                  options: [
+                    if (contact.canStartDirect)
+                      const MobileSheetOption(
+                        value: 'message',
+                        label: '发消息',
+                        icon: Icons.chat_bubble_outline_rounded,
                       ),
+                    const MobileSheetOption(
+                      value: 'remark',
+                      label: '修改备注',
+                      icon: Icons.edit_note_rounded,
                     ),
-                  ),
-                  title: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          contact.displayName.isEmpty
-                              ? contact.username
-                              : contact.displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      if (isCurrentMember) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F1FF),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            '我',
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  subtitle: Text(
-                    _contactPresenceLabel(
-                      contact,
-                      presenceAvailable: widget.presenceAvailable,
-                    ),
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: widget.presenceAvailable && contact.isOnline
-                          ? AppColors.success
-                          : AppColors.weakText,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  trailing: isCurrentMember
-                      ? null
-                      : widget.showFriendActions && contact.isFriend
-                      ? IconButton(
-                          tooltip: '联系人操作',
-                          onPressed: () async {
-                            final value = await showMobileChoiceSheet<String>(
-                              context,
-                              title: contact.displayName,
-                              options: [
-                                if (contact.canStartDirect)
-                                  const MobileSheetOption(
-                                    value: 'message',
-                                    label: '发消息',
-                                    icon: Icons.chat_bubble_outline_rounded,
-                                  ),
-                                const MobileSheetOption(
-                                  value: 'remark',
-                                  label: '修改备注',
-                                  icon: Icons.edit_note_rounded,
-                                ),
-                              ],
-                            );
-                            if (!context.mounted || value == null) return;
-                            if (value == 'message') widget.onMessage(contact);
-                            if (value == 'remark') widget.onRemark(contact);
-                          },
-                          icon: const Icon(Icons.more_horiz_rounded, size: 18),
-                        )
-                      : null,
-                  onTap: !isCurrentMember && contact.canStartDirect
-                      ? () => widget.onMessage(contact)
-                      : null,
+                  ],
                 );
-              }),
-              if (widget.visibleLimit < widget.contacts.length)
-                Padding(
-                  key: Key('department-page-footer-${widget.departmentKey}'),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Center(
-                    child: Text(
-                      '继续上滑 · ${widget.visibleLimit}/${widget.contacts.length}',
-                      style: const TextStyle(
-                        color: AppColors.weakText,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-    ),
-  );
+                if (!context.mounted || value == null) return;
+                if (value == 'message') onMessage(contact);
+                if (value == 'remark') onRemark(contact);
+              },
+              icon: const Icon(
+                Icons.more_horiz_rounded,
+                size: 18,
+              ),
+            )
+          : null,
+      onTap: !isCurrentMember && contact.canStartDirect
+          ? () => onMessage(contact)
+          : null,
+    );
+  }
 }
 
 String _contactPresenceLabel(
-  ImMember member, {
-  required bool presenceAvailable,
+  ImMemberPresence member, {
   DateTime? now,
 }) {
-  if (!presenceAvailable) return '状态未知';
-  if (member.isOnline) return '在线';
+  if (member.online == null) return '状态未知';
+  if (member.online == true) return '在线';
   final lastSeenAt = member.lastSeenAt?.toLocal();
   if (lastSeenAt == null) return '离线';
   final current = (now ?? DateTime.now()).toLocal();
@@ -1702,9 +1682,16 @@ class _MemberSearchSheet extends ConsumerStatefulWidget {
 class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
   final TextEditingController _controller = TextEditingController();
   List<ImSearchResult> _items = const [];
+
+  ImMember? get _presenceMember => _items.isEmpty ? null : ImMember(
+    id: _items.first.id, username: _items.first.username,
+    displayName: _items.first.displayName, isOnline: _items.first.isOnline,
+  );
   bool _loading = false;
   String _query = '';
   String _error = '';
+  bool _hasSearched = false;
+  int _searchGeneration = 0;
 
   @override
   void dispose() {
@@ -1719,6 +1706,7 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
       return;
     }
     FocusScope.of(context).unfocus();
+    final generation = ++_searchGeneration;
     setState(() {
       _loading = true;
       _error = '';
@@ -1726,20 +1714,23 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
     });
     try {
       final items = await ref.read(memberAccountSearcherProvider)(query);
-      if (mounted && _query.trim() == query) {
-        setState(
-          () => _items = items
+      if (mounted && generation == _searchGeneration) {
+        setState(() {
+          _hasSearched = true;
+          _items = items
               .where((item) => item.id != widget.currentMemberId)
               .take(1)
-              .toList(growable: false),
-        );
+              .toList(growable: false);
+        });
       }
     } catch (error) {
-      if (mounted && _query.trim() == query) {
-        setState(() => _error = '搜索失败：$error');
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _error = mobileActionErrorText('搜索失败', error));
       }
     } finally {
-      if (mounted && _query.trim() == query) setState(() => _loading = false);
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -1804,9 +1795,14 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
                       textInputAction: TextInputAction.search,
                       style: const TextStyle(fontSize: 14),
                       onChanged: (value) => setState(() {
+                        // Editing releases the previous lookup. Its late result
+                        // must not match a newly submitted copy of the same text.
+                        _searchGeneration++;
                         _query = value;
                         _error = '';
                         _items = const [];
+                        _hasSearched = false;
+                        _loading = false;
                       }),
                       onSubmitted: (_) => _search(),
                       decoration: const InputDecoration(
@@ -1852,11 +1848,16 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
             ),
           if (_loading) const LinearProgressIndicator(minHeight: 2),
           Expanded(
-            child: _query.trim().isEmpty
-                ? const Center(
+            child:
+                _query.trim().isEmpty ||
+                    (!_hasSearched && !_loading && _error.isEmpty)
+                ? Center(
                     child: Text(
-                      '输入完整终端账号后查找',
-                      style: TextStyle(fontSize: 12, color: AppColors.weakText),
+                      _query.trim().isEmpty ? '输入完整终端账号后查找' : '点击查找',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.weakText,
+                      ),
                     ),
                   )
                 : _items.isEmpty
@@ -1889,11 +1890,8 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
                             builder: (context, ref, _) => InitialAvatar(
                               name: _items.first.displayName,
                               radius: 18,
-                              online:
-                                  ref.watch(imRealtimeAvailabilityProvider) ==
-                                      ImRealtimeAvailability.available
-                                  ? _items.first.isOnline
-                                  : null,
+                              online: watchMemberPresence(ref, _presenceMember, transportAvailable:
+                                  ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
                               avatarKey: _items.first.avatarKey,
                               avatarDataUrl: _items.first.avatarDataUrl,
                             ),
@@ -1919,14 +1917,8 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
                                     [
                                       _items.first.username,
                                       _items.first.departmentName,
-                                      ref.watch(
-                                                imRealtimeAvailabilityProvider,
-                                              ) ==
-                                              ImRealtimeAvailability.available
-                                          ? (_items.first.isOnline
-                                                ? '在线'
-                                                : '离线')
-                                          : '状态未知',
+                                      _contactPresenceLabel(watchMemberPresence(ref, _presenceMember, transportAvailable:
+                                          ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available)),
                                     ].where((item) => item.isNotEmpty).join(' · '),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

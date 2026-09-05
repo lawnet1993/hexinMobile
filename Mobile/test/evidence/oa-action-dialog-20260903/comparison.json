@@ -1,0 +1,74 @@
+{
+  "checkedAt": "2026-09-03T01:35:05.1366645+08:00",
+  "draftsUnchanged": true,
+  "oldReceiptsUnchanged": true,
+  "cursors": {
+    "final": "398",
+    "offline": "394",
+    "reconnected": "394",
+    "before": "390"
+  },
+  "outbox": {
+    "final": 0,
+    "offline": 0,
+    "reconnected": 0
+  },
+  "latestEvents": [
+    {
+      "sequence": 398,
+      "event_id": "1b1bea0c-6f9d-4f47-a3f9-90b35adbd6d3",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:34:36.482198Z",
+      "applied_at": "2026-09-02T17:34:47.798554Z"
+    },
+    {
+      "sequence": 397,
+      "event_id": "c22fda06-f8df-4216-b974-683c3e6e3d79",
+      "type": "approval.task.canceled",
+      "created_at": "2026-09-02T17:34:36.482198Z",
+      "applied_at": "2026-09-02T17:34:47.798554Z"
+    },
+    {
+      "sequence": 396,
+      "event_id": "e3b70d9f-5aa0-4d22-993e-599eb3f6443b",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:34:36.482198Z",
+      "applied_at": "2026-09-02T17:34:47.798554Z"
+    },
+    {
+      "sequence": 395,
+      "event_id": "2ac0d896-9ecf-498c-8726-dd76e3a80e8f",
+      "type": "approval.withdrawn",
+      "created_at": "2026-09-02T17:34:36.482198Z",
+      "applied_at": "2026-09-02T17:34:47.798554Z"
+    },
+    {
+      "sequence": 394,
+      "event_id": "5fc1db7b-b52e-4bda-b835-8f4891f63cbb",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:31:42.546023Z",
+      "applied_at": "2026-09-02T17:32:00.815466Z"
+    },
+    {
+      "sequence": 393,
+      "event_id": "b977b125-39ca-4612-9824-8dc873914dcd",
+      "type": "approval.task.created",
+      "created_at": "2026-09-02T17:31:42.546023Z",
+      "applied_at": "2026-09-02T17:32:00.815466Z"
+    },
+    {
+      "sequence": 392,
+      "event_id": "7b149506-3fb3-4497-bdd2-feb5a7f3f3f3",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:31:42.546023Z",
+      "applied_at": "2026-09-02T17:32:00.815466Z"
+    },
+    {
+      "sequence": 391,
+      "event_id": "32439fad-294a-4614-99b4-57141ddb45aa",
+      "type": "approval.submitted",
+      "created_at": "2026-09-02T17:31:42.546023Z",
+      "applied_at": "2026-09-02T17:32:00.815466Z"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "messageLedgerUnchanged": true,
+  "groupMessagesUnchanged": true,
+  "originalDraftsUnchanged": true,
+  "originalReceiptsPreserved": true,
+  "testDraftConsumed": true,
+  "readReceiptSurvivedColdStart": true,
+  "oaCursor": "458",
+  "oaOutboxCount": 0,
+  "imCursors": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 236
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 236
+    }
+  ]
+}

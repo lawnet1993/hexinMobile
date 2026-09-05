@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
@@ -86,9 +87,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
   }
 
   void _showError(Object error) {
-    var message = error.toString().replaceFirst('Exception: ', '');
+    var message = mobileErrorText(error);
     if (error is DioException && error.response?.data is Map) {
-      message = (error.response!.data as Map)['message']?.toString() ?? message;
+      final serverMessage = (error.response!.data as Map)['message']
+          ?.toString();
+      if (serverMessage != null && serverMessage.trim().isNotEmpty) {
+        message = mobileErrorText(Exception(serverMessage));
+      }
     }
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
@@ -113,7 +118,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         error: (error, _) => EmptyState(
           icon: Icons.event_busy_outlined,
           title: '日程加载失败',
-          description: error.toString(),
+          description: mobileErrorText(error),
           onRetry: () => ref.invalidate(oaBootstrapProvider),
         ),
         data: (data) => RefreshIndicator(

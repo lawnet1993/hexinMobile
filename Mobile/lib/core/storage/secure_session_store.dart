@@ -86,12 +86,25 @@ final class MobileSession {
 
   String get syncDeviceId =>
       installationId.isNotEmpty ? installationId : deviceId;
+
+  bool isSameSession(MobileSession other) =>
+      accessToken == other.accessToken &&
+      deviceId == other.deviceId &&
+      userId == other.userId;
 }
 
 final class SavedCredential {
   const SavedCredential(this.username, this.password);
   final String username;
   final String password;
+}
+
+/// A late operation is obsolete, not proof of an expired/new invalid session.
+final class SessionChangedException implements Exception {
+  const SessionChangedException();
+
+  @override
+  String toString() => '登录状态已变更，已取消旧请求';
 }
 
 final class SecureSessionStore {
@@ -110,8 +123,17 @@ final class SecureSessionStore {
       AppEnvironment.secureStorageKey('mobile.im.cache-key.v1.');
   final FlutterSecureStorage _storage;
   MobileSession? _cachedSession;
+  Future<void> _sessionOperations = Future<void>.value();
 
-  Future<MobileSession?> readSession() async {
+  Future<T> _withSessionLock<T>(Future<T> Function() action) {
+    final operation = _sessionOperations.then((_) => action());
+    _sessionOperations = operation.then<void>((_) {}, onError: (Object _) {});
+    return operation;
+  }
+
+  Future<MobileSession?> readSession() => _withSessionLock(_readSession);
+
+  Future<MobileSession?> _readSession() async {
     final cached = _cachedSession;
     if (cached != null) return cached;
     final value = await _storage.read(key: _sessionKey);
@@ -128,10 +150,49 @@ final class SecureSessionStore {
     }
   }
 
-  Future<void> saveSession(MobileSession value) async {
+  Future<void> saveSession(MobileSession value) =>
+      _withSessionLock(() => _saveSession(value));
+
+  Future<void> _saveSession(MobileSession value) async {
     await _storage.write(key: _sessionKey, value: jsonEncode(value.toJson()));
     _cachedSession = value;
   }
+
+  /// Serialize a short account-cache operation with login/logout persistence.
+  /// Never perform network I/O or call session methods inside [action].
+  Future<T> withCurrentSession<T>(
+    MobileSession expected,
+    Future<T> Function() action,
+  ) => _withSessionLock(() async {
+    final current = await _readSession();
+    if (current == null || !current.isSameSession(expected)) {
+      throw const SessionChangedException();
+    }
+    return action();
+  });
+
+  /// Compare and mutate under the same lock as login persistence. A delayed
+  /// response must never delete or replace a subsequently saved session.
+  Future<bool> replaceSessionIfCurrent(
+    MobileSession expected,
+    MobileSession replacement,
+  ) => _withSessionLock(() async {
+    final current = await _readSession();
+    if (current == null || !current.isSameSession(expected)) return false;
+    await _saveSession(replacement);
+    return true;
+  });
+
+  Future<bool> clearSessionIfCurrent(
+    MobileSession expected, {
+    bool clearCredential = false,
+  }) => _withSessionLock(() async {
+    final current = await _readSession();
+    if (current == null || !current.isSameSession(expected)) return false;
+    await clearPushToken();
+    await _clearSession(clearCredential: clearCredential);
+    return true;
+  });
 
   Future<SavedCredential?> readCredential() async {
     final value = await _storage.read(key: _credentialKey);
@@ -148,14 +209,35 @@ final class SecureSessionStore {
   }
 
   Future<void> saveCredential(String username, String password) =>
-      _storage.write(
-        key: _credentialKey,
-        value: jsonEncode({'username': username, 'password': password}),
+      _withSessionLock(
+        () => _storage.write(
+          key: _credentialKey,
+          value: jsonEncode({'username': username, 'password': password}),
+        ),
       );
 
-  Future<String?> readDeviceId() => _storage.read(key: _deviceKey);
-  Future<void> saveDeviceId(String value) =>
+  /// Remove only the password actually superseded by a successful change.
+  /// Serialize with credential writes so a newer login is never erased.
+  Future<bool> clearCredentialIfMatches(String username, String password) =>
+      _withSessionLock(() async {
+        final saved = await readCredential();
+        if (saved == null ||
+            saved.username != username ||
+            saved.password != password) {
+          return false;
+        }
+        await _storage.delete(key: _credentialKey);
+        return true;
+      });
+
+  /// Stable mobile installation identity. The historical storage key is kept
+  /// so an app upgrade never rotates an already bound device unexpectedly.
+  Future<String?> readInstallationId() => _storage.read(key: _deviceKey);
+  Future<void> saveInstallationId(String value) =>
       _storage.write(key: _deviceKey, value: value);
+
+  Future<String?> readDeviceId() => readInstallationId();
+  Future<void> saveDeviceId(String value) => saveInstallationId(value);
 
   Future<String?> readPushToken() => _storage.read(key: _pushTokenKey);
   Future<void> savePushToken(String value) =>
@@ -185,7 +267,10 @@ final class SecureSessionStore {
 
   Future<void> clearCredential() => _storage.delete(key: _credentialKey);
 
-  Future<void> clearSession({bool clearCredential = false}) async {
+  Future<void> clearSession({bool clearCredential = false}) =>
+      _withSessionLock(() => _clearSession(clearCredential: clearCredential));
+
+  Future<void> _clearSession({bool clearCredential = false}) async {
     _cachedSession = null;
     await _storage.delete(key: _sessionKey);
     if (clearCredential) await _storage.delete(key: _credentialKey);

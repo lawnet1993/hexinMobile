@@ -1,0 +1,50 @@
+{
+  "passed": 11,
+  "total": 11,
+  "checks": [
+    {
+      "name": "m3-ledger-and-read-state-retained",
+      "passed": true
+    },
+    {
+      "name": "m3-existing-outbox-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-ledger-and-read-state-retained",
+      "passed": true
+    },
+    {
+      "name": "m4-existing-outbox-retained",
+      "passed": true
+    },
+    {
+      "name": "oa-drafts-read-receipts-outbox-retained",
+      "passed": true
+    },
+    {
+      "name": "native-pagination-keeps-one-current-window-not-all-page-sizes",
+      "passed": true
+    },
+    {
+      "name": "native-gestures-reach-first-message",
+      "passed": true
+    },
+    {
+      "name": "hot-reopen-1-reuses-window-with-latest-visible",
+      "passed": true
+    },
+    {
+      "name": "hot-reopen-2-reuses-window-with-latest-visible",
+      "passed": true
+    },
+    {
+      "name": "hot-reopen-3-reuses-window-with-latest-visible",
+      "passed": true
+    },
+    {
+      "name": "both-installed-normal-builds-match-and-remain-running",
+      "passed": true
+    }
+  ]
+}

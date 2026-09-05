@@ -1,0 +1,115 @@
+{
+  "checkedAt": "2026-09-05T01:43:44.515480+08:00",
+  "source": "installed-desktop-sqlite-read-only-transaction-not-ui",
+  "accountId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+  "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+  "integrity": "ok",
+  "messages": [
+    {
+      "id": "11e39f24-ba2a-486c-ad11-5a8f2487378c",
+      "sequence": 1,
+      "client_message_id": "021ef199-d29a-46aa-8e96-c56076fe31b3",
+      "delivery_state": "sent",
+      "created_at": "2026-09-02T12:12:43.055033Z",
+      "updated_at": 1788537185
+    },
+    {
+      "id": "67cc0bfe-b64e-42c5-a436-fff302e8ad3b",
+      "sequence": 2,
+      "client_message_id": "068262bc-5049-40ee-b3c3-4a73c50f0ced",
+      "delivery_state": "sent",
+      "created_at": "2026-09-02T12:15:19.283317Z",
+      "updated_at": 1788537185
+    },
+    {
+      "id": "03ecc845-25e5-4fe3-98fa-8a77281c2aa1",
+      "sequence": 3,
+      "client_message_id": "9b244492-b352-4bf6-af37-5b31247e9b32",
+      "delivery_state": "sent",
+      "created_at": "2026-09-02T12:15:25.459954Z",
+      "updated_at": 1788537185
+    },
+    {
+      "id": "114d4ea8-4124-4a5d-9f8a-8994a2a79fe7",
+      "sequence": 4,
+      "client_message_id": "4174eccd-f9e9-4aec-ba0e-f602ce084107",
+      "delivery_state": "sent",
+      "created_at": "2026-09-02T13:16:40.263138Z",
+      "updated_at": 1788537185
+    },
+    {
+      "id": "3f44c0f9-ba64-4eb8-b94d-e7dee5eed99e",
+      "sequence": 5,
+      "client_message_id": "7092616b-3b9e-4fdb-bf41-fb50083b81c4",
+      "delivery_state": "sent",
+      "created_at": "2026-09-02T13:43:11.481588Z",
+      "updated_at": 1788537185
+    },
+    {
+      "id": "a8b658fb-c983-4f4f-92e7-5196528ae4fb",
+      "sequence": 6,
+      "client_message_id": "441e5fa7-a85c-48ac-9ecb-35eb3fdad5f8",
+      "delivery_state": "sent",
+      "created_at": "2026-09-02T15:54:49.857999Z",
+      "updated_at": 1788537185
+    },
+    {
+      "id": "68b6cd70-a822-498c-9242-c09865210f5b",
+      "sequence": 7,
+      "client_message_id": "13dc7539-f758-450e-a45d-ae151c846e14",
+      "delivery_state": "sent",
+      "created_at": "2026-09-03T05:17:05.948003Z",
+      "updated_at": 1788537185
+    },
+    {
+      "id": "18de6789-7497-4b34-8738-7734de9d10a0",
+      "sequence": 9,
+      "client_message_id": "3d4ac2e5-2646-4b93-978e-2bfcb3e649c5",
+      "delivery_state": "sent",
+      "created_at": "2026-09-04T16:13:26.762681Z",
+      "updated_at": 1788538405
+    },
+    {
+      "id": "721797c0-9623-4367-87af-fb82324bceae",
+      "sequence": 11,
+      "client_message_id": "ee70dccd-a966-485f-88a7-b730bf71a646",
+      "delivery_state": "sent",
+      "created_at": "2026-09-04T16:13:53.968187Z",
+      "updated_at": 1788538432
+    },
+    {
+      "id": "06f666aa-ce59-4e84-9bf2-921fcce2895e",
+      "sequence": 12,
+      "client_message_id": "e72c770a-db62-4ef5-b85f-a333291c93e7",
+      "delivery_state": "sent",
+      "created_at": "2026-09-04T16:16:27.100727Z",
+      "updated_at": 1788538586
+    },
+    {
+      "id": "47105bd0-9bd0-4e3e-a2de-00e110292051",
+      "sequence": 14,
+      "client_message_id": "deabdd7f-fb59-41e0-8933-4438e07d3509",
+      "delivery_state": "sent",
+      "created_at": "2026-09-04T16:23:50.920782Z",
+      "updated_at": 1788539030
+    },
+    {
+      "id": "4331d41d-5274-4fc5-999f-237ada7b4a35",
+      "sequence": 15,
+      "client_message_id": "1070413d-93c4-4a28-b563-41c47c6fc17e",
+      "delivery_state": "sent",
+      "created_at": "2026-09-04T16:24:03.085945Z",
+      "updated_at": 1788539042
+    }
+  ],
+  "sync": [
+    {
+      "messages_synced_at": 1788537185,
+      "last_message_sequence": 7
+    }
+  ],
+  "eventTableCounts": {
+    "collaboration_event_cursors": 0,
+    "collaboration_event_inbox": 0
+  }
+}

@@ -1,0 +1,976 @@
+{
+  "schemaVersion": 15,
+  "messageWindowOrderingPlan": [
+    {
+      "id": 5,
+      "parent": 0,
+      "notused": 0,
+      "detail": "SEARCH im_messages USING INDEX ix_im_messages_visible_window (account_id=? AND conversation_id=?)"
+    }
+  ],
+  "tableRowCounts": {
+    "im_members": 8,
+    "im_conversations": 10,
+    "im_messages": 99,
+    "im_outbox": 1,
+    "im_event_inbox": 135,
+    "im_sync_state": 30,
+    "im_conversation_members": 14,
+    "im_group_profiles": 3
+  },
+  "integrity": "ok",
+  "memberPresence": [],
+  "directoryPresence": [],
+  "eventCursors": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 299
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 299
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "cursor_kind": "applied",
+      "sequence": 491
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "cursor_kind": "acked",
+      "sequence": 491
+    }
+  ],
+  "recentEvents": [
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 491,
+      "event_id": "c162642a-016a-4a5a-8116-a6eb69a26d6a",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:56:06.115446Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 488,
+      "event_id": "851c5355-ebf5-4b2c-89db-2f803549965d",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:56:02.021620Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 485,
+      "event_id": "1d20cc1f-b6fe-44a0-9f46-0ebed2c357f9",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:57.822296Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 482,
+      "event_id": "ab631ae5-da70-4ca4-a4ac-8bb8825c08f5",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:54.199057Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 479,
+      "event_id": "17f98128-e251-4128-a4e8-ea02b10b40b1",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:49.543713Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 476,
+      "event_id": "c1f5df68-4223-4e15-a951-cbe10b8c4a60",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:45.390396Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 473,
+      "event_id": "6bba0876-58b1-4c74-90fd-edc8597a1fb8",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:40.829951Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 470,
+      "event_id": "399381b1-d397-4592-afb8-464f777bca86",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:37.277257Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 467,
+      "event_id": "cdc0dfb6-a58d-4c47-b161-29391a83776d",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:33.663187Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 464,
+      "event_id": "b5ca173e-31d5-4ed4-bf6d-2ef5c19c3cd7",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:30.147182Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 461,
+      "event_id": "18c19491-d1ab-410f-92cc-3e1f84300225",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:26.409266Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 458,
+      "event_id": "f21ebd26-a422-4a49-b5db-f34cd6528d22",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:22.300829Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 455,
+      "event_id": "a8e737eb-dcf4-4c18-913b-8bd4393b5fd3",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:18.268345Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 452,
+      "event_id": "36d1b4bb-08f3-4e4b-aede-cc738e6456c4",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:13.011914Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 449,
+      "event_id": "a09d0f86-1e4b-410f-ad1a-2464718c300d",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:08.981440Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 446,
+      "event_id": "575262bb-3869-433e-8313-21ada6bf56a9",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:05.379201Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 443,
+      "event_id": "8c7dfbb0-d902-46f5-ae2e-c8cf104f7227",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:55:01.258250Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 440,
+      "event_id": "2a3936d7-d38b-4208-9d41-a6c3ab0569cf",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:54:57.806559Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 437,
+      "event_id": "1d76dfbd-c41b-4d16-b01b-31b66d038548",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:54:53.969198Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 434,
+      "event_id": "29dbc151-88bc-48fa-a0b8-0ffc48cc3e94",
+      "type": "message.created",
+      "created_at": "2026-09-02T23:54:50.125775Z"
+    }
+  ],
+  "currentMembers": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "username": "test03"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "username": "test04"
+    }
+  ],
+  "outbox": [
+    {
+      "client_message_id": "392aa418-9ece-4995-b6b0-696dbda4cbd0",
+      "conversation_id": "245e652d-14be-4c29-a7aa-57b7659fa4e6",
+      "kind": "text",
+      "attempts": 0,
+      "created_at": "2026-09-02T23:56:08.981040Z",
+      "next_retry_at": "2026-09-02T23:56:09.034130Z",
+      "retry_on_connection_change": 0
+    }
+  ],
+  "messageLedger": [
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "local-392aa418-9ece-4995-b6b0-696dbda4cbd0",
+      "client_message_id": "392aa418-9ece-4995-b6b0-696dbda4cbd0",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 0,
+      "kind": "text",
+      "local_status": "pending",
+      "created_at": "2026-09-02T23:56:08.981040Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "747deb63-ed51-4505-986a-2ad110604f0f",
+      "client_message_id": "1915e373-8495-42de-8b12-ecf82b350dd4",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 1,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:19.196894Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "feedfbbf-937a-4c7d-87be-3a3da9882407",
+      "client_message_id": "32bae958-b74b-4caa-a796-cf8d4703b5bd",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 2,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:23.552892Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "c5204711-8ede-4fb3-895f-39dd7f627b19",
+      "client_message_id": "52e9f455-580b-47a1-afef-d3890013ad6a",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 3,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:27.546086Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "ab543aa0-86e9-4f49-91e8-14ef6ba66ebe",
+      "client_message_id": "1c91bbf2-ef29-4dfa-ae2f-0d1f926dc80e",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 4,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:31.041803Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "07878db4-f6ae-401c-a746-d4247f24fb1d",
+      "client_message_id": "52bee487-122f-4301-a970-26b5f7ecb0ef",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 5,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:35.928947Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "e45a2491-2195-4b9c-8e92-f90d49564a8c",
+      "client_message_id": "a95fc46f-24ce-4945-a738-48f161ec4919",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 6,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:38.787700Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "6e267bc4-f474-40df-a6fe-efa9b2acbf27",
+      "client_message_id": "2c626b1f-e030-423a-8016-42f20b84296d",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 7,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:42.744593Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "66e29a2c-b939-49ed-acb1-ed5644982e2a",
+      "client_message_id": "6efb9f82-5cdd-42c5-affb-d86a7fe73fe5",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 8,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:46.010847Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "e6031f8b-3e7b-40f5-b488-3d165df95506",
+      "client_message_id": "e8f20dc2-2233-4f8b-bb99-2daec1f41daa",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 9,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:50.007961Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "fede7fe7-97d2-4bb1-9aaf-6be95c67e6e2",
+      "client_message_id": "31a531fb-f571-43f6-89ae-a4c7ef596c5c",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 10,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:54.013660Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "d8144e42-64a8-4102-a67c-53cfe990add1",
+      "client_message_id": "21f42ee2-02cd-4878-85cd-f12064056555",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 11,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:52:56.845742Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "604fa2e5-a52b-4d3a-9021-a32faf948695",
+      "client_message_id": "833c86b3-96d6-4644-9f47-7a490dc33b12",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 12,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:01.612479Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "60d13a01-6a70-4175-88d9-5d517feeeec3",
+      "client_message_id": "37630c3a-f771-407e-9391-aa22c78ad0ec",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 13,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:05.294347Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "dcfd2e27-edb1-4555-92c9-d6ba1c2bd77a",
+      "client_message_id": "38068bd0-eaf7-40de-bc9f-c1acea6613e4",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 14,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:09.012553Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "c2b67ab8-1518-4361-b205-2e7d08724e75",
+      "client_message_id": "630b29ff-6f52-4d2c-af0d-673ab9a59106",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 15,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:15.231572Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "89ecab42-90f6-437e-9ce2-50605b0fede7",
+      "client_message_id": "40fb9d78-ee4a-4f94-92bc-d242687bd650",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 16,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:17.420083Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "5df24312-1d6d-4e84-aa9d-a62edaedb0aa",
+      "client_message_id": "19c1bfdd-0d79-4c41-891f-73b06ea77580",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 17,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:20.057546Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "f314f0a9-9177-41d6-9f5f-a27071165a72",
+      "client_message_id": "4a4c3f32-2116-4578-b932-77d232670a4b",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 18,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:23.795868Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "bdc7ee6f-746e-44f1-8bfa-90b3777961a7",
+      "client_message_id": "b19b354e-df65-4cca-8ed7-982d79937984",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 19,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:28.858661Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "a6f6523f-8caa-4c59-a3b4-bb9319535c30",
+      "client_message_id": "be553fd4-4f08-451e-afe3-1cd19fa46d77",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 20,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:31.465260Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "9ef5eefc-8f32-4943-b186-1a9752afd561",
+      "client_message_id": "520d3100-1a6d-4206-b121-29be316ba1de",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 21,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:35.127137Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "28bd1266-4246-4fc4-9c33-998b9921c40e",
+      "client_message_id": "cbbd9bdb-fc4d-4689-873c-0903b086d30b",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 22,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:39.209468Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "9f8f17d9-4cb8-4785-b196-a54a4912f755",
+      "client_message_id": "bf60d51b-1606-44c5-9916-9d2a8a350b8c",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 23,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:43.473902Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "1b04285b-9c08-4200-8f60-258e4dd61445",
+      "client_message_id": "27680829-2975-4c61-8b7a-3e775a1b74eb",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 24,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:47.456189Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "57684e64-9ea7-4115-bb17-5264bd5bc197",
+      "client_message_id": "acdfc72e-9694-4393-a25a-fd00116676c9",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 25,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:51.804365Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "c2796fdd-ee5a-485d-ae91-543c0da070dc",
+      "client_message_id": "4a883af4-5d86-4fa3-b278-095a5c4f86d9",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 26,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:53:55.598860Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "35b8d904-8b57-434a-9a3c-9c9407fc31e8",
+      "client_message_id": "5caebf78-c628-4676-8e6a-4237e06a3ae1",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 27,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:00.142529Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "f06a9822-0def-413d-8464-41e62071d3ef",
+      "client_message_id": "67b9d86f-1c09-4a19-aa93-44aeac051fa8",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 28,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:02.975977Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "9a0e502f-3530-41b2-81fc-e8ba2d21fa42",
+      "client_message_id": "bbc81491-23ed-46b7-819e-f471d2333a16",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 29,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:07.282025Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "4c2b7227-ccaa-4ee4-938b-1d14090e1ad6",
+      "client_message_id": "36a9ceff-a826-47f8-b85b-5b1e1b2dace3",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 30,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:11.231331Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "de4e41ba-bd6c-40a4-ae2b-4e1faafea6cf",
+      "client_message_id": "22adf0d7-337e-4174-8e1d-e3c697ca3d3d",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 31,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:14.619720Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "3aa7a06a-9d26-41ba-bb95-65d12907c89c",
+      "client_message_id": "27e9966b-f2f5-4f4e-81cb-e2a97d8f79eb",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 32,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:18.201693Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "5830a153-a745-46b9-9c70-f0e10c4f2159",
+      "client_message_id": "dbcf4c22-60fe-4e3a-9494-447640ac68b3",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 33,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:22.014824Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "9a9833c8-bd4e-4041-98fd-0ffee5a0edeb",
+      "client_message_id": "49f49456-733c-4e63-a4cd-739e774c0329",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 34,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:26.244122Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "e677421e-c5f5-483b-a188-f9225a8cd4d5",
+      "client_message_id": "d395d3c2-de9c-430c-827d-467638c7340a",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 35,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:30.038665Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "7aa6faaa-98de-4855-9b99-3e1f544fcc11",
+      "client_message_id": "8fdba3e1-eead-4466-a17a-6eab997bef26",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 36,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:34.131736Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "6737801c-e3f2-4c52-9495-21998c98f0ce",
+      "client_message_id": "35fb23d3-18a6-4884-b6d8-b10da592e991",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 37,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:38.640495Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "a3e231b6-5a09-4e71-b95d-5e402abd36c1",
+      "client_message_id": "e38a4cd2-b65a-45ef-82a6-90c5242c6b50",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 38,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:41.411049Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "96d6da34-015a-44fb-8ad5-44a1ba51b674",
+      "client_message_id": "33f0858a-c312-4134-aa0d-9979f1611c39",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 39,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:45.741083Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "25beb8ec-09fe-4e48-a589-e5fab01a3996",
+      "client_message_id": "28ca997b-d8f9-403c-8275-52dfa379e38c",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 40,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:50.125775Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "ca896a14-b0e6-4cfc-b2da-661d4256dfc6",
+      "client_message_id": "8fe284a2-105a-4786-a6a8-2b2817d36ff0",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 41,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:53.969198Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "39f759a6-0726-4b8e-b971-4686199ce12e",
+      "client_message_id": "8f13fde3-e025-46c7-8cc1-763269586b58",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 42,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:54:57.806559Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "008c4aa1-0a3b-4cd8-9d82-4e26a707b3f2",
+      "client_message_id": "9d43aa53-9953-4aa7-b6f2-f2a9929cfcfd",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 43,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:01.258250Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "c10cdcc4-1d61-4b6a-bd26-6c00e5596222",
+      "client_message_id": "83aee296-8b53-47d9-bc72-7afbd2be0c29",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 44,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:05.379201Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "5ba6ccec-9cc9-4977-9aab-6614e082ba46",
+      "client_message_id": "8132fe30-5450-43c3-acb6-95728e6d1945",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 45,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:08.981440Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "4311b48b-c8bd-41e3-9a9a-11db84117779",
+      "client_message_id": "a7f67887-3da6-4a4f-b22d-fec6cd6572b2",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 46,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:13.011914Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "75fb05fa-fa10-4310-940f-bacf668409b0",
+      "client_message_id": "9c6cce0a-bf48-4702-be3c-ce99ab00081a",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 47,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:18.268345Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "6e754e39-34a6-4a60-95cd-608c1eeb0b57",
+      "client_message_id": "7272d9e3-6fab-43ca-9b52-4c0e67f4bfae",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 48,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:22.300829Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "01e9ec7a-4cfc-43ac-9815-5f50d783a6a4",
+      "client_message_id": "349db35a-35ce-4047-9962-757240d8c7ea",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 49,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:26.409266Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "2b527876-0e11-4123-887c-76078e510ce8",
+      "client_message_id": "a1ffe749-1008-429b-bdad-aac114edee3f",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 50,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:30.147182Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "9245a41d-61e8-4277-888e-94157b8983d9",
+      "client_message_id": "847803af-ccf8-4cad-9325-aed8330d5123",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 51,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:33.663187Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "b93da2b1-e852-4af1-9bd4-63cedec7c63a",
+      "client_message_id": "799513b2-fdd3-4de6-803b-bdc05d231d0c",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 52,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:37.277257Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "19b67661-651b-4241-9caa-fbe4ea4d0509",
+      "client_message_id": "78662ede-548d-4af4-8bf0-ecccab2ecb69",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 53,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:40.829951Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "b418ac62-563b-4e8d-aec0-be9b8457ac19",
+      "client_message_id": "423cb736-db0a-4830-8542-ab09f672e01b",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 54,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:45.390396Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "de7314be-2d79-4848-a514-643b710246a8",
+      "client_message_id": "35c0d9a5-f513-43a2-9da2-1f7b4a3720aa",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 55,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:49.543713Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "472258b0-434e-451d-94e1-d87bf2d9a6f7",
+      "client_message_id": "7dcb9274-0b51-4747-b088-f3d3957d33ba",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 56,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:54.199057Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "c2607dfd-af4b-4621-8ff5-8bea102e6f39",
+      "client_message_id": "5ceaaf80-62c7-4c7b-8cf8-3a684130aaa7",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 57,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:55:57.822296Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "7c1e8e32-fb78-43ef-bc5b-b11dd6a3e2aa",
+      "client_message_id": "ce0aaf18-71cb-475a-b46f-f9ba7c6b8fdf",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 58,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:56:02.021620Z"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "54ce0f98-a8f2-427a-ac17-d41d3eac24e6",
+      "client_message_id": "77d44b5d-8554-42c1-8878-535b07e812f5",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 59,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T23:56:06.115446Z"
+    }
+  ],
+  "failures": [
+    {
+      "kind": "text",
+      "httpStatus": null
+    }
+  ],
+  "groupMessages": [
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "message_count": 60,
+      "minimum_sequence": 0,
+      "maximum_sequence": 59
+    }
+  ],
+  "targetMessage": [],
+  "groupProjections": [
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "last_message_sequence": 59,
+      "last_read_sequence": 59,
+      "unread_count": 0,
+      "unread_mention_sequences_json": "[]"
+    }
+  ],
+  "historyRepairState": [
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "state_key": "history.coverage.c26be3d2-df69-47d0-a54e-547b55a72f95",
+      "value": "3"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "state_key": "history.coverage.3b964b1b-b196-43dd-957a-8e584a77757b",
+      "value": "1"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "state_key": "history.coverage.e51db063-4ed2-4a43-b7ff-bfbf32b1806d",
+      "value": "3"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "state_key": "history.coverage.e51db063-4ed2-4a43-b7ff-bfbf32b1806d",
+      "value": "3"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "state_key": "history.coverage.2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+      "value": "6"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "state_key": "history.coverage.bd15cbb6-ab8e-4cf2-9d62-fdb6f37ce90a",
+      "value": "11"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "state_key": "history.coverage.95e704ae-0e34-4f56-87db-038526796d6c",
+      "value": "6"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "state_key": "history.coverage.95e704ae-0e34-4f56-87db-038526796d6c",
+      "value": "6"
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "state_key": "history.coverage.245e652d-14be-4c29-a7aa-57b7659fa4e6",
+      "value": "59"
+    }
+  ],
+  "conversationMetadata": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "95e704ae-0e34-4f56-87db-038526796d6c",
+      "type": "group",
+      "last_message_sequence": 6,
+      "last_read_sequence": 6,
+      "unread_count": 0,
+      "local_message_count": 6
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "e51db063-4ed2-4a43-b7ff-bfbf32b1806d",
+      "type": "direct",
+      "last_message_sequence": 3,
+      "last_read_sequence": 3,
+      "unread_count": 0,
+      "local_message_count": 3
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+      "type": "direct",
+      "last_message_sequence": 6,
+      "last_read_sequence": 6,
+      "unread_count": 0,
+      "local_message_count": 6
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "bd15cbb6-ab8e-4cf2-9d62-fdb6f37ce90a",
+      "type": "group",
+      "last_message_sequence": 11,
+      "last_read_sequence": 11,
+      "unread_count": 0,
+      "local_message_count": 11
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "e1164b86-b860-4aa1-bdaa-ea47433a6486",
+      "type": "group",
+      "last_message_sequence": 0,
+      "last_read_sequence": 0,
+      "unread_count": 0,
+      "local_message_count": 0
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "245e652d-14be-4c29-a7aa-57b7659fa4e6",
+      "type": "group",
+      "last_message_sequence": 59,
+      "last_read_sequence": 59,
+      "unread_count": 0,
+      "local_message_count": 60
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "95e704ae-0e34-4f56-87db-038526796d6c",
+      "type": "group",
+      "last_message_sequence": 6,
+      "last_read_sequence": 6,
+      "unread_count": 0,
+      "local_message_count": 6
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "e51db063-4ed2-4a43-b7ff-bfbf32b1806d",
+      "type": "direct",
+      "last_message_sequence": 3,
+      "last_read_sequence": 3,
+      "unread_count": 0,
+      "local_message_count": 3
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "c26be3d2-df69-47d0-a54e-547b55a72f95",
+      "type": "direct",
+      "last_message_sequence": 3,
+      "last_read_sequence": 3,
+      "unread_count": 0,
+      "local_message_count": 3
+    },
+    {
+      "account_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "id": "3b964b1b-b196-43dd-957a-8e584a77757b",
+      "type": "group",
+      "last_message_sequence": 1,
+      "last_read_sequence": 1,
+      "unread_count": 0,
+      "local_message_count": 1
+    }
+  ]
+}

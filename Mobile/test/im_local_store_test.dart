@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hexing_terminal_mobile/core/storage/im_cache_cipher.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/im_local_store.dart';
+import 'package:hexing_terminal_mobile/features/collaboration/data/im_outbox_file_store.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -21,6 +22,146 @@ void main() {
   });
 
   tearDown(() => store.close());
+
+  test(
+    'member last-seen survives directory and paged member cache writes',
+    () async {
+      final seen = DateTime.utc(2026, 9, 3, 1, 2).toLocal();
+      final member = ImMember(
+        id: 'peer',
+        username: 'peer',
+        displayName: 'Peer',
+        isOnline: false,
+        lastSeenAt: seen,
+      );
+      await store.replaceBootstrap(
+        'a',
+        ImBootstrap(
+          currentMember: ImMember(
+            id: 'current',
+            username: 'current',
+            displayName: 'Current',
+            isOnline: false,
+            lastSeenAt: seen,
+          ),
+          contacts: [member],
+          conversations: const [],
+        ),
+      );
+      expect((await store.readBootstrap('a'))!.currentMember.lastSeenAt, seen);
+      expect(
+        (await store.readBootstrap('a'))!.contacts.single.lastSeenAt,
+        seen,
+      );
+      await store.replaceConversationMembers('a', 'group', [member]);
+      expect(
+        (await store.readConversationMembers('a', 'group')).single.lastSeenAt,
+        seen,
+      );
+      await store.mergeConversationMembers('b', 'group', [
+        member,
+      ], positionOffset: 50);
+      expect(
+        (await store.readConversationMembers('b', 'group')).single.lastSeenAt,
+        seen,
+      );
+      await store.replaceConversationMembers('a', 'group', const []);
+      expect(
+        (await store.readConversationMembers('b', 'group')).single.lastSeenAt,
+        seen,
+      );
+    },
+  );
+
+  test(
+    'version 13 member caches migrate without losing messages or outbox',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('im-member-v13-');
+      addTearDown(() => directory.delete(recursive: true));
+      final path = '${directory.path}/cache.sqlite';
+      ImLocalStore open() => ImLocalStore(
+        factory: databaseFactoryFfi,
+        pathResolver: () async => path,
+      );
+      final initial = open();
+      await initial.replaceBootstrap('account-a', _bootstrap('a', unread: 3));
+      await initial.replaceBootstrap('account-b', _bootstrap('b', unread: 1));
+      await initial.replaceConversationMembers(
+        'account-a',
+        'conversation-a',
+        _bootstrap('a', unread: 3).contacts,
+      );
+      await initial.enqueueText(
+        accountId: 'account-a',
+        senderId: 'member-a',
+        conversationId: 'conversation-a',
+        clientMessageId: 'migration-pending',
+        content: 'fixture draft',
+      );
+      await initial.close();
+      final legacy = await databaseFactoryFfi.openDatabase(path);
+      await legacy.execute('ALTER TABLE im_members DROP COLUMN last_seen_at');
+      await legacy.execute(
+        'ALTER TABLE im_conversation_members DROP COLUMN last_seen_at',
+      );
+      await legacy.setVersion(13);
+      await legacy.close();
+      final migrated = open();
+      try {
+        expect(
+          (await migrated.readBootstrap('account-a'))!
+              .conversations
+              .single
+              .unreadCount,
+          3,
+        );
+        expect(
+          (await migrated.readBootstrap('account-b'))!.currentMember.id,
+          'member-b',
+        );
+        expect(
+          (await migrated.readConversationMembers(
+            'account-a',
+            'conversation-a',
+          )).single.lastSeenAt,
+          isNull,
+        );
+        expect(
+          (await migrated.readMessages(
+            'account-a',
+            'conversation-a',
+          )).single.clientMessageId,
+          'migration-pending',
+        );
+        final seen = DateTime.utc(2026, 9, 3).toLocal();
+        await migrated.mergeConversationMembers('account-a', 'conversation-a', [
+          ImMember(
+            id: 'contact-a',
+            username: 'a',
+            displayName: 'A',
+            isOnline: false,
+            lastSeenAt: seen,
+          ),
+        ]);
+        expect(
+          (await migrated.readConversationMembers(
+            'account-a',
+            'conversation-a',
+          )).single.lastSeenAt,
+          seen,
+        );
+      } finally {
+        await migrated.close();
+      }
+      final check = await databaseFactoryFfi.openDatabase(path);
+      expect(await check.getVersion(), 15);
+      expect(
+        (await check.query('im_outbox')).single['client_message_id'],
+        'migration-pending',
+      );
+      await check.close();
+    },
+  );
 
   test('bootstrap and messages stay isolated by terminal account', () async {
     await store.replaceBootstrap('account-a', _bootstrap('a', unread: 3));
@@ -179,6 +320,113 @@ void main() {
     );
   });
 
+  test(
+    'transient outbox failure remains queued and visually pending',
+    () async {
+      const clientMessageId = 'client-offline';
+      await store.enqueueText(
+        accountId: 'account-a',
+        senderId: 'member-a',
+        conversationId: 'conversation-a',
+        clientMessageId: clientMessageId,
+        content: 'offline body',
+      );
+      final queued = (await store.dueOutbox('account-a')).single;
+
+      await store.markOutboxFailed(
+        'account-a',
+        queued,
+        'network unavailable',
+        retryScheduled: true,
+      );
+
+      expect(await store.dueOutbox('account-a'), isEmpty);
+      final message = (await store.readMessages(
+        'account-a',
+        'conversation-a',
+      )).single;
+      expect(message.localStatus, ImLocalMessageStatus.pending);
+      expect(message.lastError, 'network unavailable');
+    },
+  );
+
+  test('outbox backoff blocks newer messages to preserve FIFO order', () async {
+    for (final item in const [
+      (id: 'client-first', content: 'first'),
+      (id: 'client-second', content: 'second'),
+    ]) {
+      await store.enqueueText(
+        accountId: 'account-a',
+        senderId: 'member-a',
+        conversationId: 'conversation-a',
+        clientMessageId: item.id,
+        content: item.content,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+    }
+    final initial = await store.dueOutbox('account-a');
+    expect(initial.map((item) => item.clientMessageId), [
+      'client-first',
+      'client-second',
+    ]);
+
+    await store.markOutboxFailed(
+      'account-a',
+      initial.first,
+      'network unavailable',
+      retryScheduled: true,
+    );
+
+    expect(await store.dueOutbox('account-a'), isEmpty);
+    await store.retryOutboxNow('account-a', 'client-first');
+    expect(
+      (await store.dueOutbox('account-a')).map((item) => item.clientMessageId),
+      ['client-first', 'client-second'],
+    );
+  });
+
+  test(
+    'outbox backoff is isolated by conversation before applying limit',
+    () async {
+      for (var index = 0; index < 55; index++) {
+        await store.enqueueText(
+          accountId: 'account-a',
+          senderId: 'member-a',
+          conversationId: 'conversation-a',
+          clientMessageId: 'blocked-$index',
+          content: 'queued',
+        );
+      }
+      final first = (await store.dueOutbox('account-a')).first;
+      await store.markOutboxFailed(
+        'account-a',
+        first,
+        'HTTP 503',
+        retryScheduled: true,
+      );
+      await store.enqueueText(
+        accountId: 'account-a',
+        senderId: 'member-a',
+        conversationId: 'conversation-b',
+        clientMessageId: 'independent',
+        content: 'other conversation',
+      );
+      expect(
+        (await store.dueOutbox('account-a'))
+            .map((item) => item.clientMessageId),
+        ['independent'],
+      );
+      expect(await store.dueOutbox('account-b'), isEmpty);
+      // Retrying a later item cannot overtake its own conversation's head.
+      await store.retryOutboxNow('account-a', 'blocked-54');
+      expect(
+        (await store.dueOutbox('account-a'))
+            .map((item) => item.clientMessageId),
+        ['independent'],
+      );
+    },
+  );
+
   test('AES-GCM cache payloads are account bound and authenticated', () async {
     final cipher = AesGcmImCacheCipher(
       (_) async => List<int>.generate(32, (index) => index),
@@ -259,7 +507,11 @@ void main() {
         expect(value as String, startsWith('enc:v1:'));
       }
       expect(message['content'], isNot(contains('private message body')));
-      expect(await raw.getVersion(), 11);
+      expect(
+        await cipher.reveal('account-a', conversation['preview'] as String),
+        'Preview a',
+      );
+      expect(await raw.getVersion(), 15);
     } finally {
       await raw.close();
     }
@@ -275,7 +527,12 @@ void main() {
             ?.conversations
             .single
             .preview,
-        'Preview a',
+        'private message body',
+      );
+      expect(
+        (await reopened.readBootstrap('account-a'))
+            ?.conversations.single.localPreviewStatus,
+        ImLocalMessageStatus.pending,
       );
       expect(
         (await reopened.readMessages(
@@ -297,6 +554,65 @@ void main() {
       );
     } finally {
       await reopened.close();
+      await directory.delete(recursive: true);
+    }
+  });
+
+  test('queued media metadata is encrypted at rest', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'im-media-metadata-',
+    );
+    final databasePath = '${directory.path}${Platform.pathSeparator}im.db';
+    final cipher = AesGcmImCacheCipher(
+      (_) async => List<int>.generate(32, (index) => index + 1),
+    );
+    final secureStore = ImLocalStore(
+      factory: databaseFactoryFfi,
+      pathResolver: () async => databasePath,
+      cipher: cipher,
+    );
+    const token = 'opaque-media-token';
+    try {
+      await secureStore.enqueueImages(
+        accountId: 'account-a',
+        senderId: 'member-a',
+        conversationId: 'conversation-a',
+        clientMessageId: 'client-image-1',
+        files: const [
+          ImOutboxStoredFile(
+            token: token,
+            role: 'image',
+            fileName: 'private-image.jpg',
+            contentType: 'image/jpeg',
+            length: 12,
+            sha256: 'digest',
+          ),
+        ],
+      );
+      await secureStore.close();
+
+      final raw = await databaseFactoryFfi.openDatabase(databasePath);
+      final encrypted =
+          (await raw.query(
+                'im_outbox',
+                columns: ['media_files_json'],
+              )).single['media_files_json']
+              as String;
+      expect(encrypted, startsWith('enc:v1:'));
+      expect(encrypted, isNot(contains(token)));
+      expect(encrypted, isNot(contains('private-image.jpg')));
+      await raw.close();
+
+      final reopened = ImLocalStore(
+        factory: databaseFactoryFfi,
+        pathResolver: () async => databasePath,
+        cipher: cipher,
+      );
+      final item = (await reopened.dueOutbox('account-a')).single;
+      expect(item.mediaFiles.single.token, token);
+      expect(item.mediaFiles.single.fileName, 'private-image.jpg');
+      await reopened.close();
+    } finally {
       await directory.delete(recursive: true);
     }
   });
@@ -437,14 +753,15 @@ void main() {
     },
   );
 
-  test('existing version 1 cache upgrades through schema version 4', () async {
+  test('existing version 1 member cache upgrades through current schema', () async {
     final directory = await Directory.systemTemp.createTemp('hexing-im-v1-');
     final databasePath = '${directory.path}${Platform.pathSeparator}im.db';
     final versionOne = await databaseFactoryFfi.openDatabase(
       databasePath,
       options: OpenDatabaseOptions(
         version: 1,
-        onCreate: (database, _) => database.execute('''
+        onCreate: (database, _) async {
+          await database.execute('''
           CREATE TABLE im_members (
             account_id TEXT NOT NULL,
             id TEXT NOT NULL,
@@ -460,7 +777,21 @@ void main() {
             updated_at TEXT NOT NULL,
             PRIMARY KEY (account_id, id)
           )
-        '''),
+        ''');
+          // The original fixture omitted the messages table entirely. Include
+          // its base columns so the later message-index migration is exercised.
+          await database.execute('''
+            CREATE TABLE im_messages (
+              account_id TEXT NOT NULL, id TEXT NOT NULL,
+              conversation_id TEXT NOT NULL, sequence INTEGER NOT NULL,
+              sender_id TEXT NOT NULL, client_message_id TEXT NOT NULL,
+              content TEXT NOT NULL, kind TEXT NOT NULL, created_at TEXT,
+              recalled_at TEXT, local_status TEXT NOT NULL, last_error TEXT NOT NULL,
+              is_deleted INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
+              PRIMARY KEY (account_id, id)
+            )
+          ''');
+        },
       ),
     );
     await versionOne.insert('im_members', {

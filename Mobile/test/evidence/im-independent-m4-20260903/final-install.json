@@ -1,0 +1,34 @@
+[
+  {
+    "checkedAt": "2026-09-03T05:01:15.2547642+08:00",
+    "serial": "emulator-5556",
+    "sha256": "12279FFFD50BC2B4AADDDC4C9FB5ABB85EFB8C2D3CD39E78AD720C73D18D8818",
+    "hashMatched": true,
+    "dataCleared": false,
+    "start": [
+      "Starting: Intent { cmp=com.hexing.zhilian.hexing_terminal_mobile/.MainActivity }",
+      "Status: ok",
+      "LaunchState: COLD",
+      "Activity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity",
+      "TotalTime: 2865",
+      "WaitTime: 2869",
+      "Complete"
+    ]
+  },
+  {
+    "checkedAt": "2026-09-03T05:01:26.7791465+08:00",
+    "serial": "emulator-5558",
+    "sha256": "12279FFFD50BC2B4AADDDC4C9FB5ABB85EFB8C2D3CD39E78AD720C73D18D8818",
+    "hashMatched": true,
+    "dataCleared": false,
+    "start": [
+      "Starting: Intent { cmp=com.hexing.zhilian.hexing_terminal_mobile/.MainActivity }",
+      "Status: ok",
+      "LaunchState: COLD",
+      "Activity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity",
+      "TotalTime: 7767",
+      "WaitTime: 7829",
+      "Complete"
+    ]
+  }
+]

@@ -8,7 +8,9 @@ import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
+import '../../../shared/widgets/visible_refresh_scheduler.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/data/im_member_presence.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 import 'group_management_page.dart';
 
@@ -34,6 +36,8 @@ class _ConversationDetailPageState
   late bool _pinned;
   late bool _muted;
   bool _busy = false;
+  late final VisibleRefreshScheduler _presenceRefreshScheduler;
+  String? _memberSnapshotScope;
 
   ImConversation get conversation => widget.conversation;
 
@@ -46,6 +50,34 @@ class _ConversationDetailPageState
     super.initState();
     _pinned = conversation.isPinned;
     _muted = conversation.isMuted;
+    _presenceRefreshScheduler = VisibleRefreshScheduler(
+      _refreshVisiblePresence,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _presenceRefreshScheduler.setVisible(
+      conversation.isGroup &&
+          TickerMode.valuesOf(context).enabled &&
+          (ModalRoute.of(context)?.isCurrent ?? true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _presenceRefreshScheduler.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshVisiblePresence() async {
+    if (!mounted || !conversation.isGroup) return;
+    final members = conversationMemberPageProvider(_memberPageKey);
+    final presence = conversationPresenceProvider(conversation.id);
+    if (!ref.read(members).isLoading) ref.invalidate(members);
+    if (!ref.read(presence).isLoading) ref.invalidate(presence);
+    await Future.wait([ref.read(members.future), ref.read(presence.future)]);
   }
 
   void _openResource(int tab, String fallbackLocation) {
@@ -60,8 +92,7 @@ class _ConversationDetailPageState
   Future<void> _refresh() async {
     final repository = ref.read(imRepositoryProvider);
     if (conversation.isGroup) {
-      ref.invalidate(conversationMemberPageProvider(_memberPageKey));
-      await ref.read(conversationMemberPageProvider(_memberPageKey).future);
+      await _refreshVisiblePresence();
       await repository.refreshGroupProfile(conversation.id);
       ref.invalidate(groupProfileProvider(conversation.id));
       ref.invalidate(groupManagersProvider(conversation.id));
@@ -79,8 +110,9 @@ class _ConversationDetailPageState
       return true;
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$failure：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText(failure, error))),
+        );
       }
       return false;
     } finally {
@@ -391,9 +423,20 @@ class _ConversationDetailPageState
     final AsyncValue<List<ImMember>> members = conversation.isGroup
         ? groupMemberPage!.whenData((page) => page.items)
         : ref.watch(conversationMembersProvider(conversation.id));
+    final accountScope = ref.watch(collaborationAccountScopeProvider);
+    if (members.hasValue && !members.isLoading && !members.hasError) {
+      _memberSnapshotScope = accountScope;
+    }
+    final keepMemberSnapshot = _memberSnapshotScope == accountScope;
     final memberTotal = groupMemberPage?.value?.total;
-    final presence = conversation.isGroup
-        ? ref.watch(conversationPresenceProvider(conversation.id)).value
+    final presenceState = conversation.isGroup
+        ? ref.watch(conversationPresenceProvider(conversation.id))
+        : null;
+    final presence =
+        presenceState?.isLoading == false &&
+            presenceState?.hasError == false &&
+            presenceState?.value?.type == 'group'
+        ? presenceState?.value
         : null;
     final profile = conversation.isGroup
         ? ref.watch(groupProfileProvider(conversation.id)).value
@@ -448,6 +491,9 @@ class _ConversationDetailPageState
       body: Stack(
         children: [
           members.when(
+            skipError: keepMemberSnapshot,
+            skipLoadingOnRefresh: keepMemberSnapshot,
+            skipLoadingOnReload: keepMemberSnapshot,
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => EmptyState(
               icon: Icons.cloud_off_outlined,
@@ -468,9 +514,10 @@ class _ConversationDetailPageState
                       conversation: conversation,
                       members: items,
                       memberCount: memberTotal ?? items.length,
-                      onlineMemberCount:
-                          presence?.onlineMemberCount ??
-                          items.where((member) => member.isOnline).length,
+                      onlineMemberCount: presence?.onlineMemberCount,
+                      memberPresenceAvailable:
+                          groupMemberPage?.isLoading == false &&
+                          groupMemberPage?.hasError == false,
                       profile: profile,
                       currentMember: widget.currentMember,
                       managerIds: managerIds,
@@ -614,11 +661,8 @@ class _DirectDetail extends StatelessWidget {
                 builder: (context, ref, _) => InitialAvatar(
                   name: displayName,
                   radius: 24,
-                  online:
-                      ref.watch(imRealtimeAvailabilityProvider) ==
-                          ImRealtimeAvailability.available
-                      ? member?.isOnline
-                      : null,
+                  online: watchMemberPresence(ref, member, transportAvailable:
+                      ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
                   avatarKey: member?.avatarKey ?? '',
                   avatarDataUrl: member?.avatarDataUrl ?? '',
                 ),
@@ -651,16 +695,13 @@ class _DirectDetail extends StatelessWidget {
                       const SizedBox(height: 4),
                       Consumer(
                         builder: (context, ref, _) {
-                          final presenceAvailable =
-                              ref.watch(imRealtimeAvailabilityProvider) ==
-                              ImRealtimeAvailability.available;
+                          final presence = watchMemberPresence(ref, member, transportAvailable:
+                              ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available);
                           return Text(
-                            presenceAvailable
-                                ? _memberPresenceLabel(member!)
-                                : '状态未知',
+                            _memberPresenceLabel(presence),
                             style: TextStyle(
                               fontSize: 13,
-                              color: presenceAvailable && member!.isOnline
+                              color: presence.online == true
                                   ? const Color(0xFF0A9F64)
                                   : AppColors.secondaryText,
                               fontWeight: FontWeight.w500,
@@ -749,6 +790,7 @@ class _GroupDetail extends StatelessWidget {
     required this.members,
     required this.memberCount,
     required this.onlineMemberCount,
+    required this.memberPresenceAvailable,
     required this.profile,
     required this.currentMember,
     required this.managerIds,
@@ -777,7 +819,8 @@ class _GroupDetail extends StatelessWidget {
   final ImConversation conversation;
   final List<ImMember> members;
   final int memberCount;
-  final int onlineMemberCount;
+  final int? onlineMemberCount;
+  final bool memberPresenceAvailable;
   final ImGroupProfile? profile;
   final ImMember currentMember;
   final Set<String> managerIds;
@@ -833,7 +876,8 @@ class _GroupDetail extends StatelessWidget {
                   Consumer(
                     builder: (context, ref, _) => Text(
                       ref.watch(imRealtimeAvailabilityProvider) ==
-                              ImRealtimeAvailability.available
+                                  ImRealtimeAvailability.available &&
+                              onlineMemberCount != null
                           ? '$memberCount 位成员 · $onlineMemberCount 人在线'
                           : '$memberCount 位成员',
                       style: const TextStyle(
@@ -913,11 +957,9 @@ class _GroupDetail extends StatelessWidget {
                         builder: (context, ref, _) => InitialAvatar(
                           name: member.displayName,
                           radius: 20,
-                          online:
-                              ref.watch(imRealtimeAvailabilityProvider) ==
-                                  ImRealtimeAvailability.available
-                              ? member.isOnline
-                              : null,
+                          online: watchMemberPresence(ref, member, transportAvailable:
+                              ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available &&
+                              memberPresenceAvailable).online,
                           avatarKey: member.avatarKey,
                           avatarDataUrl: member.avatarDataUrl,
                         ),
@@ -1277,11 +1319,33 @@ class _GroupMemberDirectorySheetState
     extends ConsumerState<_GroupMemberDirectorySheet> {
   static const _pageSize = 50;
   final _searchController = TextEditingController();
+  late final VisibleRefreshScheduler _presenceRefreshScheduler;
+  String? _memberSnapshotScope;
   int _page = 1;
   String _keyword = '';
 
   @override
+  void initState() {
+    super.initState();
+    _presenceRefreshScheduler = VisibleRefreshScheduler(() async {
+      final provider = conversationMemberPageProvider(_key);
+      if (!ref.read(provider).isLoading) ref.invalidate(provider);
+      await ref.read(provider.future);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _presenceRefreshScheduler.setVisible(
+      TickerMode.valuesOf(context).enabled &&
+          (ModalRoute.of(context)?.isCurrent ?? true),
+    );
+  }
+
+  @override
   void dispose() {
+    _presenceRefreshScheduler.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -1299,14 +1363,27 @@ class _GroupMemberDirectorySheetState
       _keyword = _searchController.text.trim();
       _page = 1;
     });
+    ref.invalidate(conversationMemberPageProvider(_key));
+  }
+
+  void _changePage(int page) {
+    setState(() => _page = page);
+    ref.invalidate(conversationMemberPageProvider(_key));
   }
 
   @override
   Widget build(BuildContext context) {
     final value = ref.watch(conversationMemberPageProvider(_key));
+    final accountScope = ref.watch(collaborationAccountScopeProvider);
+    if (value.hasValue && !value.isLoading && !value.hasError) {
+      _memberSnapshotScope = accountScope;
+    }
+    final keepMemberSnapshot = _memberSnapshotScope == accountScope;
     final presenceAvailable =
         ref.watch(imRealtimeAvailabilityProvider) ==
-        ImRealtimeAvailability.available;
+            ImRealtimeAvailability.available &&
+        !value.isLoading &&
+        !value.hasError;
     return SizedBox(
       key: const Key('group-member-directory-sheet'),
       height: MediaQuery.sizeOf(context).height * .88,
@@ -1370,6 +1447,9 @@ class _GroupMemberDirectorySheetState
           ),
           Expanded(
             child: value.when(
+              skipError: keepMemberSnapshot,
+              skipLoadingOnRefresh: keepMemberSnapshot,
+              skipLoadingOnReload: keepMemberSnapshot,
               loading: () => const Center(
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
@@ -1395,7 +1475,9 @@ class _GroupMemberDirectorySheetState
                             widget.canManageMembers &&
                             member.id != widget.currentMemberId &&
                             !isOwner;
-                        return SizedBox(
+                        return Consumer(builder: (context, ref, _) {
+                          final presence = watchMemberPresence(ref, member, transportAvailable: presenceAvailable);
+                          return SizedBox(
                           key: ValueKey(
                             'group-member-directory-member-${member.id}',
                           ),
@@ -1407,34 +1489,12 @@ class _GroupMemberDirectorySheetState
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 14,
                             ),
-                            leading: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                InitialAvatar(
-                                  name: member.displayName,
-                                  radius: 18,
-                                  avatarKey: member.avatarKey,
-                                  avatarDataUrl: member.avatarDataUrl,
-                                ),
-                                Positioned(
-                                  right: -1,
-                                  bottom: -1,
-                                  child: Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      color: member.isOnline
-                                          ? const Color(0xFF22B573)
-                                          : const Color(0xFFB8C0CC),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            leading: InitialAvatar(
+                              name: member.displayName,
+                              radius: 18,
+                              online: presence.online,
+                              avatarKey: member.avatarKey,
+                              avatarDataUrl: member.avatarDataUrl,
                             ),
                             title: Text(
                               member.id == widget.currentMemberId
@@ -1456,14 +1516,12 @@ class _GroupMemberDirectorySheetState
                                 ),
                                 const SizedBox(height: 1),
                                 Text(
-                                  presenceAvailable
-                                      ? _memberPresenceLabel(member)
-                                      : '状态未知',
+                                  _memberPresenceLabel(presence),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 10.5,
-                                    color: presenceAvailable && member.isOnline
+                                    color: presence.online == true
                                         ? const Color(0xFF0A9F64)
                                         : AppColors.secondaryText,
                                   ),
@@ -1486,11 +1544,15 @@ class _GroupMemberDirectorySheetState
                                 : null,
                           ),
                         );
+                        });
                       },
                     ),
             ),
           ),
           value.maybeWhen(
+            skipError: keepMemberSnapshot,
+            skipLoadingOnRefresh: keepMemberSnapshot,
+            skipLoadingOnReload: keepMemberSnapshot,
             data: (result) {
               final totalPages = result.total == 0
                   ? 1
@@ -1512,7 +1574,7 @@ class _GroupMemberDirectorySheetState
                       IconButton(
                         tooltip: '上一页',
                         onPressed: _page > 1
-                            ? () => setState(() => _page--)
+                            ? () => _changePage(_page - 1)
                             : null,
                         icon: const Icon(Icons.chevron_left_rounded),
                       ),
@@ -1520,7 +1582,7 @@ class _GroupMemberDirectorySheetState
                       IconButton(
                         tooltip: '下一页',
                         onPressed: _page < totalPages
-                            ? () => setState(() => _page++)
+                            ? () => _changePage(_page + 1)
                             : null,
                         icon: const Icon(Icons.chevron_right_rounded),
                       ),
@@ -1637,11 +1699,8 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
                               builder: (context, ref, _) => InitialAvatar(
                                 name: member.displayName,
                                 radius: 17,
-                                online:
-                                    ref.watch(imRealtimeAvailabilityProvider) ==
-                                        ImRealtimeAvailability.available
-                                    ? member.isOnline
-                                    : null,
+                                online: watchMemberPresence(ref, member, transportAvailable:
+                                    ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
                                 avatarKey: member.avatarKey,
                                 avatarDataUrl: member.avatarDataUrl,
                               ),
@@ -1841,11 +1900,8 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                   builder: (context, ref, _) => InitialAvatar(
                     name: widget.fixedMember.displayName,
                     radius: 17,
-                    online:
-                        ref.watch(imRealtimeAvailabilityProvider) ==
-                            ImRealtimeAvailability.available
-                        ? widget.fixedMember.isOnline
-                        : null,
+                    online: watchMemberPresence(ref, widget.fixedMember, transportAvailable:
+                        ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
                     avatarKey: widget.fixedMember.avatarKey,
                     avatarDataUrl: widget.fixedMember.avatarDataUrl,
                   ),
@@ -1892,11 +1948,8 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                         builder: (context, ref, _) => InitialAvatar(
                           name: member.displayName,
                           radius: 17,
-                          online:
-                              ref.watch(imRealtimeAvailabilityProvider) ==
-                                  ImRealtimeAvailability.available
-                              ? member.isOnline
-                              : null,
+                          online: watchMemberPresence(ref, member, transportAvailable:
+                              ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
                           avatarKey: member.avatarKey,
                           avatarDataUrl: member.avatarDataUrl,
                         ),
@@ -1993,8 +2046,9 @@ class _ManagerTag extends StatelessWidget {
   );
 }
 
-String _memberPresenceLabel(ImMember member, {DateTime? now}) {
-  if (member.isOnline) return '在线';
+String _memberPresenceLabel(ImMemberPresence member, {DateTime? now}) {
+  if (member.online == null) return '状态未知';
+  if (member.online == true) return '在线';
   final lastSeenAt = member.lastSeenAt?.toLocal();
   if (lastSeenAt == null) return '离线';
 

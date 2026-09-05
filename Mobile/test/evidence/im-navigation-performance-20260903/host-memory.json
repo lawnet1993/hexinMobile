@@ -1,0 +1,8 @@
+{
+  "checkedAt": "2026-09-03T03:06:29.0805753+08:00",
+  "hostTotalPhysicalKb": 33275704,
+  "hostFreePhysicalKb": 8234452,
+  "hostTotalVirtualKb": 45858616,
+  "hostFreeVirtualKb": 11533056,
+  "scope": "Snapshot only, not attributed cause of slow launch"
+}

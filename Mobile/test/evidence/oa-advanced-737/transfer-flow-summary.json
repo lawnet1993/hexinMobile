@@ -1,0 +1,62 @@
+{
+  "checkedAt": "2026-09-05T03:16:36+08:00",
+  "environment": "http://api.sfhkh.com",
+  "requestId": "21748765-9829-4152-8ce7-0413a6842d75",
+  "marker": "AI-UAT-20260905-031400-OA-TRANSFER-739",
+  "requester": {
+    "account": "test03",
+    "name": "Test Terminal 03",
+    "department": "财顺"
+  },
+  "status": "approved",
+  "templateVersion": 1,
+  "requestVersion": 3,
+  "workflowKey": "system.default.attendance.leave",
+  "allowedActions": [],
+  "tasks": [
+    {
+      "node": "部门负责人审批",
+      "assignee": "test03",
+      "department": "财顺",
+      "status": "transferred",
+      "canOperate": false,
+      "completedAtUtc": "2026-09-04T19:14:31.112257Z"
+    },
+    {
+      "node": "部门负责人审批",
+      "assignee": "test01",
+      "department": "公司总部",
+      "status": "approved",
+      "canOperate": false,
+      "completedAtUtc": "2026-09-04T19:15:50.297787Z"
+    }
+  ],
+  "actions": [
+    "submitted",
+    "transferred",
+    "service_queued",
+    "approved:test01",
+    "service_succeeded"
+  ],
+  "deviceProjection": {
+    "test03": {
+      "oaCursor": 640,
+      "detailCached": true,
+      "transferEventApplied": true,
+      "finalEventsApplied": true
+    },
+    "test01": {
+      "transferredTaskNotificationReceived": true,
+      "detailCached": true
+    }
+  },
+  "verification": {
+    "uiSubmitted": true,
+    "uiTransferred": true,
+    "originalTaskLostPermission": true,
+    "newAssigneeReceivedTask": true,
+    "newAssigneeApproved": true,
+    "serverDetailStatus": 200,
+    "businessWritebackCompleted": true
+  }
+}

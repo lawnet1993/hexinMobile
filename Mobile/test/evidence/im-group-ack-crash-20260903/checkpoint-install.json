@@ -1,0 +1,7 @@
+{
+  "at": "2026-09-03T05:57:13.9179128+08:00",
+  "hash": "CBBF85C6E5FF835716DA7018E0A34D375B1CA45652148B683829FF091EA76439",
+  "installedHashMatches": true,
+  "target": "test_driver/im_ack_checkpoint.dart",
+  "activityStatus": "Starting: Intent { cmp=com.hexing.zhilian.hexing_terminal_mobile/.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity\nTotalTime: 3993\nWaitTime: 4032\nComplete"
+}

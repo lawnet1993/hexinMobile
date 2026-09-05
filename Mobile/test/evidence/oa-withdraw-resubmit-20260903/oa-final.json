@@ -1,0 +1,172 @@
+{
+  "checkedAt": "2026-09-02T17:14:15.108193+00:00",
+  "accountId": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+  "schemaVersion": 3,
+  "cursor": [
+    {
+      "value": "390",
+      "updated_at": "2026-09-02T17:12:01.677082Z"
+    }
+  ],
+  "caches": [
+    {
+      "cache_key": "app-catalog",
+      "updated_at": "2026-09-02T17:14:03.541800Z"
+    },
+    {
+      "cache_key": "approval:0fe47e22-a5d3-4daa-ae3e-05d27741c021",
+      "updated_at": "2026-09-02T17:11:19.436810Z"
+    },
+    {
+      "cache_key": "approval:8928dded-2c49-4cbb-8eed-2e5808ab7cf7",
+      "updated_at": "2026-09-02T17:13:59.299692Z"
+    },
+    {
+      "cache_key": "approval:fe9b58d5-42de-4632-99be-cd5c70ebe983",
+      "updated_at": "2026-09-02T15:37:49.798470Z"
+    },
+    {
+      "cache_key": "attendance-overview",
+      "updated_at": "2026-09-02T15:08:54.816999Z"
+    },
+    {
+      "cache_key": "bootstrap",
+      "updated_at": "2026-09-02T17:14:03.575349Z"
+    },
+    {
+      "cache_key": "notifications",
+      "updated_at": "2026-09-02T17:14:03.457830Z"
+    },
+    {
+      "cache_key": "notifications-page",
+      "updated_at": "2026-09-02T17:14:03.527562Z"
+    }
+  ],
+  "events": [
+    {
+      "sequence": 390,
+      "event_id": "54258979-5621-4b29-99db-11b7105491a6",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-02T17:11:58.859928Z",
+      "applied_at": "2026-09-02T17:12:01.677082Z"
+    },
+    {
+      "sequence": 389,
+      "event_id": "508bb04a-92db-4529-b33e-651670ab0f6d",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-02T17:11:18.731647Z",
+      "applied_at": "2026-09-02T17:11:19.048376Z"
+    },
+    {
+      "sequence": 388,
+      "event_id": "1befa703-3c51-4040-a9f1-00d1185b71e9",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:09:31.677600Z",
+      "applied_at": "2026-09-02T17:09:35.747616Z"
+    },
+    {
+      "sequence": 387,
+      "event_id": "e7efb5fd-e4a9-4ffd-9f01-ba58002bf570",
+      "type": "approval.updated",
+      "created_at": "2026-09-02T17:09:31.677600Z",
+      "applied_at": "2026-09-02T17:09:35.747616Z"
+    },
+    {
+      "sequence": 386,
+      "event_id": "adaaa38d-1cb9-4290-b8fb-639536588f8d",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:08:46.709636Z",
+      "applied_at": "2026-09-02T17:08:54.539496Z"
+    },
+    {
+      "sequence": 385,
+      "event_id": "74846f39-7294-417a-bdda-9f548db0ccac",
+      "type": "approval.task.created",
+      "created_at": "2026-09-02T17:08:46.709636Z",
+      "applied_at": "2026-09-02T17:08:54.539496Z"
+    },
+    {
+      "sequence": 384,
+      "event_id": "84a1d51c-eb5b-496d-af6e-ed878452d8b5",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:08:46.709636Z",
+      "applied_at": "2026-09-02T17:08:54.539496Z"
+    },
+    {
+      "sequence": 383,
+      "event_id": "4ebbbbe3-2955-43ef-bb3e-1ca79a696a91",
+      "type": "approval.submitted",
+      "created_at": "2026-09-02T17:08:46.709636Z",
+      "applied_at": "2026-09-02T17:08:54.539496Z"
+    },
+    {
+      "sequence": 382,
+      "event_id": "5541f82a-0cca-4d6a-9b13-31baf3c4291e",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:07:18.551928Z",
+      "applied_at": "2026-09-02T17:07:32.012090Z"
+    },
+    {
+      "sequence": 381,
+      "event_id": "1abd7bc4-010e-4de3-aa10-21a8835afd7e",
+      "type": "approval.task.canceled",
+      "created_at": "2026-09-02T17:07:18.551928Z",
+      "applied_at": "2026-09-02T17:07:32.012090Z"
+    },
+    {
+      "sequence": 380,
+      "event_id": "73888d31-fdb7-426d-990d-ee69b8e5e1d8",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:07:18.551928Z",
+      "applied_at": "2026-09-02T17:07:32.012090Z"
+    },
+    {
+      "sequence": 379,
+      "event_id": "e66668c2-16dc-491c-ae1e-c8191966e792",
+      "type": "approval.withdrawn",
+      "created_at": "2026-09-02T17:07:18.551928Z",
+      "applied_at": "2026-09-02T17:07:32.012090Z"
+    }
+  ],
+  "readReceipts": [
+    {
+      "notification_id": "49b888da-e44b-4108-b59a-46f204b2e7e6",
+      "read_at": "2026-09-02T14:11:02.950227Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "13f1f7da-99f5-48c3-babd-b57b36f54b81",
+      "read_at": "2026-09-02T15:09:43.622322Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "dbf04aea-c91a-4e0b-b9cd-ccf3b1bf7828",
+      "read_at": "2026-09-02T17:11:17.712551Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "1ff0307a-d840-4da6-bd3b-fc93cd1bfb12",
+      "read_at": "2026-09-02T17:11:57.780402Z",
+      "state": "sent",
+      "attempts": 0
+    }
+  ],
+  "outbox": [],
+  "drafts": [
+    {
+      "id": "61faf8e1-6404-4c34-b2d4-257fd6931949",
+      "application_key": "attendance.leave",
+      "template_id": "87adcda2-a096-465b-a572-5c49eb6ab68c",
+      "updated_at": "2026-09-02T13:53:30.441508Z"
+    },
+    {
+      "id": "2672bb18-7c66-4e25-8e89-17c13a08b7fd",
+      "application_key": "attendance.overtime",
+      "template_id": "2cbde5bd-6357-4462-b437-7e8517362d7e",
+      "updated_at": "2026-09-02T15:33:59.865561Z"
+    }
+  ]
+}

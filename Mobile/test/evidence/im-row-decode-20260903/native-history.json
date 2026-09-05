@@ -1,0 +1,58 @@
+[
+  {
+    "at": "2026-09-03T09:09:43.0988381+08:00",
+    "section": 0,
+    "gestures": 0,
+    "first": 492,
+    "last": 510,
+    "screenshot": "m3-history-00.png"
+  },
+  {
+    "at": "2026-09-03T09:09:49.7131054+08:00",
+    "section": 1,
+    "gestures": 4,
+    "first": 404,
+    "last": 424,
+    "screenshot": "m3-history-01.png"
+  },
+  {
+    "at": "2026-09-03T09:09:56.2775596+08:00",
+    "section": 2,
+    "gestures": 8,
+    "first": 315,
+    "last": 335,
+    "screenshot": "m3-history-02.png"
+  },
+  {
+    "at": "2026-09-03T09:10:02.8138911+08:00",
+    "section": 3,
+    "gestures": 12,
+    "first": 221,
+    "last": 240,
+    "screenshot": "m3-history-03.png"
+  },
+  {
+    "at": "2026-09-03T09:10:09.4539669+08:00",
+    "section": 4,
+    "gestures": 16,
+    "first": 144,
+    "last": 164,
+    "screenshot": "m3-history-04.png"
+  },
+  {
+    "at": "2026-09-03T09:10:16.0761393+08:00",
+    "section": 5,
+    "gestures": 20,
+    "first": 52,
+    "last": 71,
+    "screenshot": "m3-history-05.png"
+  },
+  {
+    "at": "2026-09-03T09:10:22.7380581+08:00",
+    "section": 6,
+    "gestures": 24,
+    "first": 1,
+    "last": 18,
+    "screenshot": "m3-history-06.png"
+  }
+]

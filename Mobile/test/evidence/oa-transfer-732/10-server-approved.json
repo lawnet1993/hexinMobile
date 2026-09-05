@@ -1,0 +1,135 @@
+{
+  "checkedAt": "2026-09-05T01:58:36.5891149+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260905-015500-OA-TRANSFER-732",
+  "bootstrapStatus": 200,
+  "requestId": "ca15d6ac-d523-4589-8cd8-a0dc22f473ed",
+  "pageStatus": 200,
+  "pageRequestId": "22f63fef-030b-4836-be85-a8c977468125",
+  "hasMore": false,
+  "requests": [
+    {
+      "id": "6aef7a25-5e20-442b-9136-986e3f7022fc",
+      "detailStatus": 200,
+      "requestId": "a5c2f533-4a79-40a4-bf55-aad1c20aff73",
+      "markerMatched": true,
+      "status": "approved",
+      "title": "Test Terminal 03的请假审批",
+      "requesterName": "Test Terminal 03",
+      "requesterDepartmentName": "财顺",
+      "createdAt": "2026-09-04T17:56:00.941742Z",
+      "updatedAt": "2026-09-04T17:58:22.645056Z",
+      "allowedActions": [],
+      "templateVersion": 1,
+      "requestVersion": 3,
+      "workflowKey": "system.default.attendance.leave",
+      "clientRequestId": "b6015e64-4cd8-4a4e-b08b-b0acb7ab8962",
+      "completedAt": "2026-09-04T17:58:22.645056Z",
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "f967b4bd-1ad3-4e23-9acc-806d07852378",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+          "assigneeName": "Test Terminal 03",
+          "assigneeDepartmentName": "财顺",
+          "status": "transferred",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-04T17:56:58.486705Z"
+        },
+        {
+          "id": "963f4ff7-8231-4df1-937e-ba4c0a76509d",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "approved",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-04T17:58:22.645056Z"
+        }
+      ],
+      "actions": [
+        {
+          "id": "048f30fa-ddfa-4333-9f9f-4c2b4d60ca60",
+          "action": "submitted",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-04T17:56:00.941742Z"
+        },
+        {
+          "id": "f5e11ef1-5fe3-45c2-826a-3f9ad006c738",
+          "action": "transferred",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-04T17:56:58.486705Z"
+        },
+        {
+          "id": "e676b911-9993-48e0-9765-5eb58e76aa8f",
+          "action": "approved",
+          "actorName": "Test Terminal 01",
+          "occurredAt": "2026-09-04T17:58:22.645056Z"
+        },
+        {
+          "id": "f7e9cc90-8081-4f1a-947c-93c72cd573d2",
+          "action": "service_queued",
+          "actorName": "",
+          "occurredAt": "2026-09-04T17:58:22.645056Z"
+        },
+        {
+          "id": "d204b294-bb65-4728-acce-efd77acb7ce1",
+          "action": "service_succeeded",
+          "actorName": "",
+          "occurredAt": "2026-09-04T17:58:25.764219Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": [
+        {
+          "id": "10a817c9-6385-460c-95df-be4c4bda5dba",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-04T17:56:58.486705Z"
+        }
+      ]
+    }
+  ],
+  "matchCount": 1
+}

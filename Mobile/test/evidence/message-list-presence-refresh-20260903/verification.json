@@ -1,0 +1,11 @@
+{
+  "m3-groupLedgerPreserved": true,
+  "m3-allConversationCountsAndReadsPreserved": true,
+  "m3-outboxIdentityPreserved": true,
+  "m4-groupLedgerPreserved": true,
+  "m4-allConversationCountsAndReadsPreserved": true,
+  "m4-outboxIdentityPreserved": true,
+  "oa-drafts-preserved": true,
+  "oa-readReceipts-preserved": true,
+  "oa-outbox-preserved": true
+}

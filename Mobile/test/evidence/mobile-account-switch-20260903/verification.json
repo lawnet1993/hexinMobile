@@ -1,0 +1,132 @@
+{
+  "checkedAt": "2026-09-02T22:51:31.689Z",
+  "scope": "native-session-switch-evidence-not-full-product-acceptance",
+  "passed": 30,
+  "total": 31,
+  "checks": [
+    {
+      "name": "one_observed_heartbeat_409_termination",
+      "passed": true
+    },
+    {
+      "name": "late_refresh_200_rejected_after_termination",
+      "passed": true
+    },
+    {
+      "name": "replaced_login_notice_persisted",
+      "passed": true
+    },
+    {
+      "name": "replaced_login_password_empty",
+      "passed": false
+    },
+    {
+      "name": "m3-stopped-before-new-message_cursor_and_messages_unchanged",
+      "passed": true
+    },
+    {
+      "name": "m3-stopped-after-new-message_cursor_and_messages_unchanged",
+      "passed": true
+    },
+    {
+      "name": "m3-stopped-later_cursor_and_messages_unchanged",
+      "passed": true
+    },
+    {
+      "name": "m4_account03_read_did_not_clear_account04_unread",
+      "passed": true
+    },
+    {
+      "name": "m3_restored_own_message_no_unread",
+      "passed": true
+    },
+    {
+      "name": "m4_visible_read_persisted",
+      "passed": true
+    },
+    {
+      "name": "m3_six_unique_messages",
+      "passed": true
+    },
+    {
+      "name": "m3_same_server_and_client_identity",
+      "passed": true
+    },
+    {
+      "name": "m3_read_survives_cold_start",
+      "passed": true
+    },
+    {
+      "name": "m4_account04_six_unique_messages",
+      "passed": true
+    },
+    {
+      "name": "m4_account04_same_server_and_client_identity",
+      "passed": true
+    },
+    {
+      "name": "m4_account04_read_survives_cold_start",
+      "passed": true
+    },
+    {
+      "name": "m4_account03_six_unique_messages",
+      "passed": true
+    },
+    {
+      "name": "m4_account03_same_server_and_client_identity",
+      "passed": true
+    },
+    {
+      "name": "m4_account03_read_survives_cold_start",
+      "passed": true
+    },
+    {
+      "name": "m3_two_pending_media_preserved_not_copied_to_m4",
+      "passed": true
+    },
+    {
+      "name": "m3_all_original_conversations_retained",
+      "passed": true
+    },
+    {
+      "name": "m3_oa_drafts_unchanged",
+      "passed": true
+    },
+    {
+      "name": "m3_oa_read_receipts_unchanged",
+      "passed": true
+    },
+    {
+      "name": "m3_oa_outbox_unchanged",
+      "passed": true
+    },
+    {
+      "name": "m4_all_original_conversations_retained",
+      "passed": true
+    },
+    {
+      "name": "m4_oa_drafts_unchanged",
+      "passed": true
+    },
+    {
+      "name": "m4_oa_read_receipts_unchanged",
+      "passed": true
+    },
+    {
+      "name": "m4_oa_outbox_unchanged",
+      "passed": true
+    },
+    {
+      "name": "native_lists_show_account_specific_conversations",
+      "passed": true
+    },
+    {
+      "name": "cold_start_original_accounts_visible",
+      "passed": true
+    },
+    {
+      "name": "desktop_test01_readonly_session_healthy",
+      "passed": true
+    }
+  ]
+}

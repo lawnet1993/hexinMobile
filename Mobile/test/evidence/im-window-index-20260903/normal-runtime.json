@@ -1,0 +1,22 @@
+[
+  {
+    "serial": "emulator-5556",
+    "pid": "23151",
+    "apkHash": "ea885f6c5881ee77b608b8a7c0ef3976d2b94cb3fd8871c50e7e72065dbbe5a2",
+    "normalApkMatches": true,
+    "fatalCount": 0,
+    "unhandledCount": 0,
+    "overflowCount": 0,
+    "benchmarkLogCount": 0
+  },
+  {
+    "serial": "emulator-5558",
+    "pid": "4878",
+    "apkHash": "ea885f6c5881ee77b608b8a7c0ef3976d2b94cb3fd8871c50e7e72065dbbe5a2",
+    "normalApkMatches": true,
+    "fatalCount": 0,
+    "unhandledCount": 0,
+    "overflowCount": 0,
+    "benchmarkLogCount": 0
+  }
+]

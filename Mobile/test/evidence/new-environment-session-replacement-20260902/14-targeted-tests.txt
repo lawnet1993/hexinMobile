@@ -1,0 +1,10 @@
+00:00 +0: loading E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart
+00:00 +0: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 会话退出原因持续显示且不重复弹提示
+00:00 +1: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 会话退出原因持续显示且不重复弹提示
+00:00 +2: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 会话退出原因持续显示且不重复弹提示
+00:00 +3: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 会话退出原因持续显示且不重复弹提示
+00:00 +4: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 会话退出原因持续显示且不重复弹提示
+00:00 +5: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 重新提交登录时清除旧会话提示而不暴露记住密码
+00:00 +6: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 记住的密码不回填到输入框
+00:00 +7: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/login_page_security_test.dart: 失效的记住密码在 401 后清除
+00:00 +8: All tests passed!

@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 14,
+  "memberPresence": [],
+  "directoryPresence": [],
+  "eventCursors": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 257
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 257
+    }
+  ],
+  "recentEvents": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 257,
+      "event_id": "9650159b-ff80-468e-8376-7167ab4a0535",
+      "type": "conversation.read",
+      "created_at": "2026-09-02T21:00:34.565739Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 255,
+      "event_id": "07e790da-b127-4f34-bef6-e0f1ed46fc54",
+      "type": "message.created",
+      "created_at": "2026-09-02T21:00:02.844092Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 253,
+      "event_id": "12f27ea6-3e6a-42ca-b3ef-255db7697b99",
+      "type": "message.created",
+      "created_at": "2026-09-02T20:59:53.295581Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 251,
+      "event_id": "b27fd093-e7c0-4e2a-a1c3-428ac09d0a04",
+      "type": "conversation.read",
+      "created_at": "2026-09-02T20:58:23.687482Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 249,
+      "event_id": "1c4a937a-02ad-4e0a-be4e-df7de13ba607",
+      "type": "message.created",
+      "created_at": "2026-09-02T20:57:47.855825Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 247,
+      "event_id": "dbc033da-12fe-488f-a72b-b5bf6d235451",
+      "type": "conversation.created",
+      "created_at": "2026-09-02T20:57:15.572715Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 245,
+      "event_id": "b69d9cb4-2d41-4909-930a-3a99a98c1a27",
+      "type": "friend.accepted",
+      "created_at": "2026-09-02T20:55:42.311409Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 244,
+      "event_id": "fb01eabc-aeff-4344-aecb-82a4a71d19fc",
+      "type": "friend.apply.handled",
+      "created_at": "2026-09-02T20:55:42.311409Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 236,
+      "event_id": "32864af3-8e62-4d6f-8860-4212afaced69",
+      "type": "presence.changed",
+      "created_at": "2026-09-02T18:55:45.279636Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 226,
+      "event_id": "c03b6c80-7d56-47f7-9bd7-9e365cafd3bb",
+      "type": "presence.changed",
+      "created_at": "2026-09-02T18:52:06.803291Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 217,
+      "event_id": "e23c00cf-2e0c-4a7b-9894-2520d7561d95",
+      "type": "presence.changed",
+      "created_at": "2026-09-02T18:37:57.789711Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 207,
+      "event_id": "af4d3284-8d3e-4e12-8289-6ede2ae96da2",
+      "type": "message.created",
+      "created_at": "2026-09-02T15:54:49.857999Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 206,
+      "event_id": "5082422f-cef5-43fb-a060-b644ef9e56a9",
+      "type": "message.created",
+      "created_at": "2026-09-02T13:43:11.481588Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 203,
+      "event_id": "2e95d754-b5a0-4853-a7f9-1abf5d4a67f8",
+      "type": "conversation.read",
+      "created_at": "2026-09-02T13:29:55.909667Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 202,
+      "event_id": "efcf0c2e-19e5-4ef7-a2c9-173fe32d7f53",
+      "type": "conversation.read",
+      "created_at": "2026-09-02T13:18:35.714082Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 200,
+      "event_id": "ffa97caa-f2f1-48c3-b4a2-c2341ddcb0c8",
+      "type": "message.created",
+      "created_at": "2026-09-02T13:16:40.263138Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 195,
+      "event_id": "6483882c-6d1d-447f-89d0-8dec769d37a9",
+      "type": "conversation.read",
+      "created_at": "2026-09-02T13:01:01.697749Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 191,
+      "event_id": "99b6fa27-3490-44e3-aab6-f6465a091a59",
+      "type": "conversation.read",
+      "created_at": "2026-09-02T12:51:13.638383Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 184,
+      "event_id": "50412746-b839-497e-9195-8e7ee5b6cff6",
+      "type": "conversation.read",
+      "created_at": "2026-09-02T12:39:48.802801Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 182,
+      "event_id": "e938853e-575c-4074-9bbc-46d6cd628bdc",
+      "type": "conversation.read",
+      "created_at": "2026-09-02T12:37:56.210449Z"
+    }
+  ],
+  "currentMembers": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "username": "test03"
+    }
+  ],
+  "outbox": [
+    {
+      "client_message_id": "13dc7539-f758-450e-a45d-ae151c846e14",
+      "conversation_id": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+      "kind": "image",
+      "attempts": 31,
+      "created_at": "2026-09-02T18:39:16.487691Z",
+      "next_retry_at": "2026-09-02T21:01:32.600021Z",
+      "retry_on_connection_change": 0
+    },
+    {
+      "client_message_id": "4bd94d7a-d990-44d8-9b72-4edc3fc4925c",
+      "conversation_id": "bd15cbb6-ab8e-4cf2-9d62-fdb6f37ce90a",
+      "kind": "video",
+      "attempts": 31,
+      "created_at": "2026-09-02T18:40:32.931022Z",
+      "next_retry_at": "2026-09-02T21:01:32.957151Z",
+      "retry_on_connection_change": 0
+    }
+  ],
+  "messageLedger": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "0a170e31-061d-4b47-8866-c9231ba86ae0",
+      "client_message_id": "0924429f-dee3-4ac6-bbd1-44d7c4ce5608",
+      "sender_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "sequence": 1,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T20:57:47.855825Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "e366d6c7-0a29-4c06-956d-c4cac9035686",
+      "client_message_id": "5049310a-831c-44e1-ba68-a8b77e249e2f",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 2,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T20:59:53.295581Z"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "1430fc83-e55c-499c-8c5f-d2fece0bc8cd",
+      "client_message_id": "78a37cd5-6e5d-441a-8349-a30d7d4f3c5f",
+      "sender_id": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+      "sequence": 3,
+      "kind": "text",
+      "local_status": "sent",
+      "created_at": "2026-09-02T21:00:02.844092Z"
+    }
+  ],
+  "failures": [
+    {
+      "kind": "image",
+      "httpStatus": "500"
+    },
+    {
+      "kind": "video",
+      "httpStatus": "500"
+    }
+  ],
+  "groupMessages": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "message_count": 3,
+      "minimum_sequence": 1,
+      "maximum_sequence": 3
+    }
+  ],
+  "targetMessage": [],
+  "groupProjections": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "last_message_sequence": 3,
+      "last_read_sequence": 3,
+      "unread_count": 0,
+      "unread_mention_sequences_json": "[]"
+    }
+  ],
+  "historyRepairState": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "state_key": "history.coverage.bd15cbb6-ab8e-4cf2-9d62-fdb6f37ce90a",
+      "value": "11"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "state_key": "history.coverage.2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+      "value": "6"
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "state_key": "history.coverage.e51db063-4ed2-4a43-b7ff-bfbf32b1806d",
+      "value": "3"
+    }
+  ],
+  "conversationMetadata": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "e51db063-4ed2-4a43-b7ff-bfbf32b1806d",
+      "type": "direct",
+      "last_message_sequence": 3,
+      "last_read_sequence": 3,
+      "unread_count": 0,
+      "local_message_count": 3
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+      "type": "direct",
+      "last_message_sequence": 6,
+      "last_read_sequence": 6,
+      "unread_count": 0,
+      "local_message_count": 7
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "bd15cbb6-ab8e-4cf2-9d62-fdb6f37ce90a",
+      "type": "group",
+      "last_message_sequence": 11,
+      "last_read_sequence": 11,
+      "unread_count": 0,
+      "local_message_count": 12
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "id": "e1164b86-b860-4aa1-bdaa-ea47433a6486",
+      "type": "group",
+      "last_message_sequence": 0,
+      "last_read_sequence": 0,
+      "unread_count": 0,
+      "local_message_count": 0
+    }
+  ]
+}

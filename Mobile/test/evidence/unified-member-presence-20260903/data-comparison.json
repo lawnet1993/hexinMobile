@@ -1,0 +1,11 @@
+{
+  "im.eventCursors": true,
+  "im.messageLedger": true,
+  "im.conversationMetadata": true,
+  "im.outbox": true,
+  "im.groupProjections": true,
+  "oa.drafts": true,
+  "oa.readReceipts": true,
+  "oa.cursor": true,
+  "oa.outbox": true
+}

@@ -1,0 +1,12 @@
+{
+  "startedAt": "2026-09-03T04:48:27.9433302+08:00",
+  "avd": "SecureAccess_UAT_M4",
+  "serial": "emulator-5558",
+  "gpu": "host",
+  "launcherPid": 80552,
+  "dataWiped": false,
+  "memoryMb": 2048,
+  "cores": 2,
+  "avdRoot": "E:\\CodexToolchains\\secureaccess-uat-avds",
+  "bootVerified": false
+}

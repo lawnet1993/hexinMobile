@@ -1,0 +1,68 @@
+{
+  "phase": "offline",
+  "prefix": "AI-UAT-20260903-102141-COMPOSER-",
+  "events": [
+    {
+      "stage": "start",
+      "detail": {
+        "wifi": "1",
+        "data": "1"
+      },
+      "at": "2026-09-03T10:22:28.7524925+08:00"
+    },
+    {
+      "stage": "radios-disabled",
+      "detail": null,
+      "at": "2026-09-03T10:22:29.9552456+08:00"
+    },
+    {
+      "stage": "about-to-send-and-type",
+      "detail": {
+        "first": 3,
+        "next": 4
+      },
+      "at": "2026-09-03T10:22:36.5990382+08:00"
+    },
+    {
+      "stage": "sent-and-typed",
+      "detail": null,
+      "at": "2026-09-03T10:22:38.1657224+08:00"
+    },
+    {
+      "stage": "next-draft-preserved",
+      "detail": {
+        "exact": true
+      },
+      "at": "2026-09-03T10:22:43.4585713+08:00"
+    },
+    {
+      "stage": "about-to-send-second",
+      "detail": null,
+      "at": "2026-09-03T10:22:43.4617142+08:00"
+    },
+    {
+      "stage": "second-clicked",
+      "detail": null,
+      "at": "2026-09-03T10:22:43.5589423+08:00"
+    },
+    {
+      "stage": "two-messages-durable",
+      "detail": {
+        "outbox": 2,
+        "ledger": 614
+      },
+      "at": "2026-09-03T10:22:50.1705498+08:00"
+    },
+    {
+      "stage": "phase-complete",
+      "detail": null,
+      "at": "2026-09-03T10:22:50.1730022+08:00"
+    },
+    {
+      "stage": "network-restored",
+      "detail": null,
+      "at": "2026-09-03T10:22:50.3583087+08:00"
+    }
+  ],
+  "conversationId": "245e652d-14be-4c29-a7aa-57b7659fa4e6"
+}

@@ -42,12 +42,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('安全连接不可用'), findsOneWidget);
-    expect(find.text('当前安装包未包含移动端安全组件'), findsOneWidget);
-    expect(find.text('安全组件'), findsOneWidget);
-    expect(find.text('未安装'), findsOneWidget);
-    expect(find.text('运行环境'), findsOneWidget);
-    expect(find.text('android · arm64-v8a'), findsOneWidget);
+    expect(find.text('当前未启用'), findsOneWidget);
+    expect(find.text('仅访问 IM 和 OA 时无需启用'), findsOneWidget);
+    expect(find.text('适用范围'), findsOneWidget);
+    expect(find.text('企业站点'), findsOneWidget);
+    expect(find.text('站点组件'), findsOneWidget);
+    expect(find.text('未启用'), findsOneWidget);
+    expect(find.text('运行环境'), findsNothing);
+    expect(find.text('android · arm64-v8a'), findsNothing);
 
     expect(find.textContaining('mihomo'), findsNothing);
     expect(find.text('当前设备不支持安全连接'), findsNothing);

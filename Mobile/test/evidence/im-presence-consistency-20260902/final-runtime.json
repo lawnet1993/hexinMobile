@@ -1,0 +1,13 @@
+{
+  "CheckedAt": "2026-09-03T00:14:51.2049139+08:00",
+  "Serial": "emulator-5556",
+  "Pid": "23599",
+  "ApkBytes": 84396355,
+  "ApkSha256": "CA089C53D1E703575A089CB66ADF543D0F82467A352DA8BFD3488A1DF87B15FA",
+  "InstalledSha256": "ca089c53d1e703575a089cb66adf543d0f82467a352da8bfd3488a1df87b15fa",
+  "Wifi": "1",
+  "MobileData": "1",
+  "FatalCount": 0,
+  "FlutterErrorCount": 0,
+  "SessionEvents": []
+}

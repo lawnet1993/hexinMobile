@@ -1,0 +1,35 @@
+[
+  {
+    "device": "dd00d66d",
+    "checkedAt": "2026-09-02T19:15:29.6296211+08:00",
+    "pid": "21017",
+    "installedSha256": "cedc09594e237e41bed6dbb1ebf0b60ae0ca6c2f0a2d83169a9e02a16b120971",
+    "wifi": "0",
+    "data": "1",
+    "defaultNetwork": "Active default network: 107",
+    "targetedErrorCount": 0,
+    "sessionAuthEvents": []
+  },
+  {
+    "device": "emulator-5554",
+    "checkedAt": "2026-09-02T19:15:30.7926279+08:00",
+    "pid": "15157",
+    "installedSha256": "cedc09594e237e41bed6dbb1ebf0b60ae0ca6c2f0a2d83169a9e02a16b120971",
+    "wifi": "1",
+    "data": "1",
+    "defaultNetwork": "Active default network: 109",
+    "targetedErrorCount": 0,
+    "sessionAuthEvents": [
+      {
+        "source": "managed_commands",
+        "status": 401,
+        "action": "session_preserved"
+      },
+      {
+        "source": "heartbeat",
+        "status": 409,
+        "action": "terminated"
+      }
+    ]
+  }
+]

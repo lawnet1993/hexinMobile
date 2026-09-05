@@ -1,0 +1,25 @@
+{
+  "startedAt": "2026-09-05T00:12:32.1706381+08:00",
+  "checkedAt": "2026-09-05T00:12:32.4320980+08:00",
+  "serial": "emulator-5556",
+  "processId": 3352,
+  "source": "normal-app-scoped-logcat-whitelisted-metadata",
+  "events": [
+    {
+      "epochSeconds": "1788538304.203",
+      "kind": "REFRESH",
+      "status": 401,
+      "action": "rejected",
+      "source": null,
+      "errorCode": null
+    },
+    {
+      "epochSeconds": "1788538304.520",
+      "kind": "AUTH",
+      "status": 401,
+      "action": "terminated",
+      "source": "managed_commands",
+      "errorCode": null
+    }
+  ]
+}

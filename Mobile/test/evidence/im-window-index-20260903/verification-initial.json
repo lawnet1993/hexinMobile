@@ -1,0 +1,118 @@
+{
+  "passed": 27,
+  "total": 28,
+  "checks": [
+    {
+      "name": "m3-schema-and-integrity",
+      "passed": true
+    },
+    {
+      "name": "m3-ordering-index-used",
+      "passed": true
+    },
+    {
+      "name": "m3-tableRowCounts-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-messageLedger-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-groupProjections-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-conversationMetadata-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-currentMembers-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-pending-media-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-oa-drafts-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-oa-readReceipts-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-oa-outbox-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-schema-and-integrity",
+      "passed": true
+    },
+    {
+      "name": "m4-ordering-index-used",
+      "passed": true
+    },
+    {
+      "name": "m4-tableRowCounts-preserved",
+      "passed": false
+    },
+    {
+      "name": "m4-messageLedger-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-groupProjections-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-conversationMetadata-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-currentMembers-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-pending-media-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-oa-drafts-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-oa-readReceipts-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-oa-outbox-preserved",
+      "passed": true
+    },
+    {
+      "name": "android-benchmark.json-three-sizes-and-equivalence",
+      "passed": true
+    },
+    {
+      "name": "android-benchmark-repeat.json-three-sizes-and-equivalence",
+      "passed": true
+    },
+    {
+      "name": "emulator-5556-normal-apk-runtime",
+      "passed": true
+    },
+    {
+      "name": "emulator-5558-normal-apk-runtime",
+      "passed": true
+    },
+    {
+      "name": "before-index-five-native-contact-open-back",
+      "passed": true
+    },
+    {
+      "name": "after-index-five-native-contact-open-back",
+      "passed": true
+    }
+  ]
+}

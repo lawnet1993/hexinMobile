@@ -1,0 +1,58 @@
+{
+  "checkedAt": "2026-09-02T16:31:41.5288268+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "bootstrapStatus": 200,
+  "bootstrapRequestId": null,
+  "sync": {
+    "status": 200,
+    "allow": [],
+    "requestId": null,
+    "fields": [
+      "events",
+      "latestSequence",
+      "serverTime"
+    ]
+  },
+  "currentUser": "test01",
+  "conversations": [
+    {
+      "id": "c4906953-10bd-4671-b984-c50ed3951349",
+      "title": "AI-UAT-20260902-162326-GROUP",
+      "type": "group",
+      "unreadCount": 1,
+      "lastMessageSequence": 1,
+      "lastReadSequence": 0,
+      "unreadMentionSequences": [
+        1
+      ],
+      "messagesStatus": 405,
+      "requestId": null,
+      "allow": [
+        "POST"
+      ],
+      "contentType": "",
+      "responseType": "null",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "title": "Test Terminal 01、Test Terminal 02",
+      "type": "direct",
+      "unreadCount": 0,
+      "lastMessageSequence": 2,
+      "lastReadSequence": 2,
+      "unreadMentionSequences": [],
+      "messagesStatus": 405,
+      "requestId": null,
+      "allow": [
+        "POST"
+      ],
+      "contentType": "",
+      "responseType": "null",
+      "messageCount": 0,
+      "messages": []
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "capturedAt": "2026-09-05T02:20:00+08:00",
+  "device": "phone-test01",
+  "conversationId": "bd15cbb6-ab8e-4cf2-9d62-fdb6f37ce90a",
+  "conversation": {
+    "type": "group",
+    "lastMessageSequence": 16,
+    "lastReadSequence": 16,
+    "unreadCount": 0,
+    "unreadMentionSequences": [],
+    "localMessageCount": 16
+  },
+  "tailMessages": [
+    {"sequence": 13, "id": "3ed218cd-5f77-4ea6-8a03-d33ddc9ad380", "clientMessageId": "2d5a3946-a5b1-4317-9681-9ff3e410655a", "sender": "test01", "status": "sent"},
+    {"sequence": 14, "id": "bb635eae-e63d-4a1e-a8ed-172396a04b45", "clientMessageId": "6e601bb7-0b9c-4178-9489-5a1f4dd4b85f", "sender": "test01", "status": "sent"},
+    {"sequence": 15, "id": "bfee1609-20ab-43eb-b01d-7f53f9be5dd3", "clientMessageId": "13332df1-bfc5-418e-a51e-44357b44ff5c", "sender": "test01", "status": "sent"},
+    {"sequence": 16, "id": "477837bd-b3d9-4198-acef-7e698e62226f", "clientMessageId": "75a66005-e023-48ec-8e83-0a780d92ed44", "sender": "test03", "status": "sent"}
+  ],
+  "recipientReadSequence": 15,
+  "outboxCount": 0,
+  "eventCursor": {"applied": 2350, "acked": 2350},
+  "databaseIntegrity": "ok",
+  "fatalExceptionCount": 0
+}

@@ -1,0 +1,194 @@
+[
+  {
+    "name": "Installed software",
+    "amTotalMs": 11620,
+    "nativeFirstUiMs": 5444,
+    "frameworkFirstFrameUs": 99354,
+    "completeFrameWindow": true,
+    "frameSummary": {
+      "reason": "window_elapsed",
+      "elapsedMicros": 15004287,
+      "sampleCount": 70,
+      "maxSamples": 240,
+      "invalidSamples": 0,
+      "refreshRateHz": 60.000003814697266,
+      "frameBudgetMicros": 16667,
+      "build": {
+        "p50Micros": 2860,
+        "p95Micros": 28876,
+        "maxMicros": 79925,
+        "overBudgetCount": 6
+      },
+      "raster": {
+        "p50Micros": 24604,
+        "p95Micros": 101652,
+        "maxMicros": 432671,
+        "overBudgetCount": 48
+      },
+      "totalSpan": {
+        "p50Micros": 70301,
+        "p95Micros": 230019,
+        "maxMicros": 2374893,
+        "overBudgetCount": 70
+      },
+      "vsyncOverhead": {
+        "p50Micros": 8802,
+        "p95Micros": 120630,
+        "maxMicros": 1913475,
+        "overBudgetCount": 18
+      },
+      "firstFrame": {
+        "buildMicros": 13663,
+        "rasterMicros": 432671,
+        "totalSpanMicros": 2374893,
+        "vsyncOverheadMicros": 1913475
+      }
+    }
+  },
+  {
+    "name": "Software cold",
+    "amTotalMs": 4467,
+    "nativeFirstUiMs": 2818,
+    "frameworkFirstFrameUs": 1148649,
+    "completeFrameWindow": true,
+    "frameSummary": {
+      "reason": "window_elapsed",
+      "elapsedMicros": 15011041,
+      "sampleCount": 48,
+      "maxSamples": 240,
+      "invalidSamples": 0,
+      "refreshRateHz": 60.000003814697266,
+      "frameBudgetMicros": 16667,
+      "build": {
+        "p50Micros": 1623,
+        "p95Micros": 29827,
+        "maxMicros": 64029,
+        "overBudgetCount": 3
+      },
+      "raster": {
+        "p50Micros": 14567,
+        "p95Micros": 71600,
+        "maxMicros": 320456,
+        "overBudgetCount": 19
+      },
+      "totalSpan": {
+        "p50Micros": 39136,
+        "p95Micros": 205882,
+        "maxMicros": 334966,
+        "overBudgetCount": 48
+      },
+      "vsyncOverhead": {
+        "p50Micros": 11053,
+        "p95Micros": 62915,
+        "maxMicros": 86324,
+        "overBudgetCount": 16
+      },
+      "firstFrame": {
+        "buildMicros": 63,
+        "rasterMicros": 320456,
+        "totalSpanMicros": 331317,
+        "vsyncOverheadMicros": 0
+      }
+    }
+  },
+  {
+    "name": "Host after boot",
+    "amTotalMs": 8232,
+    "nativeFirstUiMs": 6087,
+    "frameworkFirstFrameUs": 157506,
+    "completeFrameWindow": false,
+    "frameSummary": null
+  },
+  {
+    "name": "Host cold 1",
+    "amTotalMs": 7571,
+    "nativeFirstUiMs": 5270,
+    "frameworkFirstFrameUs": 244246,
+    "completeFrameWindow": true,
+    "frameSummary": {
+      "reason": "window_elapsed",
+      "elapsedMicros": 15027500,
+      "sampleCount": 63,
+      "maxSamples": 240,
+      "invalidSamples": 0,
+      "refreshRateHz": 60.000003814697266,
+      "frameBudgetMicros": 16667,
+      "build": {
+        "p50Micros": 1415,
+        "p95Micros": 14321,
+        "maxMicros": 55727,
+        "overBudgetCount": 3
+      },
+      "raster": {
+        "p50Micros": 17068,
+        "p95Micros": 123295,
+        "maxMicros": 238611,
+        "overBudgetCount": 33
+      },
+      "totalSpan": {
+        "p50Micros": 44668,
+        "p95Micros": 283140,
+        "maxMicros": 2376092,
+        "overBudgetCount": 61
+      },
+      "vsyncOverhead": {
+        "p50Micros": 7171,
+        "p95Micros": 62795,
+        "maxMicros": 2133460,
+        "overBudgetCount": 16
+      },
+      "firstFrame": {
+        "buildMicros": 3072,
+        "rasterMicros": 238611,
+        "totalSpanMicros": 2376092,
+        "vsyncOverheadMicros": 2133460
+      }
+    }
+  },
+  {
+    "name": "Host cold 2",
+    "amTotalMs": 3458,
+    "nativeFirstUiMs": 2345,
+    "frameworkFirstFrameUs": 998175,
+    "completeFrameWindow": true,
+    "frameSummary": {
+      "reason": "window_elapsed",
+      "elapsedMicros": 15007019,
+      "sampleCount": 39,
+      "maxSamples": 240,
+      "invalidSamples": 0,
+      "refreshRateHz": 60.000003814697266,
+      "frameBudgetMicros": 16667,
+      "build": {
+        "p50Micros": 1340,
+        "p95Micros": 32120,
+        "maxMicros": 44395,
+        "overBudgetCount": 3
+      },
+      "raster": {
+        "p50Micros": 4533,
+        "p95Micros": 25998,
+        "maxMicros": 59362,
+        "overBudgetCount": 6
+      },
+      "totalSpan": {
+        "p50Micros": 27496,
+        "p95Micros": 132615,
+        "maxMicros": 171718,
+        "overBudgetCount": 32
+      },
+      "vsyncOverhead": {
+        "p50Micros": 11964,
+        "p95Micros": 126513,
+        "maxMicros": 131861,
+        "overBudgetCount": 13
+      },
+      "firstFrame": {
+        "buildMicros": 61,
+        "rasterMicros": 59362,
+        "totalSpanMicros": 61834,
+        "vsyncOverheadMicros": 0
+      }
+    }
+  }
+]

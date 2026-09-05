@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hexing_terminal_mobile/core/demo/preview_data.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration_repositories.dart';
+import 'package:hexing_terminal_mobile/features/collaboration/data/im_member_presence.dart';
+import 'support/fixture_member_presence.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:hexing_terminal_mobile/features/contacts/presentation/contacts_page.dart';
 import 'package:hexing_terminal_mobile/features/shell/presentation/mobile_shell.dart';
@@ -58,6 +60,86 @@ void main() {
       contacts: const [peer],
     );
     expect(existingDirectConversationForMember(ambiguous, peer), isNull);
+  });
+
+  testWidgets('contact search dismisses the keyboard before opening chat', (
+    tester,
+  ) async {
+    const peer = ImMember(
+      id: 'peer-search',
+      username: 'peer.search',
+      displayName: '搜索成员',
+      isOnline: false,
+      departmentId: 'department-search',
+      departmentName: '搜索部门',
+      canStartDirect: true,
+    );
+    final source = PreviewData.imBootstrap;
+    final conversation = ImConversation(
+      id: 'direct-search',
+      type: 'direct',
+      title: '搜索成员',
+      preview: '',
+      updatedAt: DateTime(2026, 9, 1),
+      unreadCount: 0,
+    );
+    final bootstrap = ImBootstrap(
+      currentMember: source.currentMember,
+      conversations: [conversation],
+      contacts: const [peer],
+    );
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const ContactsPage()),
+        GoRoute(
+          path: '/chat/:id',
+          builder: (_, state) =>
+              Scaffold(body: Text('chat:${state.pathParameters['id']}')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          contactPresenceRefresherProvider.overrideWithValue(() async {}),
+          imBootstrapProvider.overrideWith((ref) async => bootstrap),
+          imDepartmentsProvider.overrideWith(
+            (ref) async => const [
+              ImDepartment(
+                id: 'department-search',
+                name: '搜索部门',
+                code: 'SEARCH',
+                parentId: '',
+                sortOrder: 0,
+              ),
+            ],
+          ),
+          pendingFriendApplicationsProvider.overrideWith(
+            (ref) async => const [],
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final searchField = find.descendant(
+      of: find.byKey(const Key('contacts-search-field')),
+      matching: find.byType(TextField),
+    );
+    await tester.showKeyboard(searchField);
+    await tester.enterText(searchField, '搜索成员');
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.tap(find.text('搜索成员').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('chat:direct-search'), findsOneWidget);
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(tester.takeException(), isNull);
   });
 
   test('security shortcuts keep desktop-aligned destinations distinct', () {
@@ -223,6 +305,12 @@ void main() {
         find.byKey(const Key('friend-search-field')),
         'test03',
       );
+      await tester.pump();
+      expect(
+        find.text('未找到该终端账号'),
+        findsNothing,
+        reason: 'typing is not an executed search',
+      );
       await tester.tap(find.byKey(const Key('friend-search-submit')));
       await tester.pumpAndSettle();
 
@@ -230,7 +318,7 @@ void main() {
       expect(find.byKey(const Key('friend-search-sheet')), findsOneWidget);
       expect(find.byKey(const Key('friend-search-result')), findsOneWidget);
       expect(find.text('Test Terminal 03'), findsOneWidget);
-      expect(find.text('test03 · 集团总部 · 离线'), findsOneWidget);
+      expect(find.text('test03 · 集团总部 · 状态未知'), findsOneWidget);
       expect(find.byKey(const Key('friend-search-action')), findsOneWidget);
       expect(find.text('发消息'), findsOneWidget);
       expect(find.text('验证消息'), findsNothing);
@@ -336,6 +424,77 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final repeatAccount in [false, true]) {
+    testWidgets(
+      'friend search edits release pending requests and ignore stale results repeat=$repeatAccount',
+      (tester) async {
+        final first = Completer<List<ImSearchResult>>();
+        final second = Completer<List<ImSearchResult>>();
+        var searches = 0;
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              contactPresenceRefresherProvider.overrideWithValue(() async {}),
+              imBootstrapProvider.overrideWith(
+                (ref) async => PreviewData.imBootstrap,
+              ),
+              imDepartmentsProvider.overrideWith(
+                (ref) async => PreviewData.imDepartments,
+              ),
+              pendingFriendApplicationsProvider.overrideWith(
+                (ref) async => const [],
+              ),
+              memberAccountSearcherProvider.overrideWithValue(
+                (account) => ++searches == 1 ? first.future : second.future,
+              ),
+            ],
+            child: const MaterialApp(home: ContactsPage()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('添加好友'));
+        await tester.pumpAndSettle();
+        final field = find.byKey(const Key('friend-search-field'));
+        final submit = find.byKey(const Key('friend-search-submit'));
+        await tester.enterText(field, 'first.account');
+        await tester.tap(submit);
+        await tester.pump();
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        await tester.enterText(field, 'second.account');
+        if (repeatAccount) await tester.enterText(field, 'first.account');
+        await tester.pump();
+        expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
+        await tester.tap(submit);
+        await tester.pump();
+        expect(searches, 2);
+        first.complete([
+          ImSearchResult(
+            type: 'member',
+            id: 'stale',
+            displayName: '旧查询结果',
+            username: 'first.account',
+          ),
+        ]);
+        await tester.pump();
+        expect(find.text('旧查询结果'), findsNothing);
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        second.complete([
+          ImSearchResult(
+            type: 'member',
+            id: 'fresh',
+            displayName: '当前查询结果',
+            username: repeatAccount ? 'first.account' : 'second.account',
+          ),
+        ]);
+        await tester.pumpAndSettle();
+        expect(find.text('当前查询结果'), findsOneWidget);
+        expect(find.text('旧查询结果'), findsNothing);
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'organization directory includes self and filters by real department tree',
@@ -479,7 +638,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(Key('department-page-footer-$departmentId')),
-      findsOneWidget,
+      findsNothing,
     );
     await tester.drag(
       find.byKey(const Key('contacts-page-scroll')),
@@ -705,8 +864,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
+        ProviderScope(
+          overrides: [
+            imMemberPresenceProjectionProvider.overrideWith(() => FixtureMemberPresence(PreviewData.imBootstrap.contacts)),
+            contactPresenceRefresherProvider.overrideWithValue(() async {}),
           imBootstrapProvider.overrideWith(
             (ref) async => PreviewData.imBootstrap,
           ),
@@ -768,6 +929,68 @@ void main() {
     expect(refreshCount, 2);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'offstage contacts stop polling and stale presence is hidden after failure',
+    (tester) async {
+      var calls = 0;
+      var fail = false;
+      final visible = ValueNotifier(true);
+      addTearDown(visible.dispose);
+      await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              imMemberPresenceProjectionProvider.overrideWith(() => FixtureMemberPresence(PreviewData.imBootstrap.contacts)),
+              contactPresenceRefresherProvider.overrideWithValue(() async {
+              calls++;
+              if (fail) throw StateError('offline');
+            }),
+            imBootstrapProvider.overrideWith(
+              (ref) async => PreviewData.imBootstrap,
+            ),
+            imDepartmentsProvider.overrideWith(
+              (ref) async => PreviewData.imDepartments,
+            ),
+            pendingFriendApplicationsProvider.overrideWith(
+              (ref) async => const [],
+            ),
+          ],
+          child: MaterialApp(
+            home: ValueListenableBuilder<bool>(
+              valueListenable: visible,
+              builder: (context, enabled, child) =>
+                  TickerMode(enabled: enabled, child: child!),
+              child: const ContactsPage(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+      await tester.tap(find.byKey(const Key('department-group-department-hq')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('department-group-department-shenzhen')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('在线'), findsOneWidget);
+      visible.value = false;
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 90));
+      expect(calls, 1);
+      fail = true;
+      visible.value = true;
+      await tester.pumpAndSettle();
+      expect(calls, 2);
+      expect(find.text('状态未知'), findsOneWidget);
+      expect(find.text('在线'), findsNothing);
+      fail = false;
+      await tester.pump(const Duration(seconds: 31));
+      await tester.pumpAndSettle();
+      expect(calls, 3);
+      expect(find.text('在线'), findsOneWidget);
+    },
+  );
 
   testWidgets('通讯录实时通道断开时不冒充在线状态', (tester) async {
     await tester.pumpWidget(
@@ -856,12 +1079,20 @@ void main() {
       expect(find.text('日程'), findsNothing);
       expect(find.text('网络诊断'), findsNothing);
       final leaveLabel = tester.widget<Text>(find.text('请假申请'));
-      expect(leaveLabel.maxLines, 1);
+      expect(leaveLabel.maxLines, 3);
       expect(leaveLabel.overflow, TextOverflow.ellipsis);
       expect(leaveLabel.textAlign, TextAlign.center);
       final longLabel = tester.widget<Text>(find.text('分级请款审批'));
-      expect(longLabel.maxLines, 1);
+      expect(longLabel.maxLines, 3);
       expect(longLabel.overflow, TextOverflow.ellipsis);
+      expect(
+        tester
+            .getSize(
+              find.byKey(const Key('all-app-label-attendance.long-label')),
+            )
+            .height,
+        lessThanOrEqualTo(38),
+      );
       expect(
         tester
             .getSize(find.byKey(const Key('all-app-icon-attendance.leave')))
@@ -870,7 +1101,7 @@ void main() {
       );
       expect(
         tester.getSize(find.byKey(const Key('all-app-catalog-surface'))).height,
-        lessThanOrEqualTo(172),
+        lessThanOrEqualTo(202),
       );
 
       final labels = tester
@@ -1041,6 +1272,88 @@ void main() {
       expect(find.text('今天暂无日程'), findsNothing);
       expect(find.text('暂无公告'), findsNothing);
       expect(find.text('公告'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'workbench does not present an offline cache as a true empty result',
+    (tester) async {
+      final source = PreviewData.oaBootstrap;
+      final empty = OaBootstrap(
+        currentMemberId: source.currentMemberId,
+        displayName: source.displayName,
+        todos: const [],
+        announcements: const [],
+        templates: source.templates,
+        approvalRequests: const [],
+        notifications: const [],
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            oaBootstrapProvider.overrideWith((ref) async => empty),
+            oaApplicationCatalogProvider.overrideWith(
+              (ref) async => PreviewData.oaCatalog,
+            ),
+            oaSyncAvailabilityProvider.overrideWithValue(
+              OaSyncAvailability.unavailable,
+            ),
+          ],
+          child: const MaterialApp(home: WorkbenchPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('workbench-approval-offline')),
+        findsOneWidget,
+      );
+      expect(find.text('本机记录'), findsOneWidget);
+      expect(find.text('本机暂无审批记录'), findsOneWidget);
+      expect(find.text('暂无审批事项'), findsNothing);
+      expect(
+        tester
+            .getSize(find.byKey(const Key('workbench-approval-offline')))
+            .height,
+        lessThanOrEqualTo(34),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'workbench keeps the approval empty state provisional while syncing',
+    (tester) async {
+      final source = PreviewData.oaBootstrap;
+      final empty = OaBootstrap(
+        currentMemberId: source.currentMemberId,
+        displayName: source.displayName,
+        todos: const [],
+        announcements: const [],
+        templates: source.templates,
+        approvalRequests: const [],
+        notifications: const [],
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            oaBootstrapProvider.overrideWith((ref) async => empty),
+            oaApplicationCatalogProvider.overrideWith(
+              (ref) async => PreviewData.oaCatalog,
+            ),
+            oaSyncAvailabilityProvider.overrideWithValue(
+              OaSyncAvailability.connecting,
+            ),
+          ],
+          child: const MaterialApp(home: WorkbenchPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('同步中'), findsOneWidget);
+      expect(find.text('正在同步审批'), findsOneWidget);
+      expect(find.text('暂无审批事项'), findsNothing);
+      expect(tester.takeException(), isNull);
     },
   );
 

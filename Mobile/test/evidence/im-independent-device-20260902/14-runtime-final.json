@@ -1,0 +1,31 @@
+[
+  {
+    "device": "dd00d66d",
+    "checkedAt": "2026-09-02T20:17:54.8535704+08:00",
+    "apkSha256": "93b64b3c5a07722539cda452dcc0d6b66f3ef46a428fa0e656996b61e55e4f19",
+    "wifi": "0",
+    "mobileData": "1",
+    "defaultNetwork": "Active default network: 107",
+    "flutterErrors": 0,
+    "indexLogs": [
+      "09-02 20:16:43.847 19047 19047 I flutter : MOBILE_IM_INDEX {\"status\":200,\"received\":5,\"changed\":false}",
+      "09-02 20:17:09.589 19047 19047 I flutter : MOBILE_IM_INDEX {\"status\":200,\"received\":5,\"changed\":false}",
+      "09-02 20:17:38.280 19047 19047 I flutter : MOBILE_IM_INDEX {\"status\":200,\"received\":5,\"changed\":false}"
+    ]
+  },
+  {
+    "device": "emulator-5556",
+    "checkedAt": "2026-09-02T20:17:55.7012957+08:00",
+    "apkSha256": "93b64b3c5a07722539cda452dcc0d6b66f3ef46a428fa0e656996b61e55e4f19",
+    "wifi": "1",
+    "mobileData": "1",
+    "defaultNetwork": "Active default network: 104",
+    "flutterErrors": 0,
+    "indexLogs": [
+      "09-02 12:16:08.792  7967  7967 I flutter : MOBILE_IM_INDEX {\"status\":200,\"received\":2,\"changed\":false}",
+      "09-02 12:16:34.898  7967  7967 I flutter : MOBILE_IM_INDEX {\"status\":200,\"received\":2,\"changed\":false}",
+      "09-02 12:17:00.808  7967  7967 I flutter : MOBILE_IM_INDEX {\"status\":200,\"received\":2,\"changed\":false}",
+      "09-02 12:17:39.055  7967  7967 I flutter : MOBILE_IM_INDEX {\"status\":200,\"received\":2,\"changed\":false}"
+    ]
+  }
+]

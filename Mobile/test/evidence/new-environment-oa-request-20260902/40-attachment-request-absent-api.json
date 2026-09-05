@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-09-02T17:13:25.0424814+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260902-165500-LEAVE",
+  "bootstrapStatus": 200,
+  "requestId": null,
+  "pageStatus": 200,
+  "pageRequestId": null,
+  "hasMore": false,
+  "matchCount": 0,
+  "requests": []
+}

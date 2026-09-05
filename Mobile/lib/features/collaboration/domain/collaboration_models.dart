@@ -1,3 +1,5 @@
+import 'presence_time.dart';
+
 final class OaTodo {
   const OaTodo({
     required this.id,
@@ -871,6 +873,7 @@ final class ImMember {
     required this.username,
     required this.displayName,
     required this.isOnline,
+    this.presenceKnown = true,
     this.avatarKey = '',
     this.avatarDataUrl = '',
     this.departmentId = '',
@@ -887,6 +890,7 @@ final class ImMember {
     username: _text(json, 'userName'),
     displayName: _text(json, 'displayName'),
     isOnline: _boolean(_value(json, 'isOnline')),
+    presenceKnown: _knownBoolean(_value(json, 'isOnline')),
     avatarKey: _text(json, 'avatarKey'),
     avatarDataUrl: _text(json, 'avatarDataUrl'),
     departmentId: _text(json, 'departmentId'),
@@ -895,13 +899,14 @@ final class ImMember {
     isFriend: _boolean(_value(json, 'isFriend')),
     canStartDirect: _boolean(_value(json, 'canStartDirect')),
     groupRole: _text(json, 'groupRole'),
-    lastSeenAt: _date(_value(json, 'lastSeenAt')),
+    lastSeenAt: validPresenceTime(_date(_value(json, 'lastSeenAt'))),
   );
 
   final String id;
   final String username;
   final String displayName;
   final bool isOnline;
+  final bool presenceKnown;
   final String avatarKey;
   final String avatarDataUrl;
   final String departmentId;
@@ -1148,6 +1153,7 @@ final class ImConversation {
     this.isPinned = false,
     this.isMuted = false,
     this.unreadMentionSequences = const [],
+    this.localPreviewStatus,
   });
 
   factory ImConversation.fromJson(Map<String, Object?> json) => ImConversation(
@@ -1181,6 +1187,8 @@ final class ImConversation {
   final bool isPinned;
   final bool isMuted;
   final List<int> unreadMentionSequences;
+  /// Derived from this account's durable Outbox, never from a server payload.
+  final ImLocalMessageStatus? localPreviewStatus;
   bool get hasUnreadMention => unreadMentionSequences.isNotEmpty;
   int? get firstUnreadSequence => unreadCount > 0 ? lastReadSequence + 1 : null;
   ImConversationKind get kind => switch (type.trim().toLowerCase()) {
@@ -1613,6 +1621,7 @@ final class ImMessage {
     this.recalledAt,
     this.localStatus = ImLocalMessageStatus.sent,
     this.lastError = '',
+    this.hasRecipientRead = false,
   });
 
   factory ImMessage.fromJson(Map<String, Object?> json) => ImMessage(
@@ -1660,6 +1669,10 @@ final class ImMessage {
   final ImLocalMessageStatus localStatus;
   final String lastError;
 
+  /// Positive receipt evidence from the server. In groups this means at least
+  /// one recipient has read, not that all members have read.
+  final bool hasRecipientRead;
+
   ImMessage copyWith({
     String? id,
     int? sequence,
@@ -1690,6 +1703,7 @@ final class ImMessage {
     recalledAt: recalledAt ?? this.recalledAt,
     localStatus: localStatus ?? this.localStatus,
     lastError: lastError ?? this.lastError,
+    hasRecipientRead: hasRecipientRead,
   );
 }
 
@@ -2045,6 +2059,7 @@ final class ImConversationPresence {
     required this.type,
     required this.onlineMemberCount,
     required this.peerOnline,
+    this.peerPresenceKnown = true,
     this.peerLastSeenAt,
     this.serverTime,
   });
@@ -2055,7 +2070,8 @@ final class ImConversationPresence {
         type: _text(json, 'type'),
         onlineMemberCount: _integer(_value(json, 'onlineMemberCount')),
         peerOnline: _boolean(_value(json, 'peerOnline')),
-        peerLastSeenAt: _date(_value(json, 'peerLastSeenAt')),
+        peerPresenceKnown: _knownBoolean(_value(json, 'peerOnline')),
+        peerLastSeenAt: validPresenceTime(_date(_value(json, 'peerLastSeenAt'))),
         serverTime: _date(_value(json, 'serverTime')),
       );
 
@@ -2063,6 +2079,7 @@ final class ImConversationPresence {
   final String type;
   final int onlineMemberCount;
   final bool peerOnline;
+  final bool peerPresenceKnown;
   final DateTime? peerLastSeenAt;
   final DateTime? serverTime;
 }
@@ -2138,6 +2155,10 @@ ImMessageReply? _replyTo(Object? value) {
   final json = _mapOrNull(value);
   return json == null ? null : ImMessageReply.fromJson(json);
 }
+
+bool _knownBoolean(Object? value) => value is bool ||
+    (value is num && (value == 0 || value == 1)) ||
+    (value is String && const ['true', 'false', '0', '1'].contains(value.toLowerCase()));
 
 bool _boolean(Object? value) => switch (value) {
   bool result => result,

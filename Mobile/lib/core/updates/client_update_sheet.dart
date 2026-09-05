@@ -9,19 +9,54 @@ Future<void> showClientUpdateSheet(
   BuildContext context, {
   required ClientUpdateInfo info,
   required ClientUpdateDownloadAction onDownload,
-}) => showModalBottomSheet<void>(
-  context: context,
-  useRootNavigator: true,
-  useSafeArea: true,
-  isScrollControlled: true,
-  isDismissible: !info.isMandatory,
-  enableDrag: !info.isMandatory,
-  showDragHandle: !info.isMandatory,
-  builder: (sheetContext) => PopScope(
-    canPop: !info.isMandatory,
-    child: _ClientUpdateSheet(info: info, onDownload: onDownload),
-  ),
-);
+}) {
+  if (info.isMandatory) {
+    return showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      barrierColor: const Color(0x5C000000),
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Dialog(
+          key: const Key('client-update-dialog'),
+          alignment: Alignment.center,
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF1C222B)
+              : Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          elevation: 0,
+          clipBehavior: Clip.antiAlias,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
+          constraints: const BoxConstraints(maxWidth: 360),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: SingleChildScrollView(
+            child: _ClientUpdateSheet(info: info, onDownload: onDownload),
+          ),
+        ),
+      ),
+    );
+  }
+  return showModalBottomSheet<void>(
+    context: context,
+    useRootNavigator: true,
+    useSafeArea: true,
+    isScrollControlled: true,
+    isDismissible: !info.isMandatory,
+    enableDrag: !info.isMandatory,
+    showDragHandle: !info.isMandatory,
+    builder: (sheetContext) => PopScope(
+      canPop: !info.isMandatory,
+      child: _ClientUpdateSheet(info: info, onDownload: onDownload),
+    ),
+  );
+}
 
 class _ClientUpdateSheet extends StatefulWidget {
   const _ClientUpdateSheet({required this.info, required this.onDownload});
@@ -53,7 +88,7 @@ class _ClientUpdateSheetState extends State<_ClientUpdateSheet> {
       top: false,
       child: Padding(
         key: const Key('client-update-sheet'),
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+        padding: EdgeInsets.fromLTRB(18, info.isMandatory ? 20 : 0, 18, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -84,18 +119,19 @@ class _ClientUpdateSheetState extends State<_ClientUpdateSheet> {
               ],
             ),
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _UpdateMeta(label: '版本', value: 'v${info.latestVersion}'),
                 if (info.packageSize > 0) ...[
-                  const SizedBox(width: 8),
                   _UpdateMeta(
                     label: '大小',
                     value: _formatPackageSize(info.packageSize),
                   ),
                 ],
                 if (info.isMandatory) ...[
-                  const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -119,13 +155,9 @@ class _ClientUpdateSheetState extends State<_ClientUpdateSheet> {
             ),
             if (info.releaseNotes.trim().isNotEmpty) ...[
               const SizedBox(height: 12),
-              Container(
+              ConstrainedBox(
+                key: const Key('client-update-release-notes'),
                 constraints: const BoxConstraints(maxHeight: 132),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F7FA),
-                  borderRadius: BorderRadius.circular(10),
-                ),
                 child: SingleChildScrollView(
                   child: Text(
                     info.releaseNotes.trim(),

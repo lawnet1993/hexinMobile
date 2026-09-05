@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:secure_tunnel/secure_tunnel.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_mode_controller.dart';
+import '../../../core/storage/secure_session_store.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../collaboration/application/mobile_device_authorization_coordinator.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/data/im_member_presence.dart';
 import '../../collaboration/domain/collaboration_models.dart';
-import '../../network/application/tunnel_controller.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -23,16 +23,12 @@ class ProfilePage extends ConsumerWidget {
     final realtimeAvailability = ref.watch(imRealtimeAvailabilityProvider);
     final presenceAvailable =
         realtimeAvailability == ImRealtimeAvailability.available;
-    final tunnel = ref.watch(tunnelControllerProvider).value?.status;
     final devices = ref.watch(imDeviceAuthorizationsProvider);
     final currentDevice = ref.watch(currentMobileDeviceAuthorizationProvider);
     final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.light;
     final language = ref.watch(imLanguagePreferenceProvider).value?.language;
-    final name = member?.displayName.isNotEmpty == true
-        ? member!.displayName
-        : session?.displayName.isNotEmpty == true
-        ? session!.displayName
-        : '终端账号';
+    final name = _profileDisplayName(member, session);
+    final avatarName = name == '个人资料' ? '我' : name;
     final department = member?.departmentName.trim() ?? '';
     return Scaffold(
       body: SafeArea(
@@ -41,20 +37,28 @@ class ProfilePage extends ConsumerWidget {
           children: [
             const EnterprisePageHeader(title: '我的'),
             MobileSurface(
+              key: const Key('profile-summary-card'),
               padding: EdgeInsets.zero,
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: member == null
+                onTap: member == null && session == null
                     ? null
                     : () => context.push('/profile/edit'),
                 child: Padding(
-                  padding: const EdgeInsets.all(11),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
                   child: Row(
                     children: [
                       InitialAvatar(
-                        name: name,
-                        radius: 21,
-                        online: presenceAvailable ? member?.isOnline : null,
+                        name: avatarName,
+                        radius: 20,
+                        online: watchMemberPresence(
+                          ref,
+                          member,
+                          transportAvailable: presenceAvailable,
+                        ).online,
                         avatarKey: member?.avatarKey ?? '',
                         avatarDataUrl: member?.avatarDataUrl ?? '',
                       ),
@@ -68,24 +72,16 @@ class ProfilePage extends ConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 15,
+                                fontSize: 14.5,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              session?.username ?? '-',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.secondaryText,
-                              ),
-                            ),
                             if (department.isNotEmpty) ...[
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 3),
                               Text(
                                 department,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 11.5,
                                   color: AppColors.secondaryText,
@@ -95,31 +91,6 @@ class ProfilePage extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: presenceAvailable && member?.isOnline == true
-                              ? const Color(0xFFE8F8F0)
-                              : const Color(0xFFF0F1F3),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          presenceAvailable
-                              ? (member?.isOnline == true ? '在线' : '离线')
-                              : '状态未知',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: presenceAvailable && member?.isOnline == true
-                                ? AppColors.success
-                                : AppColors.secondaryText,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
                       const Icon(
                         Icons.chevron_right_rounded,
                         size: 18,
@@ -140,14 +111,9 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 _Entry(
                   icon: Icons.notifications_none_rounded,
-                  title: '消息通知',
+                  title: '通知设置',
+                  subtitle: '消息、审批与公告',
                   onTap: () => context.push('/notification-settings'),
-                ),
-                _Entry(
-                  icon: Icons.language_rounded,
-                  title: '网络与安全',
-                  subtitle: _tunnelSummary(tunnel?.phase),
-                  onTap: () => context.push('/network-security'),
                 ),
                 _Entry(
                   icon: Icons.devices_outlined,
@@ -156,9 +122,7 @@ class ProfilePage extends ConsumerWidget {
                     devices,
                     currentDeviceId: session?.deviceId ?? '',
                     currentDevice: currentDevice,
-                    syncUnavailable:
-                        realtimeAvailability !=
-                        ImRealtimeAvailability.available,
+                    syncState: realtimeAvailability,
                   ),
                   onTap: () => context.push('/login-devices'),
                 ),
@@ -196,18 +160,22 @@ class ProfilePage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: () => _logout(context, ref),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                minimumSize: const Size.fromHeight(42),
-                side: const BorderSide(color: Color(0xFFFFD6D2)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9),
+            MobileSurface(
+              key: const Key('profile-logout-entry'),
+              padding: EdgeInsets.zero,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _logout(context, ref),
+                child: const SizedBox(
+                  height: 42,
+                  child: Center(
+                    child: Text(
+                      '退出登录',
+                      style: TextStyle(fontSize: 13.5, color: AppColors.error),
+                    ),
+                  ),
                 ),
               ),
-              child: const Text('退出登录', style: TextStyle(fontSize: 14)),
             ),
           ],
         ),
@@ -229,29 +197,36 @@ class ProfilePage extends ConsumerWidget {
   }
 }
 
-String _tunnelSummary(TunnelPhase? phase) => switch (phase) {
-  TunnelPhase.connected => '安全连接正常',
-  TunnelPhase.preparing ||
-  TunnelPhase.connecting ||
-  TunnelPhase.reconnecting ||
-  TunnelPhase.stopping => '安全连接处理中',
-  TunnelPhase.failed || TunnelPhase.unavailable => '安全连接不可用',
-  TunnelPhase.disconnected => '安全连接未启用',
-  null => '正在检查连接状态',
-};
+String _profileDisplayName(ImMember? member, MobileSession? session) {
+  final memberName = member?.displayName.trim() ?? '';
+  if (memberName.isNotEmpty) return memberName;
+  final sessionName = session?.displayName.trim() ?? '';
+  final username = session?.username.trim() ?? '';
+  if (sessionName.isNotEmpty &&
+      sessionName.toLowerCase() != username.toLowerCase()) {
+    return sessionName;
+  }
+  return '个人资料';
+}
 
 String deviceAuthorizationSummary(
   AsyncValue<List<ImDeviceAuthorization>> value, {
   required String currentDeviceId,
   ImDeviceAuthorization? currentDevice,
-  bool syncUnavailable = false,
+  ImRealtimeAvailability syncState = ImRealtimeAvailability.available,
 }) {
   if (currentDevice != null) return _deviceAuthorizationLabel(currentDevice);
   if (value.isLoading) {
-    return syncUnavailable ? '暂时无法同步' : '正在同步设备';
+    return syncState == ImRealtimeAvailability.unavailable
+        ? '暂时无法同步'
+        : '正在同步设备';
   }
   if (value.hasError) {
-    return syncUnavailable ? '暂时无法同步' : '设备状态同步失败';
+    return switch (syncState) {
+      ImRealtimeAvailability.connecting => '正在同步设备',
+      ImRealtimeAvailability.unavailable => '暂时无法同步',
+      ImRealtimeAvailability.available => '设备状态同步失败',
+    };
   }
   final devices = value.value ?? const <ImDeviceAuthorization>[];
   final normalizedCurrentDeviceId = currentDeviceId.trim().toLowerCase();
@@ -263,7 +238,13 @@ String deviceAuthorizationSummary(
       break;
     }
   }
-  if (current == null) return '未登记当前设备';
+  if (current == null) {
+    return switch (syncState) {
+      ImRealtimeAvailability.connecting => '正在同步设备',
+      ImRealtimeAvailability.unavailable => '暂时无法同步',
+      ImRealtimeAvailability.available => '未登记当前设备',
+    };
+  }
   return _deviceAuthorizationLabel(current);
 }
 
@@ -287,7 +268,7 @@ class _SettingsGroup extends StatelessWidget {
         for (var index = 0; index < children.length; index++) ...[
           children[index],
           if (index < children.length - 1)
-            const Divider(height: 1, indent: 50, endIndent: 12),
+            const Divider(height: 1, indent: 48, endIndent: 12),
         ],
       ],
     ),
@@ -312,14 +293,14 @@ class _Entry extends StatelessWidget {
     dense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 12),
     leading: Container(
-      width: 25,
-      height: 25,
+      width: 24,
+      height: 24,
       decoration: BoxDecoration(
         color: const Color(0xFFEAF2FF),
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(6),
       ),
       alignment: Alignment.center,
-      child: Icon(icon, color: AppColors.primary, size: 15),
+      child: Icon(icon, color: AppColors.primary, size: 14.5),
     ),
     title: Text(
       title,

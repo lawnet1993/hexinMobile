@@ -1,0 +1,49 @@
+{
+  "startedAt": "2026-09-03T06:42:42.9877509+08:00",
+  "checkedAt": "2026-09-03T06:42:43.1687925+08:00",
+  "serial": "emulator-5556",
+  "processId": 14728,
+  "source": "normal-app-scoped-logcat-whitelisted-metadata",
+  "events": [
+    {
+      "epochSeconds": "1788388795.590",
+      "kind": "REFRESH",
+      "status": 200,
+      "action": "accepted",
+      "source": null,
+      "errorCode": null
+    },
+    {
+      "epochSeconds": "1788388795.590",
+      "kind": "AUTH",
+      "status": 401,
+      "action": "session_preserved",
+      "source": "managed_commands",
+      "errorCode": null
+    },
+    {
+      "epochSeconds": "1788388819.103",
+      "kind": "AUTH",
+      "status": 409,
+      "action": "terminated",
+      "source": "heartbeat",
+      "errorCode": null
+    },
+    {
+      "epochSeconds": "1788388819.219",
+      "kind": "REFRESH",
+      "status": 200,
+      "action": "stale_result",
+      "source": null,
+      "errorCode": null
+    },
+    {
+      "epochSeconds": "1788388819.231",
+      "kind": "AUTH",
+      "status": 401,
+      "action": "ignored_stale_response",
+      "source": "managed_commands",
+      "errorCode": null
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "last": 345,
+    "gestures": 4,
+    "first": 326,
+    "screenshot": "m3-history-02.png",
+    "at": "2026-09-03T08:30:05.7358786+08:00",
+    "section": 2,
+    "visibleDistinct": 20
+  },
+  {
+    "last": 234,
+    "gestures": 4,
+    "first": 215,
+    "screenshot": "m3-history-03.png",
+    "at": "2026-09-03T08:30:12.0003847+08:00",
+    "section": 3,
+    "visibleDistinct": 20
+  },
+  {
+    "last": 208,
+    "gestures": 4,
+    "first": 191,
+    "screenshot": "m3-history-04.png",
+    "at": "2026-09-03T08:30:18.1258556+08:00",
+    "section": 4,
+    "visibleDistinct": 18
+  },
+  {
+    "last": 208,
+    "gestures": 4,
+    "first": 191,
+    "screenshot": "m3-history-05.png",
+    "at": "2026-09-03T08:30:24.5491016+08:00",
+    "section": 5,
+    "visibleDistinct": 18
+  },
+  {
+    "last": 208,
+    "gestures": 4,
+    "first": 191,
+    "screenshot": "m3-history-06.png",
+    "at": "2026-09-03T08:30:30.8191293+08:00",
+    "section": 6,
+    "visibleDistinct": 18
+  },
+  {
+    "last": 208,
+    "gestures": 4,
+    "first": 191,
+    "screenshot": "m3-history-07.png",
+    "at": "2026-09-03T08:30:36.8880875+08:00",
+    "section": 7,
+    "visibleDistinct": 18
+  }
+]

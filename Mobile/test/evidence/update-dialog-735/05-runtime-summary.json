@@ -1,0 +1,28 @@
+{
+  "testedAt": "2026-09-05T02:40:00+08:00",
+  "package": "com.hexing.zhilian.hexing_terminal_mobile",
+  "apkSha256": "B07051DC471C189E9F9FC86A7771EC1FD499D55788C0E13ADA47B54CED1C7437",
+  "emulator": {
+    "serial": "emulator-5556",
+    "install": "success",
+    "sessionPreserved": true,
+    "workbenchVisible": true,
+    "renderOverflow": false,
+    "fatalException": false
+  },
+  "realDevice": {
+    "serial": "dd00d66d",
+    "install": "success",
+    "sessionPreserved": true,
+    "account": "test01",
+    "workbenchVisible": true,
+    "renderOverflow": false,
+    "fatalException": false
+  },
+  "verification": {
+    "widgetTests": "4/4",
+    "mandatoryDialogGolden": "1/1",
+    "fullFlutterTests": "1362/1362",
+    "flutterAnalyzeIssues": 0
+  }
+}

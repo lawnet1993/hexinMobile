@@ -1,0 +1,15 @@
+{
+  "evidenceChecks": {
+    "firstSubmittedWithFourPending": true,
+    "restartHasTwoDistinctRequests": true,
+    "originalRemainsWithdrawn": true,
+    "partialApprovalWaitsForThree": true,
+    "bothWithdrawnWithoutOperableActions": true,
+    "completedApprovalIsNotRewritten": true,
+    "serverReadReceiptConfirmed": true,
+    "localReadReceiptSent": true
+  },
+  "verifiedCount": 8,
+  "cancellationTextDefectConfirmed": true,
+  "conclusion": "partial_pass_with_notification_defect"
+}

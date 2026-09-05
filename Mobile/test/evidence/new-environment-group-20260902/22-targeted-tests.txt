@@ -1,0 +1,48 @@
+00:00 +0: loading E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_sent_projection_test.dart
+00:00 +0: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_sent_projection_test.dart: send confirmation updates only its own conversation without a sync echo
+00:00 +1: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_sent_projection_test.dart: send confirmation updates only its own conversation without a sync echo
+00:00 +2: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_sent_projection_test.dart: send confirmation updates only its own conversation without a sync echo
+00:00 +3: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_sent_projection_test.dart: send confirmation updates only its own conversation without a sync echo
+00:00 +4: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_sent_projection_test.dart: send confirmation updates only its own conversation without a sync echo
+00:00 +5: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_sent_projection_test.dart: older or duplicate confirmations do not roll back a newer preview
+00:00 +6: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_sent_projection_test.dart: confirmed preview persists encrypted across restart
+00:00 +7: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_sent_projection_test.dart: confirmed preview persists encrypted across restart
+00:00 +8: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/im_sent_projection_test.dart: confirmed preview persists encrypted across restart
+00:00 +9: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: history 405 is actionable and retry can recover
+00:01 +10: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: message window memory is bounded and evicts the oldest chat
+00:01 +11: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: latest reconciliation coalesces and throttles rapid reopens
+00:01 +12: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: message window reuses the hot cache on immediate reopen
+00:01 +13: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: member presence keeps the backend last-seen timestamp
+00:01 +14: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat uses real members and group profile
+00:01 +15: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: outgoing message exposes an icon-only lazy read receipt
+00:01 +16: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: read receipt entry follows the server permission
+00:01 +17: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: consecutive sender keeps one avatar on the first message
+00:01 +18: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: same sender starts a new avatar group after a time gap
+00:02 +19: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: outgoing messages keep the current member avatar key
+00:02 +20: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat falls back to cached members while paging is offline
+00:02 +21: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group messages reuse contact avatars before member paging loads
+00:02 +22: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group chat hides an unknown member count
+00:02 +23: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group composer follows server mute state and member role
+00:02 +24: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group composer fails closed until the current role is loaded
+00:02 +25: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: mention picker virtualizes and searches a large group
+00:02 +26: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: direct chat uses the other member profile
+00:02 +27: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: empty chat matches desktop and search keeps result copy
+00:03 +28: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: direct chat prioritizes real offline status over identity text
+00:03 +29: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: direct chat does not expose cached online state while offline
+00:03 +30: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: pure emoji messages use the desktop enlarged treatment
+00:03 +31: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: direct chat aligns desktop resource tabs without mixing groups
+00:03 +32: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: attachment actions stay compact and isolate direct-only tasks
+00:03 +33: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: new demo direct chat preserves the selected contact identity
+00:04 +34: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: direct message actions never expose group-only controls
+00:04 +35: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: group message actions expose group pin control
+00:04 +36: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: video message renders a cached real preview before metadata
+00:04 +37: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: outgoing media fallback stays readable on the light bubble
+00:04 +38: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: audio message uses an inline player instead of an external-open cue
+00:04 +39: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: chat image decodes at thumbnail width before full preview
+00:04 +40: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: reply action follows the server message configuration
+00:04 +41: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: outgoing status distinguishes pending and failed delivery
+00:04 +42: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: queued image keeps its preview and compact pending clock
+00:04 +43: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: scrolling to the top loads older messages without a button
+00:04 +44: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: reopening a chat restores its expanded exhausted window
+00:04 +45: E:/SecureAccess-client-source-20260824-151204/Client/Mobile/test/chat_page_type_test.dart: failed older message load retries on the next upward scroll
+00:05 +46: All tests passed!

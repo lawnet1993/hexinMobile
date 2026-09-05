@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-09-03T07:23:37.7226838+08:00",
+  "source": "installed-desktop-dpapi-and-read-only-get-not-ui",
+  "version": "1.0.87",
+  "running": true,
+  "account": "test01",
+  "sessionFileUpdatedAt": "2026-09-02T21:29:01.2670628Z",
+  "accessTokenTimes": {
+    "verified": false,
+    "available": true,
+    "nbf": "2026-09-02T21:29:01.0000000+00:00",
+    "exp": "2026-09-02T23:29:01.0000000+00:00"
+  },
+  "hasRefreshToken": true,
+  "refreshTokenTimes": {
+    "available": false
+  },
+  "imStatus": 200,
+  "oaStatus": 200,
+  "approvalStatuses": []
+}

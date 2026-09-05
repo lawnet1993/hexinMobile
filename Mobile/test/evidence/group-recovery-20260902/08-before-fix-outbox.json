@@ -1,0 +1,24 @@
+{
+  "observedLocalDate": "2026-09-02",
+  "device": "M1",
+  "source": "Read-only consistent SQLite snapshot, metadata only",
+  "outbox": [
+    {
+      "clientMessageId": "901c6844-5dde-48f5-87c4-1768742d0e18",
+      "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "kind": "image", "attempts": 19,
+      "createdAt": "2026-09-02T10:01:48.872101Z",
+      "nextRetryAt": "2026-09-02T11:34:38.391411Z"
+    },
+    {
+      "clientMessageId": "46bce48c-c409-45ae-99ee-4942a8d31320",
+      "conversationId": "c4906953-10bd-4671-b984-c50ed3951349",
+      "kind": "text", "attempts": 0,
+      "createdAt": "2026-09-02T11:23:30.936657Z",
+      "nextRetryAt": "2026-09-02T11:26:53.994738Z"
+    }
+  ],
+  "desktopReadOnly": {"checkedAt": "2026-09-02T19:26:34.5361244+08:00", "bootstrapHttp": 200, "syncHttp": 200, "groupHistoryHttp": 200, "groupLatest": 84, "groupLastRead": 84, "groupUnread": 0, "newMessageMatches": 0},
+  "regressionBeforeFix": {"newTargetTests": 2, "passed": 0, "failed": 2},
+  "regressionAfterFix": {"targetFiles": 3, "passed": 28, "failed": 0}
+}

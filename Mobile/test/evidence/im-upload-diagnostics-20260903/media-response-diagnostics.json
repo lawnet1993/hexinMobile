@@ -1,0 +1,52 @@
+{
+  "capturedAt": "2026-09-03T06:31:51.6912839+08:00",
+  "serial": "emulator-5556",
+  "processId": 13635,
+  "rejectedRecords": 0,
+  "records": [
+    {
+      "sampledAt": "2026-09-02T22:30:41.9245050+00:00",
+      "operation": "image_send",
+      "httpStatus": 500,
+      "failureType": "badResponse",
+      "requestBody": "multipart",
+      "formFields": [
+        "clientMessageId",
+        "caption",
+        "files"
+      ],
+      "fileBytes": [
+        1526148
+      ],
+      "responseType": "json",
+      "bodyShape": "object",
+      "errorCode": null,
+      "errorSignals": [],
+      "requestId": null,
+      "correlationId": null,
+      "traceparent": null,
+      "bodyTraceId": "00-7693702ab9f087e9f49b579a68e38a2e-9ef20c197d6196d4-00"
+    },
+    {
+      "sampledAt": "2026-09-02T22:31:47.6048540+00:00",
+      "operation": "video_upload",
+      "httpStatus": 500,
+      "failureType": "badResponse",
+      "requestBody": "multipart",
+      "formFields": [
+        "file"
+      ],
+      "fileBytes": [
+        23692
+      ],
+      "responseType": "json",
+      "bodyShape": "object",
+      "errorCode": null,
+      "errorSignals": [],
+      "requestId": null,
+      "correlationId": null,
+      "traceparent": null,
+      "bodyTraceId": "00-545401707d34d270b5ec6c8cb68eddfe-4aa8c0ab620cb11d-00"
+    }
+  ]
+}

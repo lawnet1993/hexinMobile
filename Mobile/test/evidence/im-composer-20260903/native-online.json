@@ -1,0 +1,50 @@
+{
+  "events": [
+    {
+      "at": "2026-09-03T10:21:41.7072977+08:00",
+      "detail": {
+        "data": "1",
+        "wifi": "1"
+      },
+      "stage": "start"
+    },
+    {
+      "at": "2026-09-03T10:21:47.8087271+08:00",
+      "detail": {
+        "next": 2,
+        "first": 1
+      },
+      "stage": "about-to-send-and-type"
+    },
+    {
+      "at": "2026-09-03T10:21:49.2787341+08:00",
+      "detail": null,
+      "stage": "sent-and-typed"
+    },
+    {
+      "at": "2026-09-03T10:21:55.7905634+08:00",
+      "detail": {
+        "exact": true
+      },
+      "stage": "next-draft-preserved"
+    },
+    {
+      "at": "2026-09-03T10:21:55.7941534+08:00",
+      "detail": null,
+      "stage": "about-to-send-second"
+    },
+    {
+      "at": "2026-09-03T10:21:55.8913642+08:00",
+      "detail": null,
+      "stage": "second-clicked"
+    },
+    {
+      "at": "2026-09-03T10:22:02.0067068+08:00",
+      "detail": null,
+      "stage": "phase-complete"
+    }
+  ],
+  "prefix": "AI-UAT-20260903-102141-COMPOSER-",
+  "phase": "online",
+  "conversationId": "245e652d-14be-4c29-a7aa-57b7659fa4e6"
+}

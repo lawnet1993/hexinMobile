@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-09-03T02:05:44.7877069+08:00",
+  "serial": "emulator-5556",
+  "target": "lib/main.dart",
+  "mode": "profile",
+  "localHash": "33CB4C5EA8DC8EC1A057C59091EA5CDCB83FF4366B55D9FDE290ABDBB2C2B340",
+  "installedHash": "33cb4c5ea8dc8ec1a057c59091ea5cdcb83ff4366b55d9fde290abdbb2c2b340",
+  "matches": true
+}

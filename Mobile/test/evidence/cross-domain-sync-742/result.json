@@ -1,0 +1,39 @@
+{
+  "recordedAt": "2026-09-05T14:24:33+08:00",
+  "analysis": {
+    "issues": 0
+  },
+  "tests": {
+    "passed": 1368,
+    "failed": 0
+  },
+  "artifact": {
+    "kind": "debug-apk",
+    "sha256": "810E3BFE641C952D7E82A6E56F13299095833C9792D6F39E43979B56AFA872C5"
+  },
+  "devices": {
+    "realDevice": {
+      "installed": true,
+      "sessionRestoredBySavedCredential": true,
+      "heartbeatStatus": 204,
+      "im": {
+        "appliedSequence": 2363,
+        "acknowledgedSequence": 2363,
+        "pendingAckCount": 0,
+        "cursorHealth": "healthy"
+      },
+      "oa": {
+        "appliedSequence": 634,
+        "pendingCommandCount": 0,
+        "pendingNotificationReadCount": 0,
+        "state": "healthy"
+      }
+    },
+    "android16Emulator": {
+      "installed": true,
+      "sessionPreserved": true,
+      "heartbeatEvidence": "not_observed_network_unavailable"
+    }
+  },
+  "sensitiveDataLogged": false
+}

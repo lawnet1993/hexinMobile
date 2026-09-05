@@ -1,0 +1,29 @@
+{
+  "conversationId": "95e704ae-0e34-4f56-87db-038526796d6c",
+  "marker": "AI-UAT-20260903-055540-GROUP-ACK-CRASH",
+  "steps": [
+    {
+      "step": "about-to-send-once",
+      "at": "2026-09-03T05:59:09.9703947+08:00"
+    },
+    {
+      "step": "send-clicked-once",
+      "at": "2026-09-03T05:59:10.0801956+08:00"
+    },
+    {
+      "step": "durable-before-ack-confirmed",
+      "acked": 286,
+      "at": "2026-09-03T05:59:11.7607255+08:00",
+      "applied": 289
+    },
+    {
+      "step": "force-stopped-pid-absent",
+      "at": "2026-09-03T05:59:12.0476370+08:00",
+      "previousPid": 7451
+    },
+    {
+      "step": "post-death-snapshot-saved",
+      "at": "2026-09-03T05:59:12.4171690+08:00"
+    }
+  ]
+}

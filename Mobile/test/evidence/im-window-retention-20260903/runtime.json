@@ -1,0 +1,30 @@
+[
+  {
+    "at": "2026-09-03T08:55:17.1156523+08:00",
+    "serial": "emulator-5556",
+    "pid": "29648",
+    "normalApkHash": "11D2DFD5F714D8E48C717ADC229A4A70A48884D40EA5E0A93AB437AD2061D251",
+    "installedApkHash": "11D2DFD5F714D8E48C717ADC229A4A70A48884D40EA5E0A93AB437AD2061D251",
+    "normalApkMatches": true,
+    "wifi": "1",
+    "mobileData": "1",
+    "fatalCount": 0,
+    "unhandledCount": 0,
+    "overflowCount": 0,
+    "observerLogCount": 0
+  },
+  {
+    "at": "2026-09-03T08:55:18.5487078+08:00",
+    "serial": "emulator-5558",
+    "pid": "23636",
+    "normalApkHash": "11D2DFD5F714D8E48C717ADC229A4A70A48884D40EA5E0A93AB437AD2061D251",
+    "installedApkHash": "11D2DFD5F714D8E48C717ADC229A4A70A48884D40EA5E0A93AB437AD2061D251",
+    "normalApkMatches": true,
+    "wifi": "1",
+    "mobileData": "1",
+    "fatalCount": 0,
+    "unhandledCount": 0,
+    "overflowCount": 0,
+    "observerLogCount": 0
+  }
+]

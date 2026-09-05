@@ -14,17 +14,23 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/media/mobile_image_compressor.dart';
+import '../../../core/media/mobile_upload_policy.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/application/oa_catalog_sync_coordinator.dart';
 import '../../collaboration/data/oa_local_store.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 import '../domain/approval_form_calculation.dart';
 
-const _workflowPreviewTimeout = Duration(seconds: 12);
+// Keep the mobile form responsive when the OA service is unreachable. The
+// form and draft remain usable after this deadline, and the user can retry the
+// workflow preview independently.
+const _workflowPreviewTimeout = Duration(seconds: 6);
 
 class ApprovalRequestPage extends ConsumerStatefulWidget {
   const ApprovalRequestPage({
@@ -63,16 +69,26 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   String _title = '';
   String _defaultTitle = '';
   bool _submitting = false;
+  bool _validationAttempted = false;
   bool _previewing = false;
   OaWorkflowPreview? _workflowPreview;
   Object? _workflowPreviewError;
   String _workflowPreviewFingerprint = '';
   int _workflowPreviewSequence = 0;
+  int _workflowRecoveryEpoch = 0;
+  int _workflowPreviewRecoveryEpoch = 0;
   bool _uploadingAttachment = false;
   bool _draftLoaded = false;
   bool _draftWasRestored = false;
   bool _restoredExistingValues = false;
   bool _hasUnsavedChanges = false;
+  int _draftRevision = 0;
+  bool _draftSaving = false;
+  bool _handlingPop = false;
+  Object? _draftSaveError;
+  Future<bool>? _draftSaveInFlight;
+  final String _newDraftId = const Uuid().v4();
+  late final String _draftAccountScope;
   bool _allowPop = false;
   DateTime? _draftSavedAt;
   OaApprovalDraft? _draft;
@@ -82,6 +98,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   @override
   void initState() {
     super.initState();
+    _draftAccountScope = ref.read(collaborationAccountScopeProvider);
     Future<void>.microtask(_loadDraft);
   }
 
@@ -94,6 +111,13 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(oaSyncAvailabilityProvider, (previous, next) {
+      if (previous != OaSyncAvailability.available &&
+          next == OaSyncAvailability.available) {
+        _workflowRecoveryEpoch++;
+        _scheduleWorkflowRecovery();
+      }
+    });
     final value = ref.watch(oaBootstrapProvider);
     final catalog = ref.watch(oaApplicationCatalogProvider).value;
     final directory = ref.watch(imBootstrapProvider).value;
@@ -205,108 +229,138 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       },
       child: Scaffold(
         appBar: AppBar(centerTitle: true, title: Text(template.name)),
-        body: Theme(
-          data: pageTheme.copyWith(inputDecorationTheme: compactInputTheme),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 88),
-              children: [
-                _RequesterSummary(
-                  displayName: requester?.displayName.isNotEmpty == true
-                      ? requester!.displayName
-                      : data.displayName,
-                  departmentName: requester?.departmentName ?? '',
-                  avatarDataUrl: requester?.avatarDataUrl ?? '',
-                  templateVersion: template.version,
-                ),
-                const SizedBox(height: 8),
-                if (_draftSavedAt case final savedAt?) ...[
-                  _DraftStatusStrip(
-                    restored: _draftWasRestored,
-                    updatedAt: savedAt,
+        body: AbsorbPointer(
+          absorbing: _submitting || _handlingPop,
+          child: Theme(
+            data: pageTheme.copyWith(inputDecorationTheme: compactInputTheme),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 88),
+                children: [
+                  _RequesterSummary(
+                    displayName: requester?.displayName.isNotEmpty == true
+                        ? requester!.displayName
+                        : data.displayName,
+                    departmentName: requester?.departmentName ?? '',
+                    avatarKey: requester?.avatarKey ?? '',
+                    avatarDataUrl: requester?.avatarDataUrl ?? '',
+                    templateVersion: template.version,
+                    draftSavedAt: _draftSavedAt,
+                    draftStatus: _draftSaveError != null
+                        ? '保存失败'
+                        : _draftSaving
+                        ? '保存中'
+                        : _hasUnsavedChanges
+                        ? '未保存'
+                        : _draftSavedAt == null
+                        ? ''
+                        : _draftWasRestored
+                        ? '已恢复上次草稿'
+                        : '草稿已保存',
                   ),
                   const SizedBox(height: 8),
-                ],
-                MobileSurface(
-                  key: const Key('approval-form-surface'),
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      for (final field in fields) ...[
-                        if (field.type == 'attachment' || field.type == 'file')
-                          _AttachmentEditor(
-                            field: field,
-                            items: _attachments
-                                .where(
-                                  (item) =>
-                                      item.formFieldId.isEmpty ||
-                                      item.formFieldId == field.id,
-                                )
-                                .toList(),
-                            uploading: _uploadingAttachment,
-                            errorText:
-                                _serverFieldErrors[field.id] ??
-                                _clientFieldErrors[field.id],
-                            onAdd: () => _pickAttachment(
-                              field,
-                              template,
-                              allowOfflineDraft,
+                  MobileSurface(
+                    key: const Key('approval-form-surface'),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        for (final field in fields) ...[
+                          if (field.type == 'attachment' ||
+                              field.type == 'file')
+                            _AttachmentEditor(
+                              field: field,
+                              items: _attachments
+                                  .where(
+                                    (item) =>
+                                        item.formFieldId.isEmpty ||
+                                        item.formFieldId == field.id,
+                                  )
+                                  .toList(),
+                              uploading: _uploadingAttachment,
+                              errorText:
+                                  _serverFieldErrors[field.id] ??
+                                  _clientFieldErrors[field.id],
+                              onAdd: () => _pickAttachment(
+                                field,
+                                template,
+                                allowOfflineDraft,
+                              ),
+                              onDelete: (attachment) => _deleteAttachment(
+                                attachment,
+                                template,
+                                allowOfflineDraft,
+                              ),
+                              onOpen: (attachment) => _openLocalAttachment(
+                                attachment,
+                                allowImagePreview: field.imagePreview,
+                              ),
+                            )
+                          else
+                            _SchemaField(
+                              field: field,
+                              autovalidateMode: _validationAttempted
+                                  ? AutovalidateMode.always
+                                  : AutovalidateMode.disabled,
+                              value: _values[field.id],
+                              serverError:
+                                  _serverFieldErrors[field.id] ??
+                                  _clientFieldErrors[field.id] ??
+                                  (field.type == 'datetime' ||
+                                          field.type == 'date'
+                                      ? _calculationFieldErrors[field.id]
+                                      : null),
+                              dependencyInvalid:
+                                  _calculationFieldErrors.containsKey(
+                                    field.durationStartFieldId,
+                                  ) ||
+                                  _calculationFieldErrors.containsKey(
+                                    field.durationEndFieldId,
+                                  ),
+                              calculationError:
+                                  _calculationFieldErrors[field.id],
+                              members: members,
+                              departments: departments,
+                              onChanged: (value) {
+                                setState(() {
+                                  _values[field.id] = value;
+                                  _serverFieldErrors.remove(field.id);
+                                  _clientFieldErrors.remove(field.id);
+                                  _recalculateDerivedFields(fields);
+                                  if (_validationAttempted) {
+                                    _clientFieldErrors
+                                      ..clear()
+                                      ..addAll(_validateSubmission(fields));
+                                  }
+                                  _markDraftChanged();
+                                });
+                                _scheduleDraftSave(template, allowOfflineDraft);
+                                _scheduleWorkflowPreview(template);
+                              },
                             ),
-                            onDelete: (attachment) => _deleteAttachment(
-                              attachment,
-                              template,
-                              allowOfflineDraft,
-                            ),
-                            onOpen: (attachment) => _openLocalAttachment(
-                              attachment,
-                              allowImagePreview: field.imagePreview,
-                            ),
-                          )
-                        else
-                          _SchemaField(
-                            field: field,
-                            value: _values[field.id],
-                            serverError:
-                                _serverFieldErrors[field.id] ??
-                                _clientFieldErrors[field.id],
-                            calculationError: _calculationFieldErrors[field.id],
-                            members: members,
-                            departments: departments,
-                            onChanged: (value) {
-                              setState(() {
-                                _values[field.id] = value;
-                                _serverFieldErrors.remove(field.id);
-                                _clientFieldErrors.remove(field.id);
-                                _recalculateDerivedFields(fields);
-                                _hasUnsavedChanges = true;
-                              });
-                              _scheduleDraftSave(template, allowOfflineDraft);
-                              _scheduleWorkflowPreview(template);
-                            },
+                          const SizedBox(height: 10),
+                        ],
+                        if (fields.isEmpty)
+                          const EmptyState(
+                            icon: Icons.description_outlined,
+                            title: '当前模板没有可填写字段',
                           ),
-                        const SizedBox(height: 10),
+                        if (fields.isNotEmpty) ...[
+                          const Divider(height: 17),
+                          ApprovalWorkflowInline(
+                            preview: _workflowPreview,
+                            loading: _previewing,
+                            error: _workflowPreviewError,
+                            templateVersion: template.version,
+                            onRetry: () =>
+                                _refreshWorkflowPreview(template, force: true),
+                          ),
+                        ],
                       ],
-                      if (fields.isEmpty)
-                        const EmptyState(
-                          icon: Icons.description_outlined,
-                          title: '当前模板没有可填写字段',
-                        ),
-                      if (fields.isNotEmpty) ...[
-                        const Divider(height: 17),
-                        ApprovalWorkflowInline(
-                          preview: _workflowPreview,
-                          loading: _previewing,
-                          error: _workflowPreviewError,
-                          templateVersion: template.version,
-                          onRetry: () =>
-                              _refreshWorkflowPreview(template, force: true),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -322,29 +376,28 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
                 const Spacer(),
                 if (allowOfflineDraft) ...[
                   SizedBox(
-                    width: 116,
-                    height: 42,
-                    child: OutlinedButton.icon(
+                    width: 88,
+                    child: TextButton(
                       key: const Key('approval-draft-button'),
-                      onPressed: _submitting
+                      onPressed:
+                          _submitting ||
+                              _handlingPop ||
+                              _draftSaving ||
+                              _uploadingAttachment
                           ? null
                           : () => _saveDraft(template, showFeedback: true),
-                      style: OutlinedButton.styleFrom(
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      icon: const Icon(Icons.save_outlined, size: 18),
-                      label: const Text('保存草稿'),
+                      style: compactMobileActionStyle,
+                      child: const Text('保存草稿'),
                     ),
                   ),
                   const SizedBox(width: 8),
                 ],
                 SizedBox(
-                  width: 140,
-                  height: 42,
-                  child: FilledButton.icon(
+                  width: 104,
+                  child: FilledButton(
                     key: const Key('approval-submit-button'),
-                    onPressed: _submitting
+                    onPressed:
+                        _submitting || _handlingPop || _uploadingAttachment
                         ? null
                         : () => _submit(
                             template,
@@ -354,20 +407,17 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
                                 : _title.trim(),
                             allowOfflineDraft,
                           ),
-                    style: FilledButton.styleFrom(
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    icon: _submitting
+                    style: compactMobileActionStyle,
+                    child: _submitting
                         ? const SizedBox.square(
                             dimension: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               color: Colors.white,
+                              semanticsLabel: '正在提交申请',
                             ),
                           )
-                        : const Icon(Icons.send_rounded, size: 18),
-                    label: const Text('提交申请'),
+                        : const Text('提交申请'),
                   ),
                 ),
               ],
@@ -384,8 +434,15 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     String title,
     bool allowOfflineDraft,
   ) async {
+    if (_submitting ||
+        _handlingPop ||
+        _uploadingAttachment ||
+        !_ownsDraftPage) {
+      return;
+    }
     final clientErrors = _validateSubmission(fields);
     setState(() {
+      _validationAttempted = true;
       _clientFieldErrors
         ..clear()
         ..addAll(clientErrors);
@@ -403,8 +460,13 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       return;
     }
     _draftTimer?.cancel();
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
+      // A successful submission deletes the draft. Do not let an older disk
+      // write finish afterwards and resurrect it, or start a duplicate submit.
+      await _draftSaveInFlight;
+      if (!_ownsDraftPage) return;
       final request = await ref
           .read(oaRepositoryProvider)
           .submitApproval(
@@ -417,6 +479,9 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
             pendingAttachments: _attachments,
             allowOfflineQueue: allowOfflineDraft,
           );
+      if (mounted) {
+        ref.read(oaCatalogSyncCoordinatorProvider).catchUpAfterMutation();
+      }
       await _discardSourceOutbox();
       if (_draft != null) {
         await ref.read(oaRepositoryProvider).deleteDraft(_draft!.id);
@@ -476,6 +541,35 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     );
   }
 
+  // A successful OA sync is evidence that the service is reachable again.
+  // Retry only a transient failure, once per recovery, without changing input.
+  // The epoch also remembers recovery while the old request is still pending.
+  void _scheduleWorkflowRecovery() {
+    if (!mounted ||
+        _previewing ||
+        _workflowRecoveryEpoch <= _workflowPreviewRecoveryEpoch ||
+        !_isRecoverableWorkflowPreviewError(_workflowPreviewError)) {
+      return;
+    }
+    _workflowPreviewTimer?.cancel();
+    _workflowPreviewTimer = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted ||
+          _previewing ||
+          _workflowRecoveryEpoch <= _workflowPreviewRecoveryEpoch ||
+          ref.read(oaSyncAvailabilityProvider) !=
+              OaSyncAvailability.available ||
+          !_isRecoverableWorkflowPreviewError(_workflowPreviewError)) {
+        return;
+      }
+      final templates = ref.read(oaBootstrapProvider).value?.templates;
+      if (templates == null) return;
+      final template = _findTemplate(templates, widget.templateId);
+      if (template != null) {
+        unawaited(_refreshWorkflowPreview(template, force: true));
+      }
+    });
+  }
+
   Future<void> _refreshWorkflowPreview(
     OaApprovalTemplate template, {
     bool force = false,
@@ -487,6 +581,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       return;
     }
     final sequence = ++_workflowPreviewSequence;
+    _workflowPreviewRecoveryEpoch = _workflowRecoveryEpoch;
     if (mounted) {
       setState(() {
         _previewing = true;
@@ -518,11 +613,14 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
           _workflowPreviewError = error;
           _previewing = false;
         });
+        _scheduleWorkflowRecovery();
       }
     }
   }
 
   void _recalculateDerivedFields(List<_FieldDefinition> fields) {
+    final durationErrors = <String, String>{};
+    final fieldsById = {for (final field in fields) field.id: field};
     for (final field in fields) {
       if (field.durationUnit == null ||
           field.durationStartFieldId == null ||
@@ -535,8 +633,17 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       final end = DateTime.tryParse(
         _values[field.durationEndFieldId]?.toString() ?? '',
       );
-      if (start == null || end == null || !end.isAfter(start)) {
+      if (start == null || end == null) {
         _values.remove(field.id);
+        continue;
+      }
+      if (!end.isAfter(start)) {
+        _values.remove(field.id);
+        final startLabel =
+            fieldsById[field.durationStartFieldId]?.label ?? '开始时间';
+        final endLabel = fieldsById[field.durationEndFieldId]?.label ?? '结束时间';
+        durationErrors[field.durationEndFieldId!] =
+            '“$endLabel”必须晚于“$startLabel”';
         continue;
       }
       if (field.durationUnit == 'hours') {
@@ -570,6 +677,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     }
     _calculationFieldErrors
       ..clear()
+      ..addAll(durationErrors)
       ..addAll(calculated.errors);
   }
 
@@ -579,6 +687,13 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       if (errors.containsKey(field.id)) continue;
       if (_calculationFieldErrors[field.id] case final calculationError?) {
         errors[field.id] = calculationError;
+        continue;
+      }
+      // The editable source field owns the error; do not also ask the user to
+      // repair the empty read-only duration produced by that invalid range.
+      if (field.durationUnit != null &&
+          (_calculationFieldErrors.containsKey(field.durationStartFieldId) ||
+              _calculationFieldErrors.containsKey(field.durationEndFieldId))) {
         continue;
       }
       if (field.type == 'attachment' || field.type == 'file') {
@@ -670,7 +785,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     }
     try {
       final draft = await ref.read(oaDraftLoaderProvider)(widget.templateId);
-      if (!mounted) return;
+      if (!_ownsDraftPage) return;
       setState(() {
         _draft = draft;
         if (draft != null) {
@@ -718,19 +833,35 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       );
       return;
     }
-    final selected = await FilePicker.pickFile();
-    if (selected == null || !mounted) return;
-    setState(() => _uploadingAttachment = true);
+    var uploading = false;
     try {
-      final bytes = await selected.readAsBytes();
+      final selected = await withMobileFileAccess(FilePicker.pickFile);
+      if (selected == null || !mounted) return;
+      final originalContentType = _attachmentContentType(
+        path.extension(selected.name).replaceFirst('.', ''),
+      );
+      final sourceLength = await withMobileFileAccess(selected.length);
+      validateMobileUploadSourceLength(
+        originalContentType.startsWith('image/')
+            ? MobileUploadKind.approvalImage
+            : MobileUploadKind.approvalFile,
+        sourceLength,
+      );
+      setState(() => _uploadingAttachment = true);
+      uploading = true;
+      final bytes = await withMobileFileAccess(selected.readAsBytes);
       if (bytes.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('无法读取所选文件')));
-        }
-        return;
+        throw const MobileUploadAccessException();
       }
-      if (bytes.length > 20 * 1024 * 1024) {
+      final prepared = await ref
+          .read(mobileImageCompressorProvider)
+          .prepare(
+            fileName: selected.name,
+            bytes: bytes,
+            contentType: originalContentType,
+            purpose: MobileImagePurpose.approval,
+          );
+      if (prepared.bytes.length > 20 * 1024 * 1024) {
         if (mounted) {
           ScaffoldMessenger.of(context)
               .showSnackBar(const SnackBar(content: Text('单个附件不能超过 20 MB')));
@@ -739,11 +870,9 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       }
       final attachment = OaLocalAttachment(
         id: const Uuid().v4(),
-        fileName: selected.name,
-        contentType: _attachmentContentType(
-          path.extension(selected.name).replaceFirst('.', ''),
-        ),
-        bytes: bytes,
+        fileName: prepared.fileName,
+        contentType: prepared.contentType,
+        bytes: prepared.bytes,
         formFieldId: field.id,
       );
       if (mounted) {
@@ -757,17 +886,20 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
           _attachments.add(attachment);
           _serverFieldErrors.remove(field.id);
           _clientFieldErrors.remove(field.id);
-          _hasUnsavedChanges = true;
+          _markDraftChanged();
         });
         _scheduleDraftSave(template, allowOfflineDraft);
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(_errorMessage(error))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileUploadErrorText('附件处理失败', error))),
+        );
       }
     } finally {
-      if (mounted) setState(() => _uploadingAttachment = false);
+      if (mounted && uploading) {
+        setState(() => _uploadingAttachment = false);
+      }
     }
   }
 
@@ -780,7 +912,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       _attachments.remove(attachment);
       _serverFieldErrors.remove(attachment.formFieldId);
       _clientFieldErrors.remove(attachment.formFieldId);
-      _hasUnsavedChanges = true;
+      _markDraftChanged();
     });
     _scheduleDraftSave(template, allowOfflineDraft);
   }
@@ -823,7 +955,13 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   }
 
   void _scheduleDraftSave(OaApprovalTemplate template, bool allowOfflineDraft) {
-    if (!allowOfflineDraft || !_draftLoaded) return;
+    if (!allowOfflineDraft ||
+        !_draftLoaded ||
+        !_ownsDraftPage ||
+        _submitting ||
+        _handlingPop) {
+      return;
+    }
     _draftTimer?.cancel();
     _draftTimer = Timer(
       const Duration(milliseconds: 600),
@@ -835,110 +973,122 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     OaApprovalTemplate template, {
     bool showFeedback = false,
   }) async {
+    if (!_ownsDraftPage) return false;
+    _draftTimer?.cancel();
+    final future = _draftSaveInFlight ??= _persistLatestDraft(template)
+        .whenComplete(() {
+          _draftSaveInFlight = null;
+          if (_ownsDraftPage) setState(() => _draftSaving = false);
+        });
+    final saved = await future;
+    if (showFeedback && mounted && _ownsDraftPage) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(saved ? '草稿已保存' : '草稿未保存，请重试')));
+    }
+    return saved;
+  }
+
+  bool get _ownsDraftPage =>
+      mounted &&
+      ref.read(collaborationAccountScopeProvider) == _draftAccountScope;
+
+  void _markDraftChanged() {
+    _draftRevision++;
+    _hasUnsavedChanges = true;
+    _draftSaveError = null;
+  }
+
+  Future<bool> _persistLatestDraft(OaApprovalTemplate template) async {
+    setState(() {
+      _draftSaving = true;
+      _draftSaveError = null;
+    });
     try {
-      final draft = await ref.read(oaDraftSaverProvider)(
-        id: _draft?.id,
-        applicationKey: widget.applicationKey,
-        template: template,
-        title: _title.trim().isEmpty ? _defaultTitle : _title.trim(),
-        formData: Map<String, Object?>.from(_values),
-        attachments: List<OaLocalAttachment>.from(_attachments),
-      );
-      if (mounted) {
+      final saver = ref.read(oaDraftSaverProvider);
+      while (_ownsDraftPage) {
+        final revision = _draftRevision;
+        final draft = await saver(
+          id: _draft?.id ?? _newDraftId,
+          applicationKey: widget.applicationKey,
+          template: template,
+          title: _title.trim().isEmpty ? _defaultTitle : _title.trim(),
+          formData: Map<String, Object?>.from(
+            jsonDecode(jsonEncode(_values)) as Map,
+          ),
+          attachments: List<OaLocalAttachment>.from(_attachments),
+        );
+        if (!_ownsDraftPage) return false;
+        _draftTimer?.cancel();
         setState(() {
           _draft = draft;
           _draftSavedAt = draft.updatedAt;
           _draftWasRestored = false;
-          _hasUnsavedChanges = false;
+          _hasUnsavedChanges = revision != _draftRevision;
         });
-      } else {
-        _draft = draft;
+        ref.invalidate(oaDraftsProvider);
+        if (!_hasUnsavedChanges) return true;
+        // Coalesce edits during the previous write into the next snapshot.
       }
-      ref.invalidate(oaDraftsProvider);
-      if (showFeedback && mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('草稿已保存')));
-      }
-      return true;
     } catch (error) {
-      if (showFeedback && mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(_errorMessage(error))));
-      }
-      return false;
+      if (_ownsDraftPage) setState(() => _draftSaveError = error);
     }
+    return false;
   }
 
   Future<void> _handlePop(
     OaApprovalTemplate template,
     bool allowOfflineDraft,
   ) async {
-    _draftTimer?.cancel();
-    if (_hasUnsavedChanges && allowOfflineDraft) {
-      final saved = await _saveDraft(template);
-      if (!saved || !mounted) return;
+    if (_handlingPop ||
+        _submitting ||
+        _uploadingAttachment ||
+        !_ownsDraftPage) {
+      return;
     }
-    if (!mounted) return;
-    setState(() => _allowPop = true);
-    Navigator.of(context).pop();
+    _draftTimer?.cancel();
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _handlingPop = true);
+    try {
+      if ((_hasUnsavedChanges || _draftSaveInFlight != null) &&
+          allowOfflineDraft) {
+        final saved = await _saveDraft(template);
+        if (!saved || !_ownsDraftPage) {
+          if (mounted && _ownsDraftPage) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(const SnackBar(content: Text('草稿未保存，请重试')));
+          }
+          return;
+        }
+      }
+      if (!mounted || !_ownsDraftPage) return;
+      setState(() => _allowPop = true);
+      Navigator.of(context).pop();
+    } finally {
+      if (_ownsDraftPage) setState(() => _handlingPop = false);
+    }
   }
-}
-
-class _DraftStatusStrip extends StatelessWidget {
-  const _DraftStatusStrip({required this.restored, required this.updatedAt});
-
-  final bool restored;
-  final DateTime updatedAt;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    key: const Key('approval-draft-status'),
-    height: 30,
-    padding: const EdgeInsets.symmetric(horizontal: 10),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF1F6FF),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.history_rounded, size: 15, color: AppColors.primary),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            restored ? '已恢复上次草稿' : '草稿已保存',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11.5,
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        Text(
-          DateFormat('MM-dd HH:mm').format(updatedAt.toLocal()),
-          style: const TextStyle(
-            fontSize: 10.5,
-            color: AppColors.secondaryText,
-          ),
-        ),
-      ],
-    ),
-  );
 }
 
 class _RequesterSummary extends StatelessWidget {
   const _RequesterSummary({
     required this.displayName,
     required this.departmentName,
+    required this.avatarKey,
     required this.avatarDataUrl,
     required this.templateVersion,
+    required this.draftSavedAt,
+    required this.draftStatus,
   });
 
   final String displayName;
   final String departmentName;
+  final String avatarKey;
   final String avatarDataUrl;
   final int templateVersion;
+  final DateTime? draftSavedAt;
+  final String draftStatus;
 
   @override
   Widget build(BuildContext context) => MobileSurface(
@@ -946,8 +1096,10 @@ class _RequesterSummary extends StatelessWidget {
     child: Row(
       children: [
         InitialAvatar(
+          key: const Key('approval-requester-avatar'),
           name: displayName,
           radius: 17,
+          avatarKey: avatarKey,
           avatarDataUrl: avatarDataUrl,
         ),
         const SizedBox(width: 10),
@@ -978,9 +1130,43 @@ class _RequesterSummary extends StatelessWidget {
             ],
           ),
         ),
-        Text(
-          'v$templateVersion',
-          style: const TextStyle(fontSize: 11, color: AppColors.secondaryText),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'v$templateVersion',
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.secondaryText,
+              ),
+            ),
+            const SizedBox(height: 2),
+            // Reserve only the small status line inside the existing summary;
+            // a first autosave must not insert a banner and move form fields.
+            Visibility(
+              visible: draftStatus.isNotEmpty,
+              maintainSize: true,
+              maintainState: true,
+              maintainAnimation: true,
+              child: Tooltip(
+                message: draftSavedAt == null
+                    ? ''
+                    : DateFormat('MM-dd HH:mm').format(draftSavedAt!.toLocal()),
+                child: Text(
+                  draftStatus.isEmpty ? '草稿已保存' : draftStatus,
+                  key: const Key('approval-draft-status'),
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    height: 1.25,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     ),
@@ -1035,29 +1221,31 @@ class _AttachmentEditor extends StatelessWidget {
                 color: AppColors.secondaryText,
               ),
             ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: uploading
-                  ? null
-                  : () {
-                      onAdd();
-                      state.didChange(items);
-                    },
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(36, 34),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
+            if (!field.isReadOnly) ...[
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: uploading
+                    ? null
+                    : () {
+                        onAdd();
+                        state.didChange(items);
+                      },
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(36, 34),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: uploading
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.attach_file_rounded, size: 18),
+                label: Text(
+                  !field.multiple && items.isNotEmpty ? '替换文件' : '添加文件',
+                ),
               ),
-              icon: uploading
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.attach_file_rounded, size: 18),
-              label: Text(
-                !field.multiple && items.isNotEmpty ? '替换文件' : '添加文件',
-              ),
-            ),
+            ],
           ],
         ),
         if (state.errorText != null)
@@ -1113,22 +1301,23 @@ class _AttachmentEditor extends StatelessWidget {
                           ],
                         ),
                       ),
-                      IconButton(
-                        tooltip: '删除附件',
-                        onPressed: () {
-                          onDelete(item);
-                          state.didChange(items);
-                        },
-                        visualDensity: VisualDensity.compact,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 40,
-                          height: 40,
+                      if (!field.isReadOnly)
+                        IconButton(
+                          tooltip: '删除附件',
+                          onPressed: () {
+                            onDelete(item);
+                            state.didChange(items);
+                          },
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 40,
+                            height: 40,
+                          ),
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 19,
+                          ),
                         ),
-                        icon: const Icon(
-                          Icons.delete_outline_rounded,
-                          size: 19,
-                        ),
-                      ),
                       const SizedBox(width: 3),
                     ],
                   ),
@@ -1264,8 +1453,10 @@ class _LocalImageAttachmentPreview extends StatelessWidget {
 class _SchemaField extends StatelessWidget {
   const _SchemaField({
     required this.field,
+    required this.autovalidateMode,
     required this.value,
     required this.serverError,
+    required this.dependencyInvalid,
     required this.calculationError,
     required this.members,
     required this.departments,
@@ -1273,9 +1464,11 @@ class _SchemaField extends StatelessWidget {
   });
 
   final _FieldDefinition field;
+  final AutovalidateMode autovalidateMode;
   final Object? value;
   final String? serverError;
   final String? calculationError;
+  final bool dependencyInvalid;
   final List<ImMember> members;
   final List<ImDepartment> departments;
   final ValueChanged<Object?> onChanged;
@@ -1284,6 +1477,7 @@ class _SchemaField extends StatelessWidget {
   Widget build(BuildContext context) {
     if (field.type == 'checkbox') {
       return FormField<bool>(
+        autovalidateMode: autovalidateMode,
         initialValue: value == true,
         validator: (checked) =>
             serverError ??
@@ -1295,10 +1489,12 @@ class _SchemaField extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               title: Text(_schemaFieldLabel(field)),
               value: state.value ?? false,
-              onChanged: (checked) {
-                state.didChange(checked);
-                onChanged(checked);
-              },
+              onChanged: field.isReadOnly
+                  ? null
+                  : (checked) {
+                      state.didChange(checked);
+                      onChanged(checked);
+                    },
               controlAffinity: ListTileControlAffinity.leading,
             ),
             if (state.hasError)
@@ -1315,6 +1511,7 @@ class _SchemaField extends StatelessWidget {
     }
     if (field.type == 'select') {
       return FormField<String>(
+        autovalidateMode: autovalidateMode,
         initialValue: value?.toString(),
         validator: (selected) =>
             serverError ??
@@ -1323,7 +1520,7 @@ class _SchemaField extends StatelessWidget {
                 : null),
         builder: (state) => InkWell(
           key: ValueKey('schema-${field.id}-select'),
-          onTap: field.options.isEmpty
+          onTap: field.isReadOnly || field.options.isEmpty
               ? null
               : () async {
                   final selected = await showMobileChoiceSheet<String>(
@@ -1345,7 +1542,9 @@ class _SchemaField extends StatelessWidget {
             decoration: InputDecoration(
               labelText: _schemaFieldLabel(field),
               errorText: serverError ?? state.errorText,
-              suffixIcon: const Icon(Icons.expand_more_rounded, size: 20),
+              suffixIcon: field.isReadOnly
+                  ? null
+                  : const Icon(Icons.expand_more_rounded, size: 20),
             ),
             child: Text(
               state.value?.isNotEmpty == true ? state.value! : '请选择',
@@ -1361,6 +1560,7 @@ class _SchemaField extends StatelessWidget {
     }
     if (field.type == 'multiSelect') {
       return FormField<List<String>>(
+        autovalidateMode: autovalidateMode,
         initialValue: value is List
             ? (value as List).map((item) => item.toString()).toList()
             : const [],
@@ -1371,7 +1571,7 @@ class _SchemaField extends StatelessWidget {
                 : null),
         builder: (state) => InkWell(
           key: ValueKey('schema-${field.id}-multi-select'),
-          onTap: field.options.isEmpty
+          onTap: field.isReadOnly || field.options.isEmpty
               ? null
               : () async {
                   final selected = await showMobileMultiChoiceSheet<String>(
@@ -1393,7 +1593,9 @@ class _SchemaField extends StatelessWidget {
             decoration: InputDecoration(
               labelText: _schemaFieldLabel(field),
               errorText: serverError ?? state.errorText,
-              suffixIcon: const Icon(Icons.expand_more_rounded, size: 20),
+              suffixIcon: field.isReadOnly
+                  ? null
+                  : const Icon(Icons.expand_more_rounded, size: 20),
             ),
             child: Text(
               state.value?.isNotEmpty == true ? state.value!.join('、') : '请选择',
@@ -1425,6 +1627,7 @@ class _SchemaField extends StatelessWidget {
                 .toList()
           : _departmentOptions(departments, members);
       return FormField<String>(
+        autovalidateMode: autovalidateMode,
         initialValue: value?.toString(),
         validator: (selected) =>
             serverError ??
@@ -1435,7 +1638,7 @@ class _SchemaField extends StatelessWidget {
           final selected = options.where((item) => item.id == state.value);
           final label = selected.isEmpty ? '请选择' : selected.first.label;
           return InkWell(
-            onTap: options.isEmpty
+            onTap: field.isReadOnly || options.isEmpty
                 ? null
                 : () async {
                     final result = await _showReferencePicker(
@@ -1452,11 +1655,13 @@ class _SchemaField extends StatelessWidget {
               decoration: InputDecoration(
                 labelText: _schemaFieldLabel(field),
                 errorText: serverError ?? state.errorText,
-                suffixIcon: Icon(
-                  field.type == 'person'
-                      ? Icons.person_search_outlined
-                      : Icons.account_tree_outlined,
-                ),
+                suffixIcon: field.isReadOnly
+                    ? null
+                    : Icon(
+                        field.type == 'person'
+                            ? Icons.person_search_outlined
+                            : Icons.account_tree_outlined,
+                      ),
               ),
               child: Text(
                 options.isEmpty ? '暂无可选数据' : label,
@@ -1476,6 +1681,7 @@ class _SchemaField extends StatelessWidget {
           ? (value as List).map((item) => item.toString()).toList()
           : const <String>[];
       return FormField<List<String>>(
+        autovalidateMode: autovalidateMode,
         initialValue: initial,
         validator: (selected) {
           if (serverError != null) return serverError;
@@ -1493,35 +1699,41 @@ class _SchemaField extends StatelessWidget {
         },
         builder: (state) => InkWell(
           key: ValueKey('schema-${field.id}-date-range'),
-          onTap: () async {
-            final current = state.value ?? const <String>[];
-            final start = current.isNotEmpty
-                ? DateTime.tryParse(current.first)
-                : null;
-            final end = current.length > 1
-                ? DateTime.tryParse(current.last)
-                : null;
-            final range = await showMobileDateRangePickerSheet(
-              context,
-              firstDate: DateTime.now().subtract(const Duration(days: 365)),
-              lastDate: DateTime.now().add(const Duration(days: 3650)),
-              initialDateRange: start == null || end == null
-                  ? null
-                  : DateTimeRange(start: start, end: end),
-            );
-            if (range == null) return;
-            final selected = [
-              DateFormat('yyyy-MM-dd').format(range.start),
-              DateFormat('yyyy-MM-dd').format(range.end),
-            ];
-            state.didChange(selected);
-            onChanged(selected);
-          },
+          onTap: field.isReadOnly
+              ? null
+              : () async {
+                  final current = state.value ?? const <String>[];
+                  final start = current.isNotEmpty
+                      ? DateTime.tryParse(current.first)
+                      : null;
+                  final end = current.length > 1
+                      ? DateTime.tryParse(current.last)
+                      : null;
+                  final range = await showMobileDateRangePickerSheet(
+                    context,
+                    firstDate: DateTime.now().subtract(
+                      const Duration(days: 365),
+                    ),
+                    lastDate: DateTime.now().add(const Duration(days: 3650)),
+                    initialDateRange: start == null || end == null
+                        ? null
+                        : DateTimeRange(start: start, end: end),
+                  );
+                  if (range == null) return;
+                  final selected = [
+                    DateFormat('yyyy-MM-dd').format(range.start),
+                    DateFormat('yyyy-MM-dd').format(range.end),
+                  ];
+                  state.didChange(selected);
+                  onChanged(selected);
+                },
           child: InputDecorator(
             decoration: InputDecoration(
               labelText: _schemaFieldLabel(field),
               errorText: serverError ?? state.errorText,
-              suffixIcon: const Icon(Icons.date_range_outlined),
+              suffixIcon: field.isReadOnly
+                  ? null
+                  : const Icon(Icons.date_range_outlined),
             ),
             child: Text(
               state.value?.length == 2
@@ -1539,6 +1751,7 @@ class _SchemaField extends StatelessWidget {
     }
     if (field.type == 'date' || field.type == 'datetime') {
       return FormField<String>(
+        autovalidateMode: autovalidateMode,
         initialValue: value?.toString(),
         validator: (selected) =>
             serverError ??
@@ -1547,21 +1760,25 @@ class _SchemaField extends StatelessWidget {
                 : null),
         builder: (state) => InkWell(
           key: ValueKey('schema-${field.id}-date'),
-          onTap: () async {
-            final selected = await _pickDateTime(
-              context,
-              includeTime: field.type == 'datetime',
-              current: state.value,
-            );
-            if (selected == null) return;
-            state.didChange(selected);
-            onChanged(selected);
-          },
+          onTap: field.isReadOnly
+              ? null
+              : () async {
+                  final selected = await _pickDateTime(
+                    context,
+                    includeTime: field.type == 'datetime',
+                    current: state.value,
+                  );
+                  if (selected == null) return;
+                  state.didChange(selected);
+                  onChanged(selected);
+                },
           child: InputDecorator(
             decoration: InputDecoration(
               labelText: _schemaFieldLabel(field),
               errorText: serverError ?? state.errorText,
-              suffixIcon: const Icon(Icons.calendar_month_outlined),
+              suffixIcon: field.isReadOnly
+                  ? null
+                  : const Icon(Icons.calendar_month_outlined),
             ),
             child: Text(
               state.value?.isNotEmpty == true
@@ -1583,6 +1800,7 @@ class _SchemaField extends StatelessWidget {
     final readOnly = field.isReadOnly;
     final displayValue = field.formatValue(value);
     final textField = TextFormField(
+      autovalidateMode: autovalidateMode,
       key: readOnly
           ? ValueKey('schema-${field.id}-$displayValue')
           : ValueKey('schema-${field.id}'),
@@ -1605,15 +1823,16 @@ class _SchemaField extends StatelessWidget {
         suffixText: field.displayUnit,
       ),
       validator: (text) {
+        if (dependencyInvalid) return null;
         if (serverError != null) return serverError;
-        if (field.calculation != null && calculationError != null) {
+        if (calculationError != null) {
           return calculationError;
         }
         final missing = text?.trim().isEmpty ?? true;
-        if (field.required && missing) return '请填写${field.label}';
+        if (field.required && missing) return field.validateValue(text);
         if (!missing && (field.type == 'number' || field.type == 'amount')) {
           final number = num.tryParse(text!.trim());
-          if (number == null) return '请输入有效数字';
+          if (number == null || !number.isFinite) return '请输入有效数字';
           if (field.type == 'amount' && number <= 0) return '金额必须大于 0';
         }
         if (!missing && (field.type == 'text' || field.type == 'textarea')) {
@@ -1811,6 +2030,13 @@ final class _FieldDefinition {
         value.toString().trim().isEmpty ||
         (value is List && value.isEmpty);
     if (required && (type == 'checkbox' ? value != true : missing)) {
+      // A configured read-only value must still be present, but the user
+      // cannot supply it by typing. Keep schema requirements intact.
+      if (isReadOnly) {
+        return calculation != null || durationUnit != null
+            ? '$label尚未计算，请检查关联字段'
+            : '$label暂无值，请检查表单配置';
+      }
       return switch (type) {
         'checkbox' => '请确认$label',
         'select' ||
@@ -1826,7 +2052,7 @@ final class _FieldDefinition {
     if (missing) return null;
     if (type == 'number' || type == 'amount') {
       final number = num.tryParse(value.toString().trim());
-      if (number == null) return '请输入有效数字';
+      if (number == null || !number.isFinite) return '请输入有效数字';
       if (type == 'amount' && number <= 0) return '金额必须大于 0';
     }
     if (type == 'text' || type == 'textarea') {
@@ -2276,20 +2502,37 @@ String _errorMessage(Object error) {
     final data = error.response!.data as Map;
     final message =
         data['message']?.toString() ?? data['detail']?.toString() ?? '';
-    if (message.trim().isNotEmpty) return message;
+    if (message.trim().isNotEmpty) {
+      return mobileErrorText(Exception(message), fallback: '操作失败，请稍后重试');
+    }
   }
-  return error.toString().replaceFirst('Exception: ', '');
+  return mobileErrorText(error, fallback: '操作失败，请稍后重试');
+}
+
+bool _isRecoverableWorkflowPreviewError(Object? error) {
+  if (error is TimeoutException || error is SocketException) {
+    return true;
+  }
+  if (error is! DioException || CancelToken.isCancel(error)) return false;
+  final status = error.response?.statusCode;
+  if (status != null) return status >= 500 || status == 408 || status == 429;
+  return switch (error.type) {
+    DioExceptionType.connectionTimeout ||
+    DioExceptionType.sendTimeout ||
+    DioExceptionType.receiveTimeout ||
+    DioExceptionType.connectionError => true,
+    DioExceptionType.unknown =>
+      error.error is SocketException || error.error is TimeoutException,
+    _ => false,
+  };
 }
 
 String _workflowPreviewFailureLabel(Object error) {
-  if (error is TimeoutException || error is SocketException) {
+  if (_isRecoverableWorkflowPreviewError(error)) {
     return '网络不可用，表单与草稿已保留';
   }
   if (error is DioException) {
     final status = error.response?.statusCode;
-    if (status == null || status >= 500 || status == 408 || status == 429) {
-      return '网络不可用，表单与草稿已保留';
-    }
     if (status == 400 || status == 422) {
       return '请检查必填项后重新解析';
     }
@@ -2345,6 +2588,7 @@ String _attachmentContentType(String? extension) => switch (extension
   'png' => 'image/png',
   'jpg' || 'jpeg' => 'image/jpeg',
   'webp' => 'image/webp',
+  'heic' || 'heif' => 'image/heic',
   'doc' => 'application/msword',
   'docx' =>
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

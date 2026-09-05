@@ -1,0 +1,46 @@
+[
+  {
+    "sample": "oa-first",
+    "sequence": 407,
+    "notificationId": "dacec3a5-99e1-4742-9658-4f4bd3060ec2",
+    "eventId": "e4daa812-cdde-429f-9178-4a7d320e82f8",
+    "readAt": "2026-09-02T18:00:51.49758Z",
+    "serverCreatedAt": "2026-09-02T18:00:52.752533Z",
+    "appliedAt": "2026-09-02T18:00:57.650504Z",
+    "localIntentToAppliedMs": 6152.924,
+    "serverCreatedToAppliedMs": 4897.971
+  },
+  {
+    "sample": "oa-second",
+    "sequence": 408,
+    "notificationId": "3e46b60b-d1e6-4d9c-978d-e9040d236f59",
+    "eventId": "79cde143-fcfe-4a21-8b3f-096bdf82499d",
+    "readAt": "2026-09-02T18:01:30.222105Z",
+    "serverCreatedAt": "2026-09-02T18:01:31.372398Z",
+    "appliedAt": "2026-09-02T18:01:39.512724Z",
+    "localIntentToAppliedMs": 9290.619,
+    "serverCreatedToAppliedMs": 8140.326
+  },
+  {
+    "sample": "oa-fixed-first",
+    "sequence": 409,
+    "notificationId": "41708e85-1b2e-4bfe-bfa8-c62e38f43deb",
+    "eventId": "530dc901-215f-4d7b-9ebc-f33173b0bc66",
+    "readAt": "2026-09-02T18:06:27.218844Z",
+    "serverCreatedAt": "2026-09-02T18:06:28.381121Z",
+    "appliedAt": "2026-09-02T18:06:28.949034Z",
+    "localIntentToAppliedMs": 1730.19,
+    "serverCreatedToAppliedMs": 567.913
+  },
+  {
+    "sample": "oa-fixed-second",
+    "sequence": 410,
+    "notificationId": "33f6c3dd-d351-4646-90d5-ac17933b642c",
+    "eventId": "88e27107-7008-4eba-b21b-22e855e0acf1",
+    "readAt": "2026-09-02T18:06:51.855985Z",
+    "serverCreatedAt": "2026-09-02T18:06:53.03641Z",
+    "appliedAt": "2026-09-02T18:06:53.445928Z",
+    "localIntentToAppliedMs": 1589.943,
+    "serverCreatedToAppliedMs": 409.518
+  }
+]

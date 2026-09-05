@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-09-03T05:35:23.0744288+08:00",
+  "account": "test01",
+  "target": "test04",
+  "status": 200,
+  "requestId": null,
+  "memberId": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+  "username": "test04",
+  "presenceFieldPresent": true,
+  "isOnline": true,
+  "lastSeenAt": "2026-09-02T21:34:37.790013Z"
+}

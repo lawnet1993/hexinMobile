@@ -1,0 +1,16 @@
+[
+  {
+    "at": "2026-09-03T08:41:08.6654231+08:00",
+    "serial": "emulator-5556",
+    "beforePid": "25344",
+    "afterPid": "27859",
+    "newProcess": true
+  },
+  {
+    "at": "2026-09-03T08:41:17.9621195+08:00",
+    "serial": "emulator-5558",
+    "beforePid": "21105",
+    "afterPid": "21874",
+    "newProcess": true
+  }
+]

@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-09-05T00:08:15.7676273+08:00",
+  "account": "test01",
+  "bootstrapStatus": 200,
+  "syncStatus": 200,
+  "eventCursor": 2302,
+  "conversation": {
+    "id": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+    "type": "direct",
+    "lastMessageSequence": 8,
+    "lastReadSequence": 8,
+    "unreadCount": 0,
+    "messageCount": 8,
+    "messagesStatus": 200,
+    "requestId": "78191808-6a0f-416c-8326-c326277a8ac4"
+  },
+  "testMessages": [
+    {
+      "id": "4d277f77-b799-45ac-a1a7-6d6c375ebcc6",
+      "clientMessageId": "c1bee507-132e-4e5f-addc-98f5c7581cf5",
+      "sequence": 8,
+      "type": null,
+      "senderId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "createdAt": "2026-09-04T16:07:38.002343Z",
+      "testText": "AI-UAT-20260905-000800-MOBILE-D91"
+    }
+  ]
+}

@@ -1,0 +1,118 @@
+{
+  "checkedAt": "2026-09-05T00:18:26.3621733+08:00",
+  "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+  "desktopLedger": [
+    {
+      "id": "11e39f24-ba2a-486c-ad11-5a8f2487378c",
+      "sequence": 1,
+      "delivery_state": "sent"
+    },
+    {
+      "id": "67cc0bfe-b64e-42c5-a436-fff302e8ad3b",
+      "sequence": 2,
+      "delivery_state": "sent"
+    },
+    {
+      "id": "03ecc845-25e5-4fe3-98fa-8a77281c2aa1",
+      "sequence": 3,
+      "delivery_state": "sent"
+    },
+    {
+      "id": "114d4ea8-4124-4a5d-9f8a-8994a2a79fe7",
+      "sequence": 4,
+      "delivery_state": "sent"
+    },
+    {
+      "id": "3f44c0f9-ba64-4eb8-b94d-e7dee5eed99e",
+      "sequence": 5,
+      "delivery_state": "sent"
+    },
+    {
+      "id": "a8b658fb-c983-4f4f-92e7-5196528ae4fb",
+      "sequence": 6,
+      "delivery_state": "sent"
+    },
+    {
+      "id": "68b6cd70-a822-498c-9242-c09865210f5b",
+      "sequence": 7,
+      "delivery_state": "sent"
+    },
+    {
+      "id": "18de6789-7497-4b34-8738-7734de9d10a0",
+      "sequence": 9,
+      "delivery_state": "sent"
+    },
+    {
+      "id": "721797c0-9623-4367-87af-fb82324bceae",
+      "sequence": 11,
+      "delivery_state": "sent"
+    },
+    {
+      "id": "06f666aa-ce59-4e84-9bf2-921fcce2895e",
+      "sequence": 12,
+      "delivery_state": "sent"
+    }
+  ],
+  "desktopTargetPresent": false,
+  "missingSequences": [
+    8,
+    10
+  ],
+  "phone": {
+    "checkedAt": "2026-09-05T00:17:40.2556928+08:00",
+    "integrity": "ok",
+    "sequences": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "applied": 2312,
+    "acked": 2312,
+    "outboxCount": 0
+  },
+  "server": {
+    "checkedAt": "2026-09-05T00:18:14.7883580+08:00",
+    "account": "test01",
+    "bootstrapStatus": 200,
+    "messagesStatus": 200,
+    "requestId": "38ba2605-dc57-4d70-97f6-fcf7ba940041",
+    "sequences": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "targetMessageId": "4d277f77-b799-45ac-a1a7-6d6c375ebcc6",
+    "targetClientMessageId": "c1bee507-132e-4e5f-addc-98f5c7581cf5",
+    "targetSequence": 8,
+    "eventStatus": 200,
+    "eventId": "ccec0812-2e1b-4b07-aac2-37c77755df78",
+    "eventSequence": 2302
+  },
+  "desktopSyncState": {
+    "messagesSyncedAt": 1788537185,
+    "lastMessageSequence": 7
+  },
+  "notes": [
+    "SQLite inspected read-only; no desktop restart, logout or database writes.",
+    "Desktop UI version 1.0.91 and missing display confirmed by user screenshot.",
+    "Direct SQL query only; no assumptions about the undocumented new Push Gateway event store."
+  ]
+}

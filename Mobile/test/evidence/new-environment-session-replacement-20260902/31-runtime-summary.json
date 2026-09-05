@@ -1,0 +1,14 @@
+[
+  {
+    "device": "dd00d66d",
+    "pid": "24770",
+    "lineCount": 23,
+    "fatalOrFlutterErrors": 0
+  },
+  {
+    "device": "emulator-5554",
+    "pid": "11738",
+    "lineCount": 90,
+    "fatalOrFlutterErrors": 0
+  }
+]

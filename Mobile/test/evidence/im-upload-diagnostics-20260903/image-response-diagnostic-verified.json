@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-09-03T06:31:01.4580303+08:00",
+  "serial": "emulator-5556",
+  "processId": 13635,
+  "rejectedRecords": 0,
+  "records": [
+    {
+      "sampledAt": "2026-09-02T22:30:41.9245050+00:00",
+      "operation": "image_send",
+      "httpStatus": 500,
+      "failureType": "badResponse",
+      "requestBody": "multipart",
+      "formFields": [
+        "clientMessageId",
+        "caption",
+        "files"
+      ],
+      "fileBytes": [
+        1526148
+      ],
+      "responseType": "json",
+      "bodyShape": "object",
+      "errorCode": null,
+      "errorSignals": [],
+      "requestId": null,
+      "correlationId": null,
+      "traceparent": null,
+      "bodyTraceId": "00-7693702ab9f087e9f49b579a68e38a2e-9ef20c197d6196d4-00"
+    }
+  ]
+}

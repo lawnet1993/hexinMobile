@@ -1,0 +1,1 @@
+AI-UAT protected offline attachment fixture.

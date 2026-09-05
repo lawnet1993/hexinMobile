@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-09-03T08:53:32.3944976+08:00",
+  "serial": "emulator-5558",
+  "pid": "23636",
+  "rejected": 0,
+  "events": [
+    {
+      "windows": 1,
+      "messages": 0
+    },
+    {
+      "windows": 1,
+      "messages": 80
+    }
+  ]
+}

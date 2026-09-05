@@ -1,0 +1,18 @@
+[
+  {
+    "serial": "emulator-5556",
+    "pid": "23151",
+    "fatalCount": 0,
+    "unhandledCount": 0,
+    "overflowCount": 0,
+    "benchmarkLogCount": 0
+  },
+  {
+    "serial": "emulator-5558",
+    "pid": "4878",
+    "fatalCount": 0,
+    "unhandledCount": 0,
+    "overflowCount": 0,
+    "benchmarkLogCount": 0
+  }
+]

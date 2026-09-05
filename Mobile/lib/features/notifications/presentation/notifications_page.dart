@@ -3,14 +3,47 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/errors/mobile_error_text.dart';
+import '../../../shared/formatters/mobile_date_time.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/application/oa_catalog_sync_coordinator.dart';
 import '../../collaboration/domain/collaboration_models.dart';
+
+typedef NotificationReadSynchronizer = Future<void> Function(
+  OaNotification item,
+);
+
+final notificationReadSynchronizerProvider =
+    Provider<NotificationReadSynchronizer>((ref) {
+      var disposed = false;
+      ref.onDispose(() => disposed = true);
+      return (item) async {
+        if (item.targetKind == 'im_conversation') {
+          // Navigation is not proof of reading. ChatPage submits only messages
+          // that actually enter its visible viewport (including cached history).
+          return;
+        }
+        if (item.targetKind == 'im_friend_requests') return;
+        await ref.read(oaRepositoryProvider).markNotificationRead(item.id);
+        ref.invalidate(oaNotificationsProvider);
+        ref.invalidate(oaNotificationPageProvider);
+        ref.invalidate(oaBootstrapProvider);
+        ref.invalidate(oaPendingNotificationReadsProvider);
+        ref.read(oaRepositoryProvider).flushNotificationReads().then((sent) {
+          if (!disposed && sent > 0) {
+            ref.read(oaCatalogSyncCoordinatorProvider).catchUpAfterMutation();
+          }
+        }).whenComplete(
+          () {
+            if (!disposed) ref.invalidate(oaPendingNotificationReadsProvider);
+          },
+        ).ignore();
+      };
+    });
 
 String? notificationTargetRoute(OaNotification item) {
   final targetId = item.targetId.trim();
@@ -195,6 +228,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         : allNotificationKey;
     final value = _unreadOnly ? unreadNotifications : allNotifications;
     final bootstrap = ref.watch(oaBootstrapProvider);
+    final pendingReadCount =
+        ref.watch(oaPendingNotificationReadsProvider).value ?? 0;
     final imBootstrap = ref.watch(imBootstrapProvider);
     final applications = ref.watch(pendingFriendApplicationsProvider);
     final conversations = imBootstrap.value?.conversations ?? const [];
@@ -347,6 +382,27 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
             )
           : Column(
               children: [
+                if (pendingReadCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.cloud_sync_outlined,
+                          size: 15,
+                          color: AppColors.secondaryText,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$pendingReadCount 条已读状态待同步',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.secondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Container(
                   key: const Key('notification-filter-row'),
                   height: 44,
@@ -510,6 +566,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
   Future<void> _refreshNotifications() async {
     try {
+      await ref
+          .read(oaRepositoryProvider)
+          .flushNotificationReads(retryNow: true);
+      ref.invalidate(oaPendingNotificationReadsProvider);
       await ref.read(oaRepositoryProvider).refreshNotifications();
       _resetPagination();
       ref.invalidate(oaNotificationPageProvider);
@@ -517,8 +577,13 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       ref.invalidate(pendingFriendApplicationsProvider);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('刷新失败，继续显示本机通知：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              mobileActionErrorText('刷新失败', error, fallback: '继续显示本机通知'),
+            ),
+          ),
+        );
       }
     }
   }
@@ -529,7 +594,11 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       final conversations =
           ref.read(imBootstrapProvider).value?.conversations ?? const [];
       await Future.wait<void>([
-        ref.read(oaRepositoryProvider).markAllNotificationsRead(),
+        ref.read(oaRepositoryProvider).markAllNotificationsRead().then((_) {
+          if (mounted) {
+            ref.read(oaCatalogSyncCoordinatorProvider).catchUpAfterMutation();
+          }
+        }),
         ...conversations
             .where(
               (item) => item.unreadCount > 0 && item.lastMessageSequence > 0,
@@ -546,8 +615,9 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       ref.invalidate(imBootstrapProvider);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('标记失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('标记失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _markingAll = false);
@@ -630,8 +700,9 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       _autoLoadRetryBlocked = true;
       ref.invalidate(oaNotificationPageProvider(pageKey));
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('加载失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('加载失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _loadingMore = false);
@@ -656,51 +727,55 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('处理失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('处理失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _handlingApplicationId = null);
     }
   }
 
-  Future<void> _open(OaNotification item) async {
+  void _open(OaNotification item) {
     if (!item.isRead) {
-      try {
-        if (item.targetKind == 'im_conversation') {
-          final conversations = ref
-              .read(imBootstrapProvider)
-              .value
-              ?.conversations;
-          final conversation = conversations
-              ?.where((candidate) => candidate.id == item.targetId)
-              .firstOrNull;
-          if (conversation != null && conversation.lastMessageSequence > 0) {
-            await ref
-                .read(imRepositoryProvider)
-                .markRead(conversation.id, conversation.lastMessageSequence);
-            ref.invalidate(imBootstrapProvider);
-          }
-        } else if (item.targetKind != 'im_friend_requests') {
-          await ref.read(oaRepositoryProvider).markNotificationRead(item.id);
-          ref.invalidate(oaNotificationsProvider);
-          ref.invalidate(oaNotificationPageProvider);
-          ref.invalidate(oaBootstrapProvider);
-        }
-      } catch (error) {
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('通知状态同步失败：$error')));
-        }
-      }
+      unawaited(_synchronizeOpenedNotification(item));
     }
-    if (!mounted) return;
     final route = notificationTargetRoute(item);
     if (route == null) return;
     if (route.startsWith('/contacts')) {
       context.go(route);
     } else {
       context.push(route);
+    }
+  }
+
+  Future<void> _synchronizeOpenedNotification(OaNotification item) async {
+    if (!item.isRead) {
+      try {
+        await ref.read(notificationReadSynchronizerProvider)(item);
+        if (mounted &&
+            item.targetKind != 'im_conversation' &&
+            item.targetKind != 'im_friend_requests') {
+          final index = _additionalNotifications.indexWhere(
+            (value) => value.id == item.id,
+          );
+          if (index >= 0) {
+            setState(
+              () => _additionalNotifications[index] = OaNotification.fromJson({
+                ...item.toJson(),
+                'isRead': true,
+                'readAt': DateTime.now().toUtc().toIso8601String(),
+              }),
+            );
+          }
+        }
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(mobileActionErrorText('通知状态同步失败', error))),
+          );
+        }
+      }
     }
   }
 }
@@ -894,7 +969,7 @@ class _NotificationItem extends StatelessWidget {
                 children: [
                   if (item.createdAt != null)
                     Text(
-                      _compactTime(item.createdAt!),
+                      compactListDateTimeLabel(item.createdAt),
                       style: const TextStyle(
                         fontSize: 10.5,
                         color: AppColors.weakText,
@@ -919,15 +994,6 @@ class _NotificationItem extends StatelessWidget {
       ),
     );
   }
-}
-
-String _compactTime(DateTime value) {
-  final now = DateTime.now();
-  final sameDay =
-      now.year == value.year &&
-      now.month == value.month &&
-      now.day == value.day;
-  return DateFormat(sameDay ? 'HH:mm' : 'MM-dd').format(value);
 }
 
 String notificationKindLabel(OaNotification item) {

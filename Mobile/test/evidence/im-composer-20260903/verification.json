@@ -1,0 +1,54 @@
+{
+  "passed": 12,
+  "total": 12,
+  "checks": [
+    {
+      "name": "online-exact-pair-no-replayed-clicks-next-draft-preserved",
+      "passed": true
+    },
+    {
+      "name": "offline-exact-pair-no-replayed-clicks-next-draft-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-614-unique-confirmed-and-original-610-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-original-outbox-identities-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-614-unique-confirmed-and-original-610-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-original-outbox-identities-preserved",
+      "passed": true
+    },
+    {
+      "name": "both-devices-have-identical-server-and-client-message-ids",
+      "passed": true
+    },
+    {
+      "name": "offline-queue-has-two-durable-messages-and-confirmation-reuses-client-ids",
+      "passed": true
+    },
+    {
+      "name": "both-zero-unread-and-peer-receipt-614",
+      "passed": true
+    },
+    {
+      "name": "final-native-screens-show-all-four-markers",
+      "passed": true
+    },
+    {
+      "name": "oa-drafts-and-notification-receipts-unchanged",
+      "passed": true
+    },
+    {
+      "name": "normal-installed-apk-matches-live-processes-no-fatal-and-radios-restored",
+      "passed": true
+    }
+  ]
+}

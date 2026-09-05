@@ -13,6 +13,7 @@ import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 import '../data/managed_sites_repository.dart';
 import '../domain/app_catalog.dart';
+import 'application_catalog_content.dart';
 
 final mobileClockProvider = Provider<DateTime>((ref) => DateTime.now());
 
@@ -29,10 +30,7 @@ class _WorkbenchPageState extends ConsumerState<WorkbenchPage> {
   @override
   Widget build(BuildContext context) {
     final value = ref.watch(oaBootstrapProvider);
-    final catalogValue = ref.watch(oaApplicationCatalogProvider);
-    final applications = MobileAppCatalog.fromCatalog(
-      catalogValue.value?.items ?? const [],
-    );
+    final syncAvailability = ref.watch(oaSyncAvailabilityProvider);
     final now = ref.watch(mobileClockProvider);
     return Scaffold(
       body: SafeArea(
@@ -87,7 +85,7 @@ class _WorkbenchPageState extends ConsumerState<WorkbenchPage> {
                           _AnnouncementsPanel(item: data.announcements.first),
                         ],
                         const SizedBox(height: 8),
-                        _ApplicationsPanel(applications: applications),
+                        const _ApplicationsPanel(),
                         const SizedBox(height: 10),
                         _ActivityPanel(
                           selectedTab: _contentTab,
@@ -95,6 +93,7 @@ class _WorkbenchPageState extends ConsumerState<WorkbenchPage> {
                               setState(() => _contentTab = value),
                           pending: pending,
                           initiated: initiated,
+                          syncAvailability: syncAvailability,
                         ),
                         if (todayItems.isNotEmpty) ...[
                           const SizedBox(height: 10),
@@ -126,8 +125,9 @@ class _BrandHeader extends StatelessWidget {
   final int unreadNotifications;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 44,
+  Widget build(BuildContext context) => ConstrainedBox(
+    key: const Key('workbench-brand-header'),
+    constraints: const BoxConstraints(minHeight: 44),
     child: Row(
       children: [
         Expanded(
@@ -353,7 +353,7 @@ Future<void> _openManagedSite(
     }
   } on ManagedSiteUnavailable catch (error) {
     if (context.mounted) {
-      messenger.showSnackBar(SnackBar(content: Text(error.toString())));
+      messenger.showSnackBar(SnackBar(content: Text(mobileErrorText(error))));
     }
   }
 }
@@ -621,13 +621,10 @@ class _Announcement extends StatelessWidget {
 }
 
 class _ApplicationsPanel extends StatelessWidget {
-  const _ApplicationsPanel({required this.applications});
-
-  final List<MobileAppEntry> applications;
+  const _ApplicationsPanel();
 
   @override
   Widget build(BuildContext context) {
-    final items = applications.take(9).toList();
     return _SurfacePanel(
       child: Column(
         children: [
@@ -636,34 +633,40 @@ class _ApplicationsPanel extends StatelessWidget {
             action: '全部应用',
             onTap: () => context.push('/apps'),
           ),
-          GridView.builder(
-            padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 5,
-              childAspectRatio: 1.08,
-              mainAxisSpacing: 2,
-              crossAxisSpacing: 2,
-            ),
-            itemCount: items.length + 1,
-            itemBuilder: (context, index) {
-              if (index == items.length) {
-                return _AppShortcut(
-                  title: '更多',
-                  icon: TDIcons.app,
-                  color: const Color(0xFF5D667A),
-                  onTap: () => context.push('/apps'),
-                );
-              }
-              final item = items[index];
-              return _AppShortcut(
-                title: item.title,
-                icon: _tdIcon(item.title),
-                color: item.color,
-                onTap: item.route == null
-                    ? null
-                    : () => context.push(item.route!),
+          ApplicationCatalogContent(
+            builder: (applications) {
+              final items = applications.take(9).toList();
+              return GridView.builder(
+                padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 5,
+                  childAspectRatio: 1.08,
+                  mainAxisSpacing: 2,
+                  crossAxisSpacing: 2,
+                ),
+                itemCount: items.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == items.length) {
+                    return _AppShortcut(
+                      title: '更多',
+                      icon: TDIcons.app,
+                      color: const Color(0xFF5D667A),
+                      onTap: () => context.push('/apps'),
+                    );
+                  }
+                  final item = items[index];
+                  return _AppShortcut(
+                    title: item.title,
+                    icon: item.icon,
+                    application: item,
+                    color: item.color,
+                    onTap: item.route == null
+                        ? null
+                        : () => context.push(item.route!),
+                  );
+                },
               );
             },
           ),
@@ -679,12 +682,14 @@ class _AppShortcut extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    this.application,
   });
 
   final String title;
   final IconData icon;
   final Color color;
   final VoidCallback? onTap;
+  final MobileAppEntry? application;
 
   @override
   Widget build(BuildContext context) => Opacity(
@@ -703,7 +708,16 @@ class _AppShortcut extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child: Icon(icon, size: 18, color: Colors.white),
+            child: application == null
+                ? Icon(icon, size: 18, color: Colors.white)
+                : MobileAppIcon(
+                    applicationKey: application!.applicationKey,
+                    iconKey: application!.iconKey,
+                    iconDataUrl: application!.iconDataUrl,
+                    fallback: icon,
+                    size: 20,
+                    color: Colors.white,
+                  ),
           ),
           const SizedBox(height: 3),
           Text(
@@ -724,12 +738,14 @@ class _ActivityPanel extends StatelessWidget {
     required this.onTabChanged,
     required this.pending,
     required this.initiated,
+    required this.syncAvailability,
   });
 
   final int selectedTab;
   final ValueChanged<int> onTabChanged;
   final List<OaApprovalRequest> pending;
   final List<OaApprovalRequest> initiated;
+  final OaSyncAvailability syncAvailability;
 
   @override
   Widget build(BuildContext context) {
@@ -748,20 +764,72 @@ class _ActivityPanel extends StatelessWidget {
                     onTap: () => onTabChanged(index),
                   ),
                 const Spacer(),
-                IconButton(
-                  tooltip: '查看全部',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => context.go('/todos'),
-                  icon: const Icon(TDIcons.filter, size: 18),
-                ),
+                if (syncAvailability == OaSyncAvailability.connecting)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.sync_rounded,
+                          size: 15,
+                          color: AppColors.secondaryText,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          '同步中',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.secondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (syncAvailability == OaSyncAvailability.unavailable)
+                  Semantics(
+                    button: true,
+                    label: '当前显示本机审批记录，查看全部',
+                    child: ExcludeSemantics(
+                      child: TextButton.icon(
+                        key: const Key('workbench-approval-offline'),
+                        onPressed: () => context.go('/todos'),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(64, 34),
+                          padding: const EdgeInsets.symmetric(horizontal: 7),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.cloud_off_outlined, size: 15),
+                        label: const Text(
+                          '本机记录',
+                          style: TextStyle(fontSize: 11.5),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  IconButton(
+                    tooltip: '查看全部',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => context.go('/todos'),
+                    icon: const Icon(TDIcons.filter, size: 18),
+                  ),
               ],
             ),
           ),
           const Divider(height: 1),
           if (selectedTab == 0)
-            _ApprovalList(items: pending, actionable: true)
+            _ApprovalList(
+              items: pending,
+              actionable: true,
+              syncAvailability: syncAvailability,
+            )
           else
-            _ApprovalList(items: initiated, actionable: false),
+            _ApprovalList(
+              items: initiated,
+              actionable: false,
+              syncAvailability: syncAvailability,
+            ),
         ],
       ),
     );
@@ -812,15 +880,33 @@ class _PanelTab extends StatelessWidget {
 }
 
 class _ApprovalList extends StatelessWidget {
-  const _ApprovalList({required this.items, required this.actionable});
+  const _ApprovalList({
+    required this.items,
+    required this.actionable,
+    required this.syncAvailability,
+  });
 
   final List<OaApprovalRequest> items;
   final bool actionable;
+  final OaSyncAvailability syncAvailability;
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const _CompactEmpty(icon: TDIcons.taskChecked, title: '暂无审批事项');
+      final connecting = syncAvailability == OaSyncAvailability.connecting;
+      final offline = syncAvailability == OaSyncAvailability.unavailable;
+      return _CompactEmpty(
+        icon: connecting
+            ? Icons.sync_rounded
+            : offline
+            ? Icons.cloud_off_outlined
+            : TDIcons.taskChecked,
+        title: connecting
+            ? '正在同步审批'
+            : offline
+            ? '本机暂无审批记录'
+            : '暂无审批事项',
+      );
     }
     return Column(
       children: [
@@ -890,20 +976,25 @@ class _ApprovalRow extends StatelessWidget {
               ],
             ),
           ),
-          if (actionable)
+          if (actionable) ...[
+            const SizedBox(width: 8),
             OutlinedButton(
               onPressed: () => context.push('/approval/${request.id}'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(66, 34),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                side: const BorderSide(color: Color(0xFF0052D9)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+              style: compactMobileActionStyle.copyWith(
+                minimumSize: const WidgetStatePropertyAll(Size(60, 30)),
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 8),
+                ),
+                textStyle: const WidgetStatePropertyAll(
+                  TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+                side: const WidgetStatePropertyAll(
+                  BorderSide(color: Color(0xFFB7D0F5)),
                 ),
               ),
-              child: const Text('去处理', style: TextStyle(fontSize: 12.5)),
-            )
-          else
+              child: const Text('去处理'),
+            ),
+          ] else
             const Icon(
               TDIcons.chevronRight,
               size: 18,

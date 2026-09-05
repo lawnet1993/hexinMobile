@@ -1,0 +1,17 @@
+{
+  "startedAt": "2026-09-03T01:48:58.2438858+08:00",
+  "checkedAt": "2026-09-03T01:48:58.3950537+08:00",
+  "serial": "emulator-5556",
+  "processId": 15213,
+  "source": "normal-app-scoped-logcat-whitelisted-metadata",
+  "events": [
+    {
+      "epochSeconds": "1788371190.747",
+      "kind": "REFRESH",
+      "status": 200,
+      "action": "accepted",
+      "source": null,
+      "errorCode": null
+    }
+  ]
+}

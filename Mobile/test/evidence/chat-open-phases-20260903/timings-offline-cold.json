@@ -1,0 +1,64 @@
+{
+  "checkedAt": "2026-09-03T03:33:07.1305255+08:00",
+  "serial": "emulator-5556",
+  "pid": "7828",
+  "rejected": 0,
+  "events": [
+    {
+      "deviceLogTime": "09-02 19:32:56.189",
+      "data": {
+        "sampleId": 1,
+        "reason": "windowElapsed",
+        "elapsedMicros": 3003014,
+        "cacheHit": false,
+        "messageCount": 7,
+        "stagesMicros": {
+          "tap": 0,
+          "keyboardHidden": 14694,
+          "navigationRequested": 15353,
+          "routeMounted": 30202,
+          "routeFrame": 37129,
+          "messagesAvailable": 65094,
+          "latestMessageLaidOut": 83502
+        },
+        "frames": {
+          "sampleCount": 22,
+          "maxSamples": 240,
+          "invalidSamples": 0,
+          "refreshRateHz": 60.000003814697266,
+          "frameBudgetMicros": 16667,
+          "build": {
+            "p50Micros": 1579,
+            "p95Micros": 7067,
+            "maxMicros": 18896,
+            "overBudgetCount": 1
+          },
+          "raster": {
+            "p50Micros": 4629,
+            "p95Micros": 36144,
+            "maxMicros": 57267,
+            "overBudgetCount": 5
+          },
+          "totalSpan": {
+            "p50Micros": 26667,
+            "p95Micros": 91962,
+            "maxMicros": 242467,
+            "overBudgetCount": 19
+          },
+          "vsyncOverhead": {
+            "p50Micros": 11319,
+            "p95Micros": 33060,
+            "maxMicros": 234556,
+            "overBudgetCount": 8
+          },
+          "firstFrame": {
+            "buildMicros": 7067,
+            "rasterMicros": 3577,
+            "totalSpanMicros": 41700,
+            "vsyncOverheadMicros": 20898
+          }
+        }
+      }
+    }
+  ]
+}

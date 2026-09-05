@@ -7,7 +7,23 @@ import 'package:secure_tunnel/secure_tunnel.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../features/network/application/tunnel_controller.dart';
+import 'avatar_memory_image.dart';
 import 'terminal_avatar_assets.dart';
+
+/// Compact painted control with a padded touch target. Use for action bars
+/// and sheet confirmations instead of stretching buttons across the page.
+const compactMobileActionStyle = ButtonStyle(
+  minimumSize: WidgetStatePropertyAll(Size(64, 34)),
+  padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
+  textStyle: WidgetStatePropertyAll(
+    TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+  ),
+  shape: WidgetStatePropertyAll(
+    RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(6))),
+  ),
+  tapTargetSize: MaterialTapTargetSize.padded,
+  visualDensity: VisualDensity.standard,
+);
 
 /// A dialog or bottom-sheet future completes as soon as `Navigator.pop` runs,
 /// while its exit animation can still rebuild text fields for a few frames.
@@ -71,6 +87,10 @@ class InitialAvatar extends StatelessWidget {
           avatarDataUrl.isNotEmpty
               ? avatarDataUrl
               : terminalAvatarDataUrls[avatarKey] ?? '',
+          AvatarMemoryImage.decodeDiameter(
+            radius,
+            MediaQuery.maybeDevicePixelRatioOf(context) ?? 1,
+          ),
         ),
         child: Text(
           name.trim().isEmpty ? '?' : name.trim().substring(0, 1),
@@ -108,12 +128,12 @@ Uint8List? _avatarBytes(String value) {
   }
 }
 
-ImageProvider<Object>? _avatarImage(String value) {
+ImageProvider<Object>? _avatarImage(String value, int diameter) {
   if (value.isEmpty) return null;
   final cached = _avatarImageCache.remove(value);
   if (cached != null) {
     _avatarImageCache[value] = cached;
-    return cached;
+    return AvatarMemoryImage(cached.bytes, diameter: diameter);
   }
   final bytes = _avatarBytes(value);
   if (bytes == null) return null;
@@ -122,11 +142,11 @@ ImageProvider<Object>? _avatarImage(String value) {
   if (_avatarImageCache.length > _avatarImageCacheLimit) {
     _avatarImageCache.remove(_avatarImageCache.keys.first);
   }
-  return image;
+  return AvatarMemoryImage(bytes, diameter: diameter);
 }
 
 const _avatarImageCacheLimit = 64;
-final _avatarImageCache = <String, ImageProvider<Object>>{};
+final _avatarImageCache = <String, MemoryImage>{};
 
 class NetworkIndicator extends ConsumerWidget {
   const NetworkIndicator({super.key, this.size = 22});

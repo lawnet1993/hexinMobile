@@ -1,0 +1,56 @@
+{
+  "testedAt": "2026-09-05T02:51:00+08:00",
+  "scope": "existing test sessions; read-only health plus one test03 token rotation",
+  "phone": {
+    "account": "test01",
+    "hasRefreshToken": true,
+    "tokenTimeHint": {
+      "verified": false,
+      "nbf": "2026-09-04T18:45:08.000Z",
+      "exp": "2026-09-04T20:45:08.000Z"
+    },
+    "commandsStatus": 200,
+    "imBootstrapStatus": 200,
+    "oaBootstrapStatus": 200,
+    "normalAppRestored": true,
+    "workbenchVisible": true,
+    "loginPageVisible": false,
+    "fatalOrFlutterErrors": 0
+  },
+  "emulator": {
+    "account": "test03",
+    "hasRefreshToken": true,
+    "healthStatus": {
+      "commands": 200,
+      "imBootstrap": 200,
+      "oaBootstrap": 200
+    },
+    "refresh": {
+      "status": 200,
+      "accessTokenRotated": true,
+      "refreshTokenRotated": true,
+      "sameAccountAndDevice": true,
+      "sessionPreserved": true,
+      "afterTokenTimeHint": {
+        "verified": false,
+        "nbf": "2026-09-04T18:50:23.000Z",
+        "exp": "2026-09-04T20:50:23.000Z"
+      }
+    },
+    "normalAppRestored": true,
+    "workbenchVisible": true,
+    "loginPageVisible": false,
+    "fatalOrFlutterErrors": 0
+  },
+  "verification": {
+    "targetedTests": "73/73",
+    "fullTestsFromSameSource": "1362/1362",
+    "flutterAnalyzeIssuesFromSameSource": 0,
+    "naturalExpiryObservedInThisRun": false,
+    "priorNaturalExpiryEvidence": {
+      "emulatorTest03": true,
+      "phoneTest01": false,
+      "source": "docs/677-oa-member-picker-and-natural-refresh-20260903.md"
+    }
+  }
+}

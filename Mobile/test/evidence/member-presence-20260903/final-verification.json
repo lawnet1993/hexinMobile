@@ -1,0 +1,30 @@
+{
+  "CheckedAt": "2026-09-03T00:38:07.9542952+08:00",
+  "ImSchemaBefore": 13,
+  "ImSchemaAfter": 14,
+  "ConversationMetadataUnchanged": true,
+  "CorrectedLedgerUnchanged": true,
+  "ImCursorsUnchanged": true,
+  "ImOutboxUnchanged": true,
+  "OaDraftsUnchanged": true,
+  "OaReceiptsUnchanged": true,
+  "OaOutboxUnchanged": true,
+  "OaCursorBefore": [
+    {
+      "value": "355",
+      "updated_at": "2026-09-02T15:09:56.701004Z"
+    }
+  ],
+  "OaCursorAfter": [
+    {
+      "value": "355",
+      "updated_at": "2026-09-02T15:09:56.701004Z"
+    }
+  ],
+  "AppRunning": true,
+  "Wifi": "1",
+  "MobileData": "1",
+  "SampledLogLines": 64,
+  "FatalExceptionCount": 0,
+  "FlutterErrorCount": 0
+}

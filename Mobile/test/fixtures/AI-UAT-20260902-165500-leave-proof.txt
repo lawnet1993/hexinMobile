@@ -1,0 +1,3 @@
+AI-UAT-20260902-165500-LEAVE
+Synthetic test attachment for the new-environment mobile OA acceptance run.
+No personal data or credentials. This is not an actual leave document.

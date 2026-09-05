@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-09-02T18:03:46.4139852+08:00",
+  "note": "Runtime probe immediately after server-state verification. Device labels omit hardware serials.",
+  "devices": [
+    {
+      "Device": "M1 realme RMX3366",
+      "InstalledSha256": "f4992d91ad198896fea3c39f0ee2135a168577b908ef567d2b1a041b531416cc",
+      "Pid": "25212",
+      "TargetedErrorMatches": 0,
+      "Wifi": "0",
+      "MobileData": "1",
+      "Foreground": "topResumedActivity=ActivityRecord{f0e42d7 u0 com.hexing.zhilian.hexing_terminal_mobile/.MainActivity t806}"
+    },
+    {
+      "Device": "M2 Android emulator",
+      "InstalledSha256": "f4992d91ad198896fea3c39f0ee2135a168577b908ef567d2b1a041b531416cc",
+      "Pid": "31910",
+      "TargetedErrorMatches": 0,
+      "Wifi": "1",
+      "MobileData": "1",
+      "Foreground": "topResumedActivity=ActivityRecord{258246074 u0 com.hexing.zhilian.hexing_terminal_mobile/.MainActivity t215}"
+    }
+  ]
+}

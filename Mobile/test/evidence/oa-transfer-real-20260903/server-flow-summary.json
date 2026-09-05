@@ -1,0 +1,259 @@
+[
+  {
+    "sample": "desktop-transferred",
+    "id": "e5f0977a-c8c0-46a0-baff-aeecea59094c",
+    "httpStatus": 200,
+    "status": "submitted",
+    "version": 2,
+    "updatedAt": "2026-09-02T18:14:45.659688Z",
+    "allowedActions": [
+      "approve",
+      "reject",
+      "transfer",
+      "add_sign"
+    ],
+    "tasks": [
+      {
+        "id": "d9f33c2b-4687-4ae3-866c-e292cefe00e5",
+        "assigneeName": "Test Terminal 03",
+        "status": "transferred",
+        "version": 2,
+        "canOperate": false
+      },
+      {
+        "id": "e45129a1-8058-4215-8417-60954e44cdb1",
+        "assigneeName": "Test Terminal 01",
+        "status": "pending",
+        "version": 1,
+        "canOperate": true
+      }
+    ],
+    "notifications": [
+      {
+        "id": "b6cbcb6a-2eed-4a1e-9dfe-1ee3932d230a",
+        "type": "approval.task.created",
+        "isRead": false,
+        "createdAt": "2026-09-02T18:14:45.659688Z"
+      }
+    ]
+  },
+  {
+    "sample": "desktop-withdrawn",
+    "id": "e5f0977a-c8c0-46a0-baff-aeecea59094c",
+    "httpStatus": 200,
+    "status": "withdrawn",
+    "version": 3,
+    "updatedAt": "2026-09-02T18:15:49.80321Z",
+    "allowedActions": [],
+    "tasks": [
+      {
+        "id": "d9f33c2b-4687-4ae3-866c-e292cefe00e5",
+        "assigneeName": "Test Terminal 03",
+        "status": "transferred",
+        "version": 2,
+        "canOperate": false
+      },
+      {
+        "id": "e45129a1-8058-4215-8417-60954e44cdb1",
+        "assigneeName": "Test Terminal 01",
+        "status": "canceled",
+        "version": 2,
+        "canOperate": false
+      }
+    ],
+    "notifications": [
+      {
+        "id": "9424ef77-57f5-4e77-8d49-ee081bcb9ca4",
+        "type": "approval.task.canceled",
+        "isRead": false,
+        "createdAt": "2026-09-02T18:15:49.80321Z"
+      },
+      {
+        "id": "b6cbcb6a-2eed-4a1e-9dfe-1ee3932d230a",
+        "type": "approval.task.created",
+        "isRead": false,
+        "createdAt": "2026-09-02T18:14:45.659688Z"
+      }
+    ]
+  },
+  {
+    "sample": "desktop-frontsign-stable",
+    "id": "8b87b0c1-486c-41fe-9e1a-1fd98495d7eb",
+    "httpStatus": 200,
+    "status": "submitted",
+    "version": 2,
+    "updatedAt": "2026-09-02T18:22:47.832555Z",
+    "allowedActions": [
+      "approve",
+      "reject",
+      "transfer",
+      "add_sign"
+    ],
+    "tasks": [
+      {
+        "id": "6e079f8c-5cc8-46d2-bae7-9a125662bd30",
+        "assigneeName": "Test Terminal 03",
+        "status": "waiting",
+        "version": 2,
+        "canOperate": false
+      },
+      {
+        "id": "5c4ffaee-046c-476c-8bbb-5fae346425aa",
+        "assigneeName": "Test Terminal 01",
+        "status": "pending",
+        "version": 1,
+        "canOperate": true
+      }
+    ],
+    "notifications": [
+      {
+        "id": "1f4cd96b-4b2a-4661-a494-3eb89a496b70",
+        "type": "approval.task.created",
+        "isRead": false,
+        "createdAt": "2026-09-02T18:22:47.832555Z"
+      }
+    ]
+  },
+  {
+    "sample": "desktop-frontsign-withdrawn",
+    "id": "8b87b0c1-486c-41fe-9e1a-1fd98495d7eb",
+    "httpStatus": 200,
+    "status": "withdrawn",
+    "version": 3,
+    "updatedAt": "2026-09-02T18:23:49.249038Z",
+    "allowedActions": [],
+    "tasks": [
+      {
+        "id": "6e079f8c-5cc8-46d2-bae7-9a125662bd30",
+        "assigneeName": "Test Terminal 03",
+        "status": "waiting",
+        "version": 2,
+        "canOperate": false
+      },
+      {
+        "id": "5c4ffaee-046c-476c-8bbb-5fae346425aa",
+        "assigneeName": "Test Terminal 01",
+        "status": "canceled",
+        "version": 2,
+        "canOperate": false
+      }
+    ],
+    "notifications": [
+      {
+        "id": "ec7a680c-d0d6-4ec4-9c11-4836e66d2a57",
+        "type": "approval.task.canceled",
+        "isRead": false,
+        "createdAt": "2026-09-02T18:23:49.249038Z"
+      },
+      {
+        "id": "1f4cd96b-4b2a-4661-a494-3eb89a496b70",
+        "type": "approval.task.created",
+        "isRead": false,
+        "createdAt": "2026-09-02T18:22:47.832555Z"
+      }
+    ]
+  },
+  {
+    "sample": "desktop-backsign-added",
+    "id": "5303a348-ddea-40e0-938a-3ed2b7fd3486",
+    "httpStatus": 200,
+    "status": "submitted",
+    "version": 2,
+    "updatedAt": "2026-09-02T18:27:18.396058Z",
+    "allowedActions": [],
+    "tasks": [
+      {
+        "id": "e812f16f-a2d8-4d04-986f-335dcc51e1c9",
+        "assigneeName": "Test Terminal 03",
+        "status": "pending",
+        "version": 2,
+        "canOperate": false
+      },
+      {
+        "id": "5b7c27f8-3b00-44b5-bf44-9dcf8ab6f6e5",
+        "assigneeName": "Test Terminal 01",
+        "status": "waiting",
+        "version": 1,
+        "canOperate": false
+      }
+    ],
+    "notifications": []
+  },
+  {
+    "sample": "desktop-backsign-activated",
+    "id": "5303a348-ddea-40e0-938a-3ed2b7fd3486",
+    "httpStatus": 200,
+    "status": "submitted",
+    "version": 3,
+    "updatedAt": "2026-09-02T18:28:13.187009Z",
+    "allowedActions": [
+      "approve",
+      "reject",
+      "transfer",
+      "add_sign"
+    ],
+    "tasks": [
+      {
+        "id": "e812f16f-a2d8-4d04-986f-335dcc51e1c9",
+        "assigneeName": "Test Terminal 03",
+        "status": "approved",
+        "version": 3,
+        "canOperate": false
+      },
+      {
+        "id": "5b7c27f8-3b00-44b5-bf44-9dcf8ab6f6e5",
+        "assigneeName": "Test Terminal 01",
+        "status": "pending",
+        "version": 2,
+        "canOperate": true
+      }
+    ],
+    "notifications": [
+      {
+        "id": "69deea1f-4d23-45c2-a635-d6b09d54b6f8",
+        "type": "approval.task.created",
+        "isRead": false,
+        "createdAt": "2026-09-02T18:28:13.187009Z"
+      }
+    ]
+  },
+  {
+    "sample": "desktop-backsign-withdrawn",
+    "id": "5303a348-ddea-40e0-938a-3ed2b7fd3486",
+    "httpStatus": 200,
+    "status": "withdrawn",
+    "version": 4,
+    "updatedAt": "2026-09-02T18:28:59.841046Z",
+    "allowedActions": [],
+    "tasks": [
+      {
+        "id": "e812f16f-a2d8-4d04-986f-335dcc51e1c9",
+        "assigneeName": "Test Terminal 03",
+        "status": "approved",
+        "version": 3,
+        "canOperate": false
+      },
+      {
+        "id": "5b7c27f8-3b00-44b5-bf44-9dcf8ab6f6e5",
+        "assigneeName": "Test Terminal 01",
+        "status": "canceled",
+        "version": 3,
+        "canOperate": false
+      }
+    ],
+    "notifications": [
+      {
+        "id": "5e67d0ef-1428-41c4-b510-b80eceeb8295",
+        "type": "approval.task.canceled",
+        "isRead": false,
+        "createdAt": "2026-09-02T18:28:59.841046Z"
+      },
+      {
+        "id": "69deea1f-4d23-45c2-a635-d6b09d54b6f8",
+        "type": "approval.task.created",
+        "isRead": false,
+        "createdAt": "2026-09-02T18:28:13.187009Z"
+      }
+    ]
+  }
+]

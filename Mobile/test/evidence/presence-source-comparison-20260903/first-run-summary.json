@@ -1,0 +1,12 @@
+{
+  "peerNetworkOff": "2026-09-03T05:43:50.0642165+08:00",
+  "firstOfflineCapture": "2026-09-03T05:46:10.0925638+08:00",
+  "captureDelaySeconds": 140.0283473,
+  "responseOfflineAt": "2026-09-02T21:46:05.280759Z",
+  "renderOfflineAt": "2026-09-02T21:46:05.29777Z",
+  "responseToRenderMs": 17.011,
+  "host": "api.sfhkh.com",
+  "httpStatus": 200,
+  "peerLastSeenAt": "2026-09-02T21:43:15.770903Z",
+  "serverTime": "2026-09-02T21:46:06.95136Z"
+}

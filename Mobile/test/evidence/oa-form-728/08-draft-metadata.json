@@ -1,0 +1,27 @@
+{
+  "before": {
+    "checkedAt": "2026-09-04T17:30:36.138098+00:00",
+    "drafts": [
+      {
+        "id": "e6d827f3-04bc-4591-a641-57812cf90647",
+        "application_key": "attendance.leave",
+        "template_id": "87adcda2-a096-465b-a572-5c49eb6ab68c",
+        "updated_at": "2026-09-04T17:29:38.645299Z"
+      }
+    ],
+    "outbox": []
+  },
+  "after": {
+    "checkedAt": "2026-09-04T17:32:46.541507+00:00",
+    "drafts": [
+      {
+        "id": "e6d827f3-04bc-4591-a641-57812cf90647",
+        "application_key": "attendance.leave",
+        "template_id": "87adcda2-a096-465b-a572-5c49eb6ab68c",
+        "updated_at": "2026-09-04T17:32:17.521710Z"
+      }
+    ],
+    "outbox": []
+  },
+  "draftIdPreserved": true
+}

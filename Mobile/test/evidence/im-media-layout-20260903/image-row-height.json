@@ -1,0 +1,12 @@
+[
+  {
+    "capture": "01-image-before",
+    "rowBounds": "[37,1415][1043,2048]",
+    "heightPixels": 633
+  },
+  {
+    "capture": "07-image-after",
+    "rowBounds": "[37,1415][1043,1985]",
+    "heightPixels": 570
+  }
+]

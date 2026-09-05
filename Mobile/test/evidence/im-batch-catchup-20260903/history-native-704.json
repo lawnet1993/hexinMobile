@@ -1,0 +1,116 @@
+{
+  "startedAt": "2026-09-03T08:38:51.7635821+08:00",
+  "serial": "emulator-5556",
+  "originalWifi": "1",
+  "originalData": "1",
+  "reachedFirst": false,
+  "networkRestored": true,
+  "observations": [
+    {
+      "at": "2026-09-03T08:38:55.3234293+08:00",
+      "screenshot": "m3-history-704-start.png",
+      "gestures": 0,
+      "first": 492,
+      "last": 510,
+      "visibleDistinct": 19
+    },
+    {
+      "at": "2026-09-03T08:39:03.3034544+08:00",
+      "screenshot": "m3-history-704-01.png",
+      "gestures": 4,
+      "first": 405,
+      "last": 424,
+      "visibleDistinct": 20
+    },
+    {
+      "at": "2026-09-03T08:39:09.8518235+08:00",
+      "screenshot": "m3-history-704-02.png",
+      "gestures": 4,
+      "first": 321,
+      "last": 340,
+      "visibleDistinct": 20
+    },
+    {
+      "at": "2026-09-03T08:39:16.4594215+08:00",
+      "screenshot": "m3-history-704-03.png",
+      "gestures": 4,
+      "first": 226,
+      "last": 245,
+      "visibleDistinct": 20
+    },
+    {
+      "at": "2026-09-03T08:39:22.9518087+08:00",
+      "screenshot": "m3-history-704-04.png",
+      "gestures": 4,
+      "first": 146,
+      "last": 165,
+      "visibleDistinct": 20
+    },
+    {
+      "at": "2026-09-03T08:39:29.4819143+08:00",
+      "screenshot": "m3-history-704-05.png",
+      "gestures": 4,
+      "first": 23,
+      "last": 42,
+      "visibleDistinct": 20
+    },
+    {
+      "at": "2026-09-03T08:39:36.0179714+08:00",
+      "screenshot": "m3-history-704-06.png",
+      "gestures": 4,
+      "first": 2,
+      "last": 18,
+      "visibleDistinct": 17
+    },
+    {
+      "at": "2026-09-03T08:39:42.5653526+08:00",
+      "screenshot": "m3-history-704-07.png",
+      "gestures": 4,
+      "first": 2,
+      "last": 18,
+      "visibleDistinct": 17
+    },
+    {
+      "at": "2026-09-03T08:39:49.0707076+08:00",
+      "screenshot": "m3-history-704-08.png",
+      "gestures": 4,
+      "first": 2,
+      "last": 18,
+      "visibleDistinct": 17
+    },
+    {
+      "at": "2026-09-03T08:39:55.5861176+08:00",
+      "screenshot": "m3-history-704-09.png",
+      "gestures": 4,
+      "first": 2,
+      "last": 18,
+      "visibleDistinct": 17
+    },
+    {
+      "at": "2026-09-03T08:40:02.0842202+08:00",
+      "screenshot": "m3-history-704-10.png",
+      "gestures": 4,
+      "first": 2,
+      "last": 18,
+      "visibleDistinct": 17
+    },
+    {
+      "at": "2026-09-03T08:40:08.5559251+08:00",
+      "screenshot": "m3-history-704-11.png",
+      "gestures": 4,
+      "first": 2,
+      "last": 18,
+      "visibleDistinct": 17
+    },
+    {
+      "at": "2026-09-03T08:40:15.0520647+08:00",
+      "screenshot": "m3-history-704-12.png",
+      "gestures": 4,
+      "first": 2,
+      "last": 18,
+      "visibleDistinct": 17
+    }
+  ],
+  "offlineVerified": true,
+  "finishedAt": "2026-09-03T08:40:15.3953135+08:00"
+}

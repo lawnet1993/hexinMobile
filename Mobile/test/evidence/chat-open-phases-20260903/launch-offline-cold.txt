@@ -1,0 +1,7 @@
+Starting: Intent { cmp=com.hexing.zhilian.hexing_terminal_mobile/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity
+TotalTime: 2700
+WaitTime: 2704
+Complete

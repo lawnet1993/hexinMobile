@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/tdesign_icons.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 
 final class MobileAppEntry {
@@ -28,6 +29,17 @@ final class MobileAppEntry {
 }
 
 const _iconMap = <String, IconData>{
+  // Keys returned by the current desktop workbench catalog.
+  'access_time': TDIcons.calendarEdit,
+  'event_busy': TDIcons.userTime,
+  'more_time': TDIcons.time,
+  'flight_takeoff': TDIcons.work,
+  'receipt_long': TDIcons.file1,
+  'event_repeat': TDIcons.calendarEvent,
+  'payments': TDIcons.money,
+  'payment': TDIcons.money,
+  'account_balance_wallet': TDIcons.wallet,
+  'shopping_cart': TDIcons.cart,
   'approval': Icons.description_outlined,
   'attendance': Icons.access_time_rounded,
   'leave': Icons.event_busy_rounded,
@@ -62,12 +74,14 @@ class MobileAppIcon extends StatelessWidget {
     super.key,
     required this.iconKey,
     required this.fallback,
+    this.applicationKey = '',
     this.iconDataUrl,
     this.color,
     this.size,
   });
 
   final String iconKey;
+  final String applicationKey;
   final IconData fallback;
   final String? iconDataUrl;
   final Color? color;
@@ -75,8 +89,13 @@ class MobileAppIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget fallbackIcon() =>
-        Icon(_iconMap[iconKey] ?? fallback, size: size, color: color);
+    Widget fallbackIcon() => Icon(
+      applicationKey.isEmpty
+          ? _iconMap[iconKey] ?? fallback
+          : MobileAppCatalog._iconForApplication(applicationKey, iconKey),
+      size: size,
+      color: color,
+    );
 
     if (iconDataUrl?.startsWith('data:image/') == true) {
       try {
@@ -171,16 +190,23 @@ abstract final class MobileAppCatalog {
 
   /// Keep core mobile-office actions semantically distinct even when an
   /// administrator configures the same generic approval icon for each item.
-  static IconData _iconForApplication(String applicationKey, String iconKey) =>
-      switch (applicationKey) {
-        'attendance.punch' => Icons.calendar_month_outlined,
-        'attendance.leave' => Icons.person_outline_rounded,
-        'attendance.overtime' => Icons.schedule_rounded,
-        'attendance.business_trip' => Icons.work_outline_rounded,
-        'expense.reimbursement' => Icons.receipt_long_outlined,
-        'attendance.punch_correction' => Icons.event_repeat_rounded,
-        _ => iconForKey(iconKey),
-      };
+  static IconData _iconForApplication(String applicationKey, String iconKey) {
+    final configured = _iconMap[iconKey];
+    if (configured != null && iconKey != 'approval') return configured;
+    return switch (applicationKey) {
+      'attendance.punch' => TDIcons.calendarEdit,
+      'attendance.leave' => TDIcons.userTime,
+      'attendance.overtime' => TDIcons.time,
+      'attendance.business_trip' => TDIcons.work,
+      'expense.reimbursement' => TDIcons.file1,
+      'attendance.punch_correction' => TDIcons.calendarEvent,
+      'finance.payment_request' || 'finance.tiered-payment' => TDIcons.money,
+      'finance.advance_request' => TDIcons.wallet,
+      'procurement.purchase_request' || 'purchase.request' => TDIcons.cart,
+      'administration.seal_use' || 'seal.request' => TDIcons.fileSafety,
+      _ => configured ?? Icons.apps_rounded,
+    };
+  }
 
   static const entries = <MobileAppEntry>[
     MobileAppEntry(

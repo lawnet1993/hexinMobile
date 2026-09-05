@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/data/im_member_presence.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 
 class GroupManagementPage extends ConsumerStatefulWidget {
@@ -104,7 +106,7 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
         _profile = values[5] as ImGroupProfile?;
       });
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _error = mobileErrorText(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -201,8 +203,9 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
       }
       _autoLoadRetryBlocked = true;
       setState(() => _pagingError = true);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('继续加载失败：$error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mobileActionErrorText('继续加载失败', error))),
+      );
     } finally {
       if (_acceptPageResult(requestedTab, generation)) {
         setState(() => _loadingMore = false);
@@ -356,9 +359,12 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _historyDeletionStatus = '删除失败：$error');
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('删除失败：$error')));
+        setState(
+          () => _historyDeletionStatus = mobileActionErrorText('删除失败', error),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('删除失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _deletingHistory = false);
@@ -373,8 +379,9 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
       await _load();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('解除禁言失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('解除禁言失败', error))),
+        );
       }
     }
   }
@@ -387,8 +394,9 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
       await _load();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('入群申请处理失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('入群申请处理失败', error))),
+        );
       }
     }
   }
@@ -478,11 +486,8 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
                 builder: (context, ref, _) => InitialAvatar(
                   name: item.member.displayName,
                   radius: 17,
-                  online:
-                      ref.watch(imRealtimeAvailabilityProvider) ==
-                          ImRealtimeAvailability.available
-                      ? item.member.isOnline
-                      : null,
+                  online: watchMemberPresence(ref, item.member, transportAvailable:
+                      ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
                   avatarKey: item.member.avatarKey,
                   avatarDataUrl: item.member.avatarDataUrl,
                 ),
@@ -606,11 +611,8 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
                 builder: (context, ref, _) => InitialAvatar(
                   name: item.displayName,
                   radius: 17,
-                  online:
-                      ref.watch(imRealtimeAvailabilityProvider) ==
-                          ImRealtimeAvailability.available
-                      ? item.isOnline
-                      : null,
+                  online: watchMemberPresence(ref, item, transportAvailable:
+                      ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
                   avatarKey: item.avatarKey,
                   avatarDataUrl: item.avatarDataUrl,
                 ),

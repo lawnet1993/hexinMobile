@@ -1,0 +1,32 @@
+{
+  "checkedAt": "2026-09-03T05:00:05.5657459+08:00",
+  "conversationId": "e51db063-4ed2-4a43-b7ff-bfbf32b1806d",
+  "offlineDevice": "emulator-5556",
+  "senderDevice": "emulator-5558",
+  "events": [
+    {
+      "step": "starting",
+      "at": "2026-09-03T04:59:37.2883577+08:00"
+    },
+    {
+      "step": "offline-confirmed",
+      "at": "2026-09-03T04:59:38.4485008+08:00"
+    },
+    {
+      "marker": "AI-UAT-20260903-045700-M4-M3-OFFLINE-01",
+      "at": "2026-09-03T04:59:52.3562394+08:00",
+      "step": "send-clicked"
+    },
+    {
+      "marker": "AI-UAT-20260903-045700-M4-M3-OFFLINE-02",
+      "at": "2026-09-03T04:59:59.5368157+08:00",
+      "step": "send-clicked"
+    },
+    {
+      "mobileData": "1",
+      "wifi": "1",
+      "at": "2026-09-03T05:00:05.5656530+08:00",
+      "step": "network-restored"
+    }
+  ]
+}

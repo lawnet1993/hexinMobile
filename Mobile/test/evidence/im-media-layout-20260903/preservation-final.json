@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-09-03T03:43:51.6430379+08:00",
+  "messageLedgerSame": true,
+  "groupMessagesSame": true,
+  "outboxIdsSame": true,
+  "draftsSame": true,
+  "receiptsSame": true,
+  "imCursors": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 236
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 236
+    }
+  ],
+  "oaCursor": [
+    {
+      "value": "449",
+      "updated_at": "2026-09-02T18:29:00.196779Z"
+    }
+  ],
+  "failures": [
+    {
+      "kind": "image",
+      "httpStatus": "500"
+    },
+    {
+      "kind": "video",
+      "httpStatus": "500"
+    }
+  ]
+}

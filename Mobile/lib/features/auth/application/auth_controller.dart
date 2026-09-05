@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_environment.dart';
@@ -9,6 +12,24 @@ import '../../../core/storage/secure_session_store.dart';
 
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, MobileSession?>(AuthController.new);
+
+final sessionRefreshClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
+final sessionRefreshClientProvider = Provider<Dio>((ref) {
+  final client = Dio(
+    BaseOptions(
+      baseUrl: AppEnvironment.controlPlaneUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+      // Refresh credentials must never be forwarded to a redirected endpoint.
+      followRedirects: false,
+    ),
+  );
+  ref.onDispose(() => client.close(force: true));
+  return client;
+});
 
 final sessionTerminationNoticeProvider =
     NotifierProvider<SessionTerminationNoticeController, String?>(
@@ -38,7 +59,11 @@ final class LoginFailure implements Exception {
 }
 
 class AuthController extends AsyncNotifier<MobileSession?> {
-  Future<MobileSession?>? _refreshing;
+  ({MobileSession session, Future<MobileSession?> result})? _refreshing;
+  ({MobileSession session, DateTime at})? _lastProactiveRefresh;
+  MobileSession? _proactiveRefreshRejected;
+  String? _expiryToken;
+  DateTime? _refreshDueAt;
 
   @override
   Future<MobileSession?> build() {
@@ -127,39 +152,80 @@ class AuthController extends AsyncNotifier<MobileSession?> {
   Future<void> clearSavedCredential() =>
       ref.read(secureSessionStoreProvider).clearCredential();
 
-  Future<MobileSession?> refreshSession() async {
-    final active = _refreshing;
-    if (active != null) {
-      final refreshed = await active;
-      if (refreshed != null) state = AsyncData(refreshed);
-      return refreshed;
+  /// Called before the normal heartbeat, including restored login and resume.
+  /// The unverified JWT expiry is only a scheduling hint: authentication still
+  /// depends on the server. No token/opaque expiry ever causes local logout.
+  Future<MobileSession?> maintainSession() async {
+    final store = ref.read(secureSessionStoreProvider);
+    final current = await store.readSession();
+    if (!ref.mounted || state.isLoading || current == null) return current;
+    if (current.refreshToken.isEmpty) return current;
+    if (_expiryToken != current.accessToken) {
+      _expiryToken = current.accessToken;
+      _refreshDueAt = sessionRefreshDueAt(current.accessToken);
     }
-    final refresh = _refreshSession();
-    _refreshing = refresh;
+    final due = _refreshDueAt;
+    final now = ref.read(sessionRefreshClockProvider)();
+    if (due == null || now.isBefore(due)) return current;
+    if (_proactiveRefreshRejected?.isSameSession(current) == true) {
+      return current;
+    }
+    // Share refresh-token rotation with a concurrent authenticated 401. Do
+    // this before the retry cooldown so the heartbeat waits for that result.
+    final active = _refreshing;
+    final alreadyRefreshing = active?.session.isSameSession(current) == true;
+    final previous = _lastProactiveRefresh;
+    if (!alreadyRefreshing &&
+        previous != null &&
+        previous.session.isSameSession(current) &&
+        !now.isBefore(previous.at) &&
+        now.difference(previous.at) < const Duration(seconds: 30)) {
+      return current;
+    }
+    _lastProactiveRefresh = (session: current, at: now);
     try {
-      final refreshed = await refresh;
-      if (refreshed != null) state = AsyncData(refreshed);
-      return refreshed;
+      final refreshed = await refreshSession(expectedSession: current);
+      if (refreshed == null) {
+        // A rejected proactive refresh must not discard an otherwise valid
+        // access token. The next real 401/replacement remains authoritative.
+        _proactiveRefreshRejected = current;
+      }
+    } on DioException {
+      // Timeout, offline and 5xx retry on a later heartbeat/resume. Do not
+      // replace the session, clear local data, or show repeated login prompts.
+    }
+    return store.readSession();
+  }
+
+  Future<MobileSession?> refreshSession({
+    MobileSession? expectedSession,
+  }) async {
+    final current = await ref.read(secureSessionStoreProvider).readSession();
+    if (current == null) return null;
+    if (expectedSession != null && !current.isSameSession(expectedSession)) {
+      return current;
+    }
+    final active = _refreshing;
+    if (active != null && active.session.isSameSession(current)) {
+      return active.result;
+    }
+    final refresh = _refreshSession(current);
+    _refreshing = (session: current, result: refresh);
+    try {
+      return await refresh;
     } finally {
-      if (identical(_refreshing, refresh)) _refreshing = null;
+      if (identical(_refreshing?.result, refresh)) _refreshing = null;
     }
   }
 
-  Future<MobileSession?> _refreshSession() async {
+  Future<MobileSession?> _refreshSession(MobileSession current) async {
     final store = ref.read(secureSessionStoreProvider);
-    final current = await store.readSession();
-    if (current == null) return null;
 
     if (current.refreshToken.isNotEmpty) {
       try {
-        final response =
-            await Dio(
-              BaseOptions(
-                baseUrl: AppEnvironment.controlPlaneUrl,
-                connectTimeout: const Duration(seconds: 15),
-                receiveTimeout: const Duration(seconds: 30),
-              ),
-            ).post<Map<String, Object?>>(
+        final response = await ref
+            .read(sessionRefreshClientProvider)
+            .post<Map<String, Object?>>(
               '/connect/token',
               data: {
                 'grant_type': 'refresh_token',
@@ -182,19 +248,47 @@ class AuthController extends AsyncNotifier<MobileSession?> {
                 body['refresh_token']?.toString() ??
                 body['refreshToken']?.toString(),
           );
-          await store.saveSession(refreshed);
-          return refreshed;
+          if (await store.replaceSessionIfCurrent(current, refreshed)) {
+            _recordSessionRefresh(response.statusCode, body, 'accepted');
+            if (ref.mounted && !state.isLoading) state = AsyncData(refreshed);
+            return refreshed;
+          }
+          _recordSessionRefresh(response.statusCode, body, 'stale_result');
+          return await store.readSession();
         }
-      } on DioException {
-        return null;
+        _recordSessionRefresh(response.statusCode, body, 'invalid_response');
+      } on DioException catch (error) {
+        // A refresh network failure does not establish session expiry.
+        if (error.response?.statusCode == 400 ||
+            error.response?.statusCode == 401) {
+          _recordSessionRefresh(
+            error.response?.statusCode,
+            error.response?.data,
+            'rejected',
+          );
+          return null;
+        }
+        _recordSessionRefresh(
+          error.response?.statusCode,
+          error.response?.data,
+          'retry',
+        );
+        rethrow;
       }
     }
     return null;
   }
 
-  Future<void> logout({bool clearCredential = false}) async {
+  Future<void> logout({
+    bool clearCredential = false,
+    MobileSession? expectedSession,
+  }) async {
     final store = ref.read(secureSessionStoreProvider);
     final current = await store.readSession();
+    if (expectedSession != null &&
+        (current == null || !current.isSameSession(expectedSession))) {
+      return;
+    }
     try {
       if (current != null && current.imApiUrl.trim().isNotEmpty) {
         await Dio(
@@ -214,18 +308,66 @@ class AuthController extends AsyncNotifier<MobileSession?> {
     } on DioException {
       // Logging out must remain possible while the push endpoint is offline.
     }
-    await store.clearPushToken();
-    await store.clearSession(clearCredential: clearCredential);
-    state = const AsyncData(null);
+    if (current != null &&
+        await store.clearSessionIfCurrent(
+          current,
+          clearCredential: clearCredential,
+        )) {
+      if (ref.mounted && !state.isLoading) state = const AsyncData(null);
+    }
   }
 
-  Future<void> terminateSession({required String message}) async {
+  Future<bool> terminateSession({
+    required String message,
+    MobileSession? expectedSession,
+  }) async {
     final store = ref.read(secureSessionStoreProvider);
-    if (await store.readSession() == null && state.value == null) return;
-    await store.clearPushToken();
-    await store.clearSession();
-    ref.read(sessionTerminationNoticeProvider.notifier).showOnce(message);
-    state = const AsyncData(null);
+    final current = expectedSession ?? await store.readSession();
+    if (current == null || !await store.clearSessionIfCurrent(current)) {
+      return false;
+    }
+    if (ref.mounted && !state.isLoading) {
+      ref.read(sessionTerminationNoticeProvider.notifier).showOnce(message);
+      state = const AsyncData(null);
+    }
+    return true;
+  }
+
+  /// Only the credentials actually used by the failed request may be revoked.
+  /// Comparing account/device alone is insufficient after same-account login.
+  Future<bool> handleSessionFailure(DioException error) async {
+    final status = error.response?.statusCode;
+    final body = error.response?.data;
+    final code = body is Map
+        ? (body['code'] ?? body['Code'])?.toString().trim().toLowerCase()
+        : '';
+    final replaced = status == 409 && code == 'session_replaced';
+    if (status != 401 && !replaced) return false;
+    final current = await ref.read(secureSessionStoreProvider).readSession();
+    if (current == null || !requestUsedSession(error.requestOptions, current)) {
+      _recordSessionFailure(error, 'ignored_stale_response');
+      return false;
+    }
+    if (!replaced && current.refreshToken.isNotEmpty) {
+      try {
+        if (await refreshSession(expectedSession: current) != null) {
+          _recordSessionFailure(error, 'session_preserved');
+          return false;
+        }
+      } on DioException {
+        _recordSessionFailure(error, 'refresh_retry');
+        return false;
+      }
+    }
+    final terminated = await terminateSession(
+      expectedSession: current,
+      message: replaced ? '当前移动端已在另一台设备登录，请重新登录' : '登录已失效或已到期，请重新登录',
+    );
+    _recordSessionFailure(
+      error,
+      terminated ? 'terminated' : 'ignored_stale_response',
+    );
+    return terminated;
   }
 
   static Map<String, Object?> _map(Object? value) =>
@@ -250,6 +392,76 @@ class AuthController extends AsyncNotifier<MobileSession?> {
   }
 }
 
+@visibleForTesting
+DateTime? sessionRefreshDueAt(String token) {
+  try {
+    if (token.length > 16384) return null;
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    final body = jsonDecode(
+      utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+    );
+    if (body is! Map) return null;
+    final expiry = body['exp'];
+    if (expiry is! int || expiry < 0 || expiry >= 100000000000) return null;
+    return DateTime.fromMillisecondsSinceEpoch(
+      expiry * 1000,
+      isUtc: true,
+    ).subtract(const Duration(minutes: 5));
+  } catch (_) {
+    return null;
+  }
+}
+
+void _recordSessionRefresh(int? status, Object? body, String action) {
+  // A server error description/code may echo credentials. Never log it raw.
+  final error = body is Map ? body['error'] : null;
+  const allowed = {
+    'invalid_client',
+    'invalid_grant',
+    'invalid_request',
+    'unauthorized_client',
+    'unsupported_grant_type',
+    'server_error',
+    'temporarily_unavailable',
+  };
+  final code = error == null
+      ? null
+      : allowed.contains(error)
+      ? error
+      : 'unrecognized';
+  debugPrint(
+    'MOBILE_SESSION_REFRESH ${jsonEncode({'status': status, 'errorCode': code, 'action': action})}',
+  );
+}
+
+void _recordSessionFailure(DioException error, String action) {
+  // Whitelist metadata only. No headers, identities, query or response bodies.
+  final source = switch (error.requestOptions.path) {
+    '/api/client/heartbeat' => 'heartbeat',
+    '/api/client/commands' => 'managed_commands',
+    '/api/client/sites' => 'managed_sites',
+    '/api/im/sync/events' => 'im_events',
+    _ => 'authenticated_request',
+  };
+  debugPrint(
+    'MOBILE_SESSION_AUTH ${jsonEncode({'source': source, 'status': error.response?.statusCode, 'action': action})}',
+  );
+}
+
+bool requestUsedSession(RequestOptions request, MobileSession session) {
+  String header(String name) {
+    for (final entry in request.headers.entries) {
+      if (entry.key.toLowerCase() == name) return entry.value?.toString() ?? '';
+    }
+    return '';
+  }
+
+  return session.accessToken.isNotEmpty &&
+      header('authorization') == 'Bearer ${session.accessToken}' &&
+      header('x-device-id') == session.deviceId;
+}
+
 Map<String, Object?> buildMobileLoginRequest({
   required String username,
   required String password,
@@ -259,6 +471,7 @@ Map<String, Object?> buildMobileLoginRequest({
   'password': password,
   'clientPlatform': 'mobile',
   'deviceId': identity.id,
+  'installationId': identity.installationId,
   'deviceName': identity.name,
   'fingerprint': identity.fingerprint,
   'operatingSystem': identity.operatingSystem,

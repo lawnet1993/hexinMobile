@@ -63,6 +63,7 @@ void main() {
             required provider,
             required token,
             privacyMode = 'summary',
+            forSession,
           }) async {
             registrations.add(
               MobilePushToken(
@@ -73,7 +74,7 @@ void main() {
             );
             expect(privacyMode, 'summary');
           },
-      unregister: () async => unregisterCount += 1,
+      unregister: ({forSession}) async => unregisterCount += 1,
       saveSecureToken: (value) async => securelyStoredToken = value,
       clearSecureToken: () async => secureTokenCleared = true,
     );
@@ -124,10 +125,11 @@ void main() {
             required provider,
             required token,
             privacyMode = 'summary',
+            forSession,
           }) async {
             privacyModes.add(privacyMode);
           },
-      unregister: () async {},
+      unregister: ({forSession}) async {},
     );
 
     await registration.synchronize();

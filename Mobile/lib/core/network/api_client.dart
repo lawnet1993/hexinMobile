@@ -21,8 +21,12 @@ final dioProvider = Provider<Dio>((ref) {
             .read(secureSessionStoreProvider)
             .readSession();
         if (session != null && session.accessToken.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer ${session.accessToken}';
-          options.headers['X-Device-Id'] = session.deviceId;
+          // Preserve credentials pinned to a device/account request snapshot.
+          options.headers.putIfAbsent(
+            'Authorization',
+            () => 'Bearer ${session.accessToken}',
+          );
+          options.headers.putIfAbsent('X-Device-Id', () => session.deviceId);
         }
         handler.next(options);
       },

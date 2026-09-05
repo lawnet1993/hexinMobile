@@ -9,6 +9,7 @@ import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
+import '../../collaboration/data/im_member_presence.dart';
 import '../../collaboration/domain/collaboration_models.dart';
 
 class MessageAssistantPage extends ConsumerStatefulWidget {
@@ -86,8 +87,9 @@ class _MessageAssistantPageState extends ConsumerState<MessageAssistantPage> {
       _taskAutoLoadRetryBlocked = true;
       ref.invalidate(imAssistantTasksPageProvider(pageNumber));
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('加载更多失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('加载更多失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _loadingMoreTasks = false);
@@ -152,8 +154,9 @@ class _MessageAssistantPageState extends ConsumerState<MessageAssistantPage> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('创建失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('创建失败', error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -166,8 +169,9 @@ class _MessageAssistantPageState extends ConsumerState<MessageAssistantPage> {
       _resetTaskPages();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('取消失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mobileActionErrorText('取消失败', error))),
+        );
       }
     }
   }
@@ -196,13 +200,19 @@ class _MessageAssistantPageState extends ConsumerState<MessageAssistantPage> {
                 title: '当前账号无批量发送权限',
               );
             }
+            final presenceById = {
+              for (final member in data.contacts)
+                member.id: watchMemberPresence(ref, member, transportAvailable: presenceAvailable),
+            };
             final contacts =
                 data.contacts
                     .where((item) => item.id != data.currentMember.id)
                     .toList()
                   ..sort((left, right) {
-                    if (presenceAvailable && left.isOnline != right.isOnline) {
-                      return left.isOnline ? -1 : 1;
+                    final leftOnline = presenceById[left.id]?.online == true;
+                    final rightOnline = presenceById[right.id]?.online == true;
+                    if (leftOnline != rightOnline) {
+                      return leftOnline ? -1 : 1;
                     }
                     return left.displayName.compareTo(right.displayName);
                   });
@@ -319,9 +329,7 @@ class _MessageAssistantPageState extends ConsumerState<MessageAssistantPage> {
                                       leading: InitialAvatar(
                                         name: member.displayName,
                                         radius: 15,
-                                        online: presenceAvailable
-                                            ? member.isOnline
-                                            : null,
+                                        online: presenceById[member.id]?.online,
                                         avatarKey: member.avatarKey,
                                         avatarDataUrl: member.avatarDataUrl,
                                       ),

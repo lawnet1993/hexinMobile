@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-09-03T04:42:56.4745445+08:00",
+  "serial": "emulator-5556",
+  "localSha256": "C3B830011F4A6530DDD2BC8C949A154BDF61D5EA85CCCB461E5F5E276EDD3669",
+  "installedSha256": "c3b830011f4a6530ddd2bc8c949a154bdf61d5ea85cccb461e5f5e276edd3669",
+  "hashMatched": true,
+  "dataCleared": false,
+  "target": "lib/main.dart",
+  "mode": "profile"
+}

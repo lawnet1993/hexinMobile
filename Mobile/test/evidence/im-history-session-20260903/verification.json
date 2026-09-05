@@ -1,0 +1,38 @@
+{
+  "passed": 8,
+  "total": 8,
+  "checks": [
+    {
+      "name": "m3-ledger-and-authoritative-read-preserved",
+      "passed": true
+    },
+    {
+      "name": "m3-existing-outbox-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-ledger-and-authoritative-read-preserved",
+      "passed": true
+    },
+    {
+      "name": "m4-existing-outbox-preserved",
+      "passed": true
+    },
+    {
+      "name": "oa-drafts-notification-reads-and-outbox-preserved",
+      "passed": true
+    },
+    {
+      "name": "native-offline-history-and-reopen",
+      "passed": true
+    },
+    {
+      "name": "restored-online-latest-and-both-original-accounts-visible",
+      "passed": true
+    },
+    {
+      "name": "matching-normal-apks-stable-processes-and-no-runtime-fatal",
+      "passed": true
+    }
+  ]
+}

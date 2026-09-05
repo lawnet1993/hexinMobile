@@ -1,0 +1,90 @@
+{
+  "checkedAt": "2026-09-03T03:22:17.6896710+08:00",
+  "serial": "emulator-5556",
+  "pid": "2386",
+  "rejectedTimingRecords": 0,
+  "events": [
+    {
+      "deviceLogTime": "09-02 19:21:59.977",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "onCreateEnter",
+        "elapsedMs": 1
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:01.286",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "configureEngineEnter",
+        "elapsedMs": 1310
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:01.683",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "pluginsRegistered",
+        "elapsedMs": 1706
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:01.684",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "configureEngineReturn",
+        "elapsedMs": 1708
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:02.102",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "onCreateReturn",
+        "elapsedMs": 2125
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:02.439",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "dartMain",
+        "elapsedMicros": 24
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:02.443",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "tunnelRegistered",
+        "elapsedMicros": 7849
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:02.445",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "runAppReturned",
+        "elapsedMicros": 9868
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:02.593",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "firstFrameworkFrame",
+        "elapsedMicros": 157506
+      }
+    },
+    {
+      "deviceLogTime": "09-02 19:22:06.064",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "firstFlutterUiDisplayed",
+        "elapsedMs": 6087
+      }
+    }
+  ],
+  "hasNativeFirstUi": true,
+  "hasFrameSummary": false
+}

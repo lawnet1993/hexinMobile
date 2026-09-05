@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-09-03T03:16:40.9951127+08:00",
+  "avd": "SecureAccess_UAT_M3",
+  "port": 5556,
+  "gpu": "swiftshader_indirect",
+  "qemuProcessId": 118744,
+  "flags": [
+    "-no-audio",
+    "-no-snapshot",
+    "-no-window"
+  ]
+}

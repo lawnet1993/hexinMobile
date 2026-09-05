@@ -1,0 +1,23 @@
+{
+  "CheckedAt": "2026-09-02T18:23:49.7566438+08:00",
+  "ApkSha256": "F32A2D685B3A597E48B006E46F2FCAA970189F70784DB39B289D97312863986D",
+  "Bytes": 82544963,
+  "Devices": [
+    {
+      "Device": "M1 realme RMX3366",
+      "Pid": "31464",
+      "TargetedErrorMatches": 0,
+      "Wifi": "0",
+      "MobileData": "1",
+      "Foreground": "topResumedActivity=ActivityRecord{ad62453 u0 com.hexing.zhilian.hexing_terminal_mobile/.MainActivity t807}"
+    },
+    {
+      "Device": "M2 Android emulator",
+      "Pid": "5485",
+      "TargetedErrorMatches": 0,
+      "Wifi": "1",
+      "MobileData": "1",
+      "Foreground": "topResumedActivity=ActivityRecord{27471623 u0 com.hexing.zhilian.hexing_terminal_mobile/.MainActivity t217}"
+    }
+  ]
+}

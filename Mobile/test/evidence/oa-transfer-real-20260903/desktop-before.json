@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-09-03T02:11:49.6458671+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260903-021200-TRANSFER",
+  "bootstrapStatus": 200,
+  "requestId": null,
+  "pageStatus": 200,
+  "pageRequestId": null,
+  "hasMore": false,
+  "requests": [],
+  "matchCount": 0,
+  "sync": {
+    "status": 200,
+    "requestId": null,
+    "latestSequence": 343,
+    "afterSequence": 0,
+    "totalReturned": 86,
+    "events": []
+  }
+}

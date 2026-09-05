@@ -1,0 +1,210 @@
+{
+  "checkedAt": "2026-09-02T18:08:13.490558+00:00",
+  "accountId": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+  "schemaVersion": 3,
+  "cursor": [
+    {
+      "value": "410",
+      "updated_at": "2026-09-02T18:06:53.445928Z"
+    }
+  ],
+  "caches": [
+    {
+      "cache_key": "app-catalog",
+      "updated_at": "2026-09-02T18:05:56.997194Z"
+    },
+    {
+      "cache_key": "approval:0fe47e22-a5d3-4daa-ae3e-05d27741c021",
+      "updated_at": "2026-09-02T17:11:19.436810Z"
+    },
+    {
+      "cache_key": "approval:2560ac24-091b-494f-a8af-5d943edb739a",
+      "updated_at": "2026-09-02T18:06:53.857719Z"
+    },
+    {
+      "cache_key": "approval:2ddf0071-0276-4001-a061-b5466a082391",
+      "updated_at": "2026-09-02T17:35:56.128373Z"
+    },
+    {
+      "cache_key": "approval:8928dded-2c49-4cbb-8eed-2e5808ab7cf7",
+      "updated_at": "2026-09-02T17:30:57.943792Z"
+    },
+    {
+      "cache_key": "approval:fe9b58d5-42de-4632-99be-cd5c70ebe983",
+      "updated_at": "2026-09-02T15:37:49.798470Z"
+    },
+    {
+      "cache_key": "attendance-overview",
+      "updated_at": "2026-09-02T15:08:54.816999Z"
+    },
+    {
+      "cache_key": "bootstrap",
+      "updated_at": "2026-09-02T18:06:53.445928Z"
+    },
+    {
+      "cache_key": "notifications",
+      "updated_at": "2026-09-02T18:06:53.445928Z"
+    },
+    {
+      "cache_key": "notifications-page",
+      "updated_at": "2026-09-02T18:06:53.445928Z"
+    }
+  ],
+  "events": [
+    {
+      "sequence": 410,
+      "event_id": "88e27107-7008-4eba-b21b-22e855e0acf1",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-02T18:06:53.036410Z",
+      "applied_at": "2026-09-02T18:06:53.445928Z"
+    },
+    {
+      "sequence": 409,
+      "event_id": "530dc901-215f-4d7b-9ebc-f33173b0bc66",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-02T18:06:28.381121Z",
+      "applied_at": "2026-09-02T18:06:28.949034Z"
+    },
+    {
+      "sequence": 408,
+      "event_id": "79cde143-fcfe-4a21-8b3f-096bdf82499d",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-02T18:01:31.372398Z",
+      "applied_at": "2026-09-02T18:01:39.512724Z"
+    },
+    {
+      "sequence": 407,
+      "event_id": "e4daa812-cdde-429f-9178-4a7d320e82f8",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-02T18:00:52.752533Z",
+      "applied_at": "2026-09-02T18:00:57.650504Z"
+    },
+    {
+      "sequence": 406,
+      "event_id": "77142752-c516-46d2-a4aa-f973dbfa9f96",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:51:29.191025Z",
+      "applied_at": "2026-09-02T17:51:44.524498Z"
+    },
+    {
+      "sequence": 405,
+      "event_id": "18c64489-ca02-414d-adfb-bf8fae748627",
+      "type": "approval.task.canceled",
+      "created_at": "2026-09-02T17:51:29.191025Z",
+      "applied_at": "2026-09-02T17:51:44.524498Z"
+    },
+    {
+      "sequence": 404,
+      "event_id": "6e89ffe4-4182-4d13-a904-6ae548d1c0e3",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:51:29.191025Z",
+      "applied_at": "2026-09-02T17:51:44.524498Z"
+    },
+    {
+      "sequence": 403,
+      "event_id": "44db99ca-295c-435a-a95d-d99884e24426",
+      "type": "approval.withdrawn",
+      "created_at": "2026-09-02T17:51:29.191025Z",
+      "applied_at": "2026-09-02T17:51:44.524498Z"
+    },
+    {
+      "sequence": 402,
+      "event_id": "605a7a3b-50f7-4c34-9533-b5552871c573",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:39:40.568488Z",
+      "applied_at": "2026-09-02T17:39:58.875993Z"
+    },
+    {
+      "sequence": 401,
+      "event_id": "43b1727a-04aa-4fa6-b91f-55e5a7b2d8ef",
+      "type": "approval.task.created",
+      "created_at": "2026-09-02T17:39:40.568488Z",
+      "applied_at": "2026-09-02T17:39:58.875993Z"
+    },
+    {
+      "sequence": 400,
+      "event_id": "528f0756-c1f6-4cdd-b0ec-4b4b57a83f47",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-02T17:39:40.568488Z",
+      "applied_at": "2026-09-02T17:39:58.875993Z"
+    },
+    {
+      "sequence": 399,
+      "event_id": "e88f16b4-9b53-4e00-8efb-01e487168026",
+      "type": "approval.submitted",
+      "created_at": "2026-09-02T17:39:40.568488Z",
+      "applied_at": "2026-09-02T17:39:58.875993Z"
+    }
+  ],
+  "readReceipts": [
+    {
+      "notification_id": "49b888da-e44b-4108-b59a-46f204b2e7e6",
+      "read_at": "2026-09-02T14:11:02.950227Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "13f1f7da-99f5-48c3-babd-b57b36f54b81",
+      "read_at": "2026-09-02T15:09:43.622322Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "dbf04aea-c91a-4e0b-b9cd-ccf3b1bf7828",
+      "read_at": "2026-09-02T17:11:17.712551Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "1ff0307a-d840-4da6-bd3b-fc93cd1bfb12",
+      "read_at": "2026-09-02T17:11:57.780402Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "dacec3a5-99e1-4742-9658-4f4bd3060ec2",
+      "read_at": "2026-09-02T18:00:51.497580Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "3e46b60b-d1e6-4d9c-978d-e9040d236f59",
+      "read_at": "2026-09-02T18:01:30.222105Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "41708e85-1b2e-4bfe-bfa8-c62e38f43deb",
+      "read_at": "2026-09-02T18:06:27.218844Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "33f6c3dd-d351-4646-90d5-ac17933b642c",
+      "read_at": "2026-09-02T18:06:51.855985Z",
+      "state": "sent",
+      "attempts": 0
+    },
+    {
+      "notification_id": "cf51d9a5-9fdc-4cff-855e-44831db46cc3",
+      "read_at": "2026-09-02T18:07:26.838740Z",
+      "state": "pending",
+      "attempts": 1
+    }
+  ],
+  "outbox": [],
+  "drafts": [
+    {
+      "id": "61faf8e1-6404-4c34-b2d4-257fd6931949",
+      "application_key": "attendance.leave",
+      "template_id": "87adcda2-a096-465b-a572-5c49eb6ab68c",
+      "updated_at": "2026-09-02T13:53:30.441508Z"
+    },
+    {
+      "id": "2672bb18-7c66-4e25-8e89-17c13a08b7fd",
+      "application_key": "attendance.overtime",
+      "template_id": "2cbde5bd-6357-4462-b437-7e8517362d7e",
+      "updated_at": "2026-09-02T15:33:59.865561Z"
+    }
+  ]
+}

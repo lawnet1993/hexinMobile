@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
@@ -7,6 +6,10 @@ import 'package:sqflite/sqflite.dart';
 import '../../../core/config/app_environment.dart';
 import '../../../core/storage/im_cache_cipher.dart';
 import '../domain/collaboration_models.dart';
+import '../domain/im_event_semantics.dart';
+import 'im_message_query.dart';
+import 'im_decoded_message_cache.dart';
+import 'im_outbox_file_store.dart';
 
 final class ImOutboxItem {
   const ImOutboxItem({
@@ -21,6 +24,7 @@ final class ImOutboxItem {
     this.attachmentName = '',
     this.attachmentContentType = '',
     this.attachmentBytes = const <int>[],
+    this.mediaFiles = const <ImOutboxStoredFile>[],
     this.contactMemberId,
   });
 
@@ -35,6 +39,7 @@ final class ImOutboxItem {
   final String attachmentName;
   final String attachmentContentType;
   final List<int> attachmentBytes;
+  final List<ImOutboxStoredFile> mediaFiles;
   final String? contactMemberId;
 }
 
@@ -43,17 +48,35 @@ final class ImLocalStore {
     DatabaseFactory? factory,
     Future<String> Function()? pathResolver,
     ImCacheCipher cipher = const PlainImCacheCipher(),
+    DateTime Function()? clock,
+    ImDecodedMessageCache? decodedMessageCache,
+    void Function(int rows, int cacheHits, int durationMicros)? onMessageRead,
   }) : this.withOptions(
          factory ?? databaseFactory,
          pathResolver ?? _defaultPath,
          cipher,
+         clock: clock,
+         decodedMessageCache: decodedMessageCache,
+         onMessageRead: onMessageRead,
        );
 
-  ImLocalStore.withOptions(this._factory, this._pathResolver, this._cipher);
+  ImLocalStore.withOptions(
+    this._factory,
+    this._pathResolver,
+    this._cipher, {
+    DateTime Function()? clock,
+    ImDecodedMessageCache? decodedMessageCache,
+    this._onMessageRead,
+  }) : _clock = clock ?? DateTime.now,
+       _decodedMessages = decodedMessageCache ?? ImDecodedMessageCache();
 
   final DatabaseFactory _factory;
   final Future<String> Function() _pathResolver;
   final ImCacheCipher _cipher;
+  final DateTime Function() _clock;
+  final ImDecodedMessageCache _decodedMessages;
+  final void Function(int rows, int cacheHits, int durationMicros)?
+  _onMessageRead;
   Future<Database>? _opening;
 
   static Future<String> _defaultPath() async => path.join(
@@ -67,7 +90,7 @@ final class ImLocalStore {
     final database = await _factory.openDatabase(
       await _pathResolver(),
       options: OpenDatabaseOptions(
-        version: 11,
+        version: 15,
         onConfigure: (database) async {
           await database.execute('PRAGMA foreign_keys = ON');
           // journal_mode returns a result row on Android SQLite and therefore
@@ -82,6 +105,7 @@ final class ImLocalStore {
             username TEXT NOT NULL,
             display_name TEXT NOT NULL,
             is_online INTEGER NOT NULL,
+            last_seen_at TEXT,
             avatar_key TEXT NOT NULL,
             avatar_data_url TEXT NOT NULL,
             department_id TEXT NOT NULL,
@@ -162,6 +186,7 @@ final class ImLocalStore {
             attachment_name TEXT NOT NULL DEFAULT '',
             attachment_content_type TEXT NOT NULL DEFAULT '',
             attachment_bytes_base64 TEXT NOT NULL DEFAULT '',
+            media_files_json TEXT NOT NULL DEFAULT '[]',
             contact_member_id TEXT,
             attempts INTEGER NOT NULL,
             next_retry_at TEXT NOT NULL,
@@ -192,6 +217,7 @@ final class ImLocalStore {
           )
         ''');
           await _createConversationDetailTables(database);
+          await database.execute(ImMessageQuery.createWindowIndex);
         },
         onUpgrade: (database, oldVersion, _) async {
           if (oldVersion < 2) {
@@ -231,6 +257,20 @@ final class ImLocalStore {
           if (oldVersion < 11) {
             await _addConversationReadSequenceColumn(database);
           }
+          if (oldVersion < 12) {
+            await _addOutboxMediaFilesColumn(database);
+          }
+          if (oldVersion < 13) {
+            await _normalizeOutboxTimestamps(database);
+          }
+          if (oldVersion < 14) {
+            await _addMemberLastSeenColumns(database);
+          }
+          if (oldVersion < 15) {
+            // Preserve the sequence index: adjacent-history queries also need
+            // deletion tombstones, while the latest window excludes them.
+            await database.execute(ImMessageQuery.createWindowIndex);
+          }
         },
       ),
     );
@@ -238,6 +278,20 @@ final class ImLocalStore {
       await _protectLegacySensitivePayloads(database);
     }
     return database;
+  }
+
+  static Future<void> _addMemberLastSeenColumns(
+    DatabaseExecutor database,
+  ) async {
+    for (final table in ['im_members', 'im_conversation_members']) {
+      final columns = await database.rawQuery('PRAGMA table_info($table)');
+      if (columns.isNotEmpty &&
+          !columns.any((row) => row['name'] == 'last_seen_at')) {
+        await database.execute(
+          'ALTER TABLE $table ADD COLUMN last_seen_at TEXT',
+        );
+      }
+    }
   }
 
   static Future<void> _addMessageMetadataColumns(
@@ -333,6 +387,51 @@ final class ImLocalStore {
     });
   }
 
+  static Future<void> _addOutboxMediaFilesColumn(
+    DatabaseExecutor database,
+  ) async {
+    await _addOutboxColumns(database, {
+      'media_files_json': "TEXT NOT NULL DEFAULT '[]'",
+    });
+  }
+
+  static Future<void> _normalizeOutboxTimestamps(
+    DatabaseExecutor database,
+  ) async {
+    final tables = await database.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'im_outbox'",
+    );
+    if (tables.isEmpty) return;
+    // Runs in the schema-upgrade transaction. Read only scheduling metadata;
+    // never decrypt/recreate payloads or change stable client message IDs.
+    final rows = await database.query(
+      'im_outbox',
+      columns: [
+        'account_id',
+        'client_message_id',
+        'created_at',
+        'next_retry_at',
+      ],
+    );
+    for (final row in rows) {
+      final values = <String, Object?>{};
+      for (final column in ['created_at', 'next_retry_at']) {
+        final parsed = DateTime.tryParse(row[column]?.toString() ?? '');
+        if (parsed != null) {
+          final normalized = _sortableOutboxTimestamp(parsed);
+          if (normalized != row[column]) values[column] = normalized;
+        }
+      }
+      if (values.isEmpty) continue;
+      await database.update(
+        'im_outbox',
+        values,
+        where: 'account_id = ? AND client_message_id = ?',
+        whereArgs: [row['account_id'], row['client_message_id']],
+      );
+    }
+  }
+
   static Future<void> _addOutboxMessageColumns(
     DatabaseExecutor database,
   ) async {
@@ -374,6 +473,7 @@ final class ImLocalStore {
         username TEXT NOT NULL,
         display_name TEXT NOT NULL,
         is_online INTEGER NOT NULL,
+        last_seen_at TEXT,
         avatar_key TEXT NOT NULL,
         avatar_data_url TEXT NOT NULL,
         department_id TEXT NOT NULL,
@@ -449,6 +549,11 @@ final class ImLocalStore {
         keys: ['account_id', 'client_message_id'],
       ),
       (
+        table: 'im_outbox',
+        column: 'media_files_json',
+        keys: ['account_id', 'client_message_id'],
+      ),
+      (
         table: 'im_event_inbox',
         column: 'payload_json',
         keys: ['account_id', 'sequence'],
@@ -497,6 +602,9 @@ final class ImLocalStore {
     [table],
   )).isNotEmpty;
 
+  Future<String?> readCurrentMemberId(String accountId) =>
+      _readState(accountId, 'bootstrap.current_member_id');
+
   Future<ImBootstrap?> readBootstrap(String accountId) async {
     final database = await _database;
     final currentRows = await database.query(
@@ -512,12 +620,42 @@ final class ImLocalStore {
       whereArgs: [accountId],
       orderBy: 'display_name COLLATE NOCASE',
     );
-    final conversationRows = await database.query(
-      'im_conversations',
-      where: 'account_id = ?',
-      whereArgs: [accountId],
-      orderBy: 'is_pinned DESC, updated_at DESC',
+    // Join only the newest queued message per conversation. Do not load media
+    // bytes or rewrite the server summary/read cursors for an unconfirmed send.
+    final conversationRows = await database.rawQuery(
+      '''
+      SELECT c.*, m.kind AS local_preview_kind,
+             m.content AS local_preview_content,
+             m.attachment_name AS local_preview_file_name,
+             m.created_at AS local_preview_created_at,
+             m.local_status AS local_preview_status,
+             o.rowid AS local_preview_order, s.value AS local_confirmed_order
+      FROM im_conversations c
+      LEFT JOIN (
+        SELECT conversation_id, MAX(rowid) AS newest_row
+        FROM im_outbox WHERE account_id = ? GROUP BY conversation_id
+      ) newest ON newest.conversation_id = c.id
+      LEFT JOIN im_outbox o ON o.rowid = newest.newest_row
+      LEFT JOIN im_messages m
+        ON m.account_id = c.account_id AND m.conversation_id = c.id
+       AND m.client_message_id = o.client_message_id
+       AND m.sequence = 0 AND m.local_status IN ('pending', 'failed')
+      LEFT JOIN im_sync_state s ON s.account_id = c.account_id
+       AND s.state_key = 'preview.confirmed_order.' || c.id
+      WHERE c.account_id = ?
+    ''',
+      [accountId, accountId],
     );
+    final conversations = await Future.wait(
+      conversationRows.map((row) => _conversationFromRow(accountId, row)),
+    );
+    conversations.sort((left, right) {
+      if (left.isPinned != right.isPinned) return left.isPinned ? -1 : 1;
+      final byTime = (right.updatedAt ?? DateTime(0)).compareTo(
+        left.updatedAt ?? DateTime(0),
+      );
+      return byTime != 0 ? byTime : left.id.compareTo(right.id);
+    });
     final permissions = _decodeStateMap(
       await _readState(accountId, 'bootstrap.permissions'),
     );
@@ -527,9 +665,7 @@ final class ImLocalStore {
     return ImBootstrap(
       currentMember: _memberFromRow(currentRows.single),
       contacts: contactRows.map(_memberFromRow).toList(),
-      conversations: await Future.wait(
-        conversationRows.map((row) => _conversationFromRow(accountId, row)),
-      ),
+      conversations: conversations,
       permissions: ImPermissionSnapshot.fromJson(permissions),
       config: ImClientConfig.fromJson(config),
     );
@@ -539,6 +675,75 @@ final class ImLocalStore {
     final database = await _database;
     await database.transaction((transaction) async {
       await _replaceBootstrap(transaction, accountId, value);
+    });
+  }
+
+  /// A lightweight list may be partial. Merge its entries; absence is not a
+  /// deletion event. Directory, permissions and message bodies remain intact.
+  Future<bool> mergeConversationIndex(
+    String accountId,
+    List<ImConversation> values,
+  ) async {
+    final database = await _database;
+    return database.transaction((transaction) async {
+      final rows = await transaction.query(
+        'im_conversations',
+        where: 'account_id = ?',
+        whereArgs: [accountId],
+      );
+      final current = {for (final row in rows) row['id']: row};
+      final changed = <ImConversation>[];
+      for (final value in values) {
+        final previous = current[value.id];
+        if (previous != null &&
+            ((previous['last_message_sequence'] as int) >
+                    value.lastMessageSequence ||
+                (previous['last_read_sequence'] as int) >
+                    value.lastReadSequence)) {
+          // A response started before a newer send/read must not undo it.
+          continue;
+        }
+        final data = <String, Object?>{
+          'id': value.id,
+          'type': value.type,
+          'title': value.title,
+          'preview': value.preview,
+          'updated_at': value.updatedAt?.toUtc().toIso8601String(),
+          'unread_count': value.unreadCount,
+          'last_message_sequence': value.lastMessageSequence,
+          'last_read_sequence': value.lastReadSequence,
+          'is_pinned': value.isPinned ? 1 : 0,
+          'is_muted': value.isMuted ? 1 : 0,
+          'unread_mention_sequences_json': jsonEncode(
+            value.unreadMentionSequences,
+          ),
+        };
+        final previousPlain = previous == null
+            ? null
+            : <String, Object?>{
+                ...previous,
+                'preview': await _cipher.reveal(
+                  accountId,
+                  previous['preview'] as String,
+                ),
+              };
+        if (previousPlain != null &&
+            data.entries.every(
+              (entry) => previousPlain[entry.key] == entry.value,
+            )) {
+          continue;
+        }
+        await transaction.insert('im_conversations', {
+          ...data,
+          'account_id': accountId,
+          'preview': await _cipher.protect(accountId, value.preview),
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        changed.add(value);
+      }
+      if (changed.isNotEmpty) {
+        await _prepareHistoryCatchups(transaction, accountId, changed);
+      }
+      return changed.isNotEmpty;
     });
   }
 
@@ -606,6 +811,7 @@ final class ImLocalStore {
           'username': member.username,
           'display_name': member.displayName,
           'is_online': member.isOnline ? 1 : 0,
+          'last_seen_at': member.lastSeenAt?.toUtc().toIso8601String(),
           'avatar_key': member.avatarKey,
           'avatar_data_url': member.avatarDataUrl,
           'department_id': member.departmentId,
@@ -638,6 +844,7 @@ final class ImLocalStore {
           'username': member.username,
           'display_name': member.displayName,
           'is_online': member.isOnline ? 1 : 0,
+          'last_seen_at': member.lastSeenAt?.toUtc().toIso8601String(),
           'avatar_key': member.avatarKey,
           'avatar_data_url': member.avatarDataUrl,
           'department_id': member.departmentId,
@@ -696,23 +903,62 @@ final class ImLocalStore {
   Future<DateTime?> bootstrapUpdatedAt(String accountId) =>
       _readStateDate(accountId, 'bootstrap.updated_at');
 
+  // Receipt projection stays account/conversation scoped in SQLite. The
+  // indexed state lookups avoid one HTTP request per rendered message and
+  // retain evidence even when a read event precedes the message itself.
+  static const _messageReceiptColumns = ImMessageQuery.columns;
+
+  Future<void> recordMessageReadReceipt(
+    String accountId,
+    ImMessageReadReceipt receipt,
+  ) async {
+    if (receipt.conversationId.isEmpty ||
+        receipt.messageId.isEmpty ||
+        receipt.sequence <= 0 ||
+        !(receipt.peerRead || receipt.readCount > 0)) {
+      return;
+    }
+    final database = await _database;
+    await _writeState(
+      database,
+      accountId,
+      'message.read.${receipt.conversationId}.${receipt.messageId}',
+      '1',
+    );
+  }
+
   Future<List<ImMessage>> readMessages(
     String accountId,
     String conversationId, {
     int? limit,
+    int? beforeSequence,
   }) async {
+    final generation = _decodedMessages.generation;
+    final watch = _onMessageRead == null ? null : (Stopwatch()..start());
     final database = await _database;
     final rows = await database.query(
       'im_messages',
-      where: 'account_id = ? AND conversation_id = ? AND is_deleted = 0',
-      whereArgs: [accountId, conversationId],
+      columns: _messageReceiptColumns,
+      where: beforeSequence == null
+          ? ImMessageQuery.visibleWhere
+          : '${ImMessageQuery.visibleWhere} AND sequence > 0 AND sequence < ?',
+      whereArgs: [accountId, conversationId, ?beforeSequence],
       orderBy: limit == null
-          ? 'CASE WHEN sequence = 0 THEN 1 ELSE 0 END, sequence, created_at'
-          : 'CASE WHEN sequence = 0 THEN 1 ELSE 0 END DESC, sequence DESC, created_at DESC',
+          ? ImMessageQuery.oldestFirst
+          : ImMessageQuery.newestFirst,
       limit: limit,
     );
+    var hits = 0;
     final messages = await Future.wait(
-      rows.map((row) => _messageFromRow(accountId, row)),
+      rows.map(
+        (row) => _decodedMessages.read(
+          accountId,
+          row,
+          generation: generation,
+          decode: () => _messageFromRow(accountId, row),
+          onReuse: () => hits++,
+        ),
+      ),
     );
     if (limit != null) {
       messages.sort((left, right) {
@@ -724,6 +970,58 @@ final class ImLocalStore {
           right.createdAt ?? DateTime(0),
         );
       });
+    }
+    if (watch != null) {
+      _onMessageRead?.call(rows.length, hits, watch.elapsedMicroseconds);
+    }
+    return messages;
+  }
+
+  /// Reads only the cached sequence run directly preceding the visible window.
+  /// A cache can have holes after a cold start or missed event. Never jump over
+  /// such a hole just because older rows happen to exist locally.
+  Future<List<ImMessage>> readAdjacentOlderMessages(
+    String accountId,
+    String conversationId, {
+    required int beforeSequence,
+    int limit = 80,
+  }) async {
+    if (beforeSequence <= 1 || limit <= 0) return const [];
+    final generation = _decodedMessages.generation;
+    final watch = _onMessageRead == null ? null : (Stopwatch()..start());
+    final database = await _database;
+    final rows = await database.query(
+      'im_messages',
+      columns: _messageReceiptColumns,
+      where:
+          'account_id = ? AND conversation_id = ? '
+          'AND sequence > 0 AND sequence < ?',
+      whereArgs: [accountId, conversationId, beforeSequence],
+      orderBy: 'sequence DESC',
+      limit: limit.clamp(1, 80),
+    );
+    var expected = beforeSequence - 1;
+    final adjacent = <Map<String, Object?>>[];
+    for (final row in rows) {
+      if (row['sequence'] as int != expected) break;
+      expected--;
+      // Retained deletion tombstones prove continuity, but are not rendered.
+      if (row['is_deleted'] as int == 0) adjacent.add(row);
+    }
+    var hits = 0;
+    final messages = await Future.wait(
+      adjacent.reversed.map(
+        (row) => _decodedMessages.read(
+          accountId,
+          row,
+          generation: generation,
+          decode: () => _messageFromRow(accountId, row),
+          onReuse: () => hits++,
+        ),
+      ),
+    );
+    if (watch != null) {
+      _onMessageRead?.call(adjacent.length, hits, watch.elapsedMicroseconds);
     }
     return messages;
   }
@@ -747,16 +1045,208 @@ final class ImLocalStore {
     });
   }
 
+  /// Durable history repair jobs are separate from event ACK/read cursors.
+  Future<List<ImHistoryCatchup>> pendingHistoryCatchups(
+    String accountId,
+  ) async {
+    final database = await _database;
+    final rows = await database.rawQuery(
+      '''
+      SELECT s.state_key, s.value FROM im_sync_state s
+      JOIN im_conversations c ON c.account_id = s.account_id
+        AND s.state_key = 'history.catchup.' || c.id
+      WHERE s.account_id = ? ORDER BY s.updated_at, s.state_key
+    ''',
+      [accountId],
+    );
+    return rows
+        .map(
+          (row) => ImHistoryCatchup.fromJson(
+            row['state_key'].toString().substring('history.catchup.'.length),
+            _decodeStateMap(row['value'] as String?),
+          ),
+        )
+        .where(
+          (job) =>
+              job.conversationId.isNotEmpty &&
+              job.afterSequence >= 0 &&
+              job.beforeSequence > job.afterSequence &&
+              job.targetSequence >= job.afterSequence,
+        )
+        .toList();
+  }
+
+  Future<bool> historyCatchupAlreadyCached(
+    String accountId,
+    ImHistoryCatchup job,
+  ) async {
+    final database = await _database;
+    final rows = await database.rawQuery(
+      '''
+      SELECT COUNT(DISTINCT sequence) AS total FROM im_messages
+      WHERE account_id = ? AND conversation_id = ? AND sequence > ? AND sequence < ?
+    ''',
+      [accountId, job.conversationId, job.afterSequence, job.beforeSequence],
+    );
+    return rows.single['total'] == job.beforeSequence - job.afterSequence - 1;
+  }
+
+  Future<bool> commitHistoryCatchupPage(
+    String accountId,
+    ImHistoryCatchup job,
+    List<ImMessage> messages, {
+    required int nextBeforeSequence,
+    required bool complete,
+  }) async {
+    final database = await _database;
+    return database.transaction((transaction) async {
+      final key = 'history.catchup.${job.conversationId}';
+      final current = await _readStateFromExecutor(transaction, accountId, key);
+      if (current != jsonEncode(job.toJson())) {
+        return false;
+      }
+      for (final message in messages) {
+        await _upsertMessage(transaction, accountId, message);
+      }
+      if (complete) {
+        await _writeState(
+          transaction,
+          accountId,
+          'history.coverage.${job.conversationId}',
+          job.targetSequence.toString(),
+        );
+        await transaction.delete(
+          'im_sync_state',
+          where: 'account_id = ? AND state_key = ?',
+          whereArgs: [accountId, key],
+        );
+        final rows = await transaction.query(
+          'im_conversations',
+          columns: ['last_message_sequence'],
+          where: 'account_id = ? AND id = ?',
+          whereArgs: [accountId, job.conversationId],
+        );
+        final latest = rows.isEmpty
+            ? 0
+            : rows.single['last_message_sequence'] as int;
+        if (latest > job.targetSequence) {
+          await _writeState(
+            transaction,
+            accountId,
+            key,
+            jsonEncode(
+              ImHistoryCatchup(
+                conversationId: job.conversationId,
+                afterSequence: job.targetSequence,
+                targetSequence: latest,
+                beforeSequence: latest + 1,
+              ).toJson(),
+            ),
+          );
+        }
+      } else {
+        await _writeState(
+          transaction,
+          accountId,
+          key,
+          jsonEncode(
+            ImHistoryCatchup(
+              conversationId: job.conversationId,
+              afterSequence: job.afterSequence,
+              targetSequence: job.targetSequence,
+              beforeSequence: nextBeforeSequence,
+            ).toJson(),
+          ),
+        );
+      }
+      return true;
+    });
+  }
+
+  Future<void> _prepareHistoryCatchups(
+    DatabaseExecutor executor,
+    String accountId,
+    List<ImConversation> conversations,
+  ) async {
+    final maxima = await executor.rawQuery(
+      '''
+      SELECT conversation_id, MAX(sequence) AS latest FROM im_messages
+      WHERE account_id = ? GROUP BY conversation_id
+    ''',
+      [accountId],
+    );
+    final localMax = {
+      for (final row in maxima) row['conversation_id']: row['latest'] as int,
+    };
+    final states = await executor.query(
+      'im_sync_state',
+      columns: ['state_key', 'value'],
+      where: 'account_id = ? AND state_key LIKE ?',
+      whereArgs: [accountId, 'history.%'],
+    );
+    final state = {
+      for (final row in states) row['state_key']: row['value'].toString(),
+    };
+    for (final conversation in conversations) {
+      if (!conversation.isSupported || conversation.lastMessageSequence <= 0) {
+        continue;
+      }
+      final id = conversation.id;
+      final coverageKey = 'history.coverage.$id';
+      var coverage = int.tryParse(state[coverageKey] ?? '');
+      if (coverage == null) {
+        // Bootstrap a new installation with its latest window; older history
+        // remains available through paging. Existing caches resume at their tip.
+        final cached = localMax[id] ?? 0;
+        coverage = cached > 0
+            ? cached
+            : (conversation.lastMessageSequence - 50).clamp(
+                0,
+                conversation.lastMessageSequence,
+              );
+        await _writeState(
+          executor,
+          accountId,
+          coverageKey,
+          coverage.toString(),
+        );
+      }
+      final jobKey = 'history.catchup.$id';
+      if (state.containsKey(jobKey) ||
+          coverage >= conversation.lastMessageSequence) {
+        continue;
+      }
+      final job = ImHistoryCatchup(
+        conversationId: id,
+        afterSequence: coverage,
+        targetSequence: conversation.lastMessageSequence,
+        beforeSequence: conversation.lastMessageSequence + 1,
+      );
+      await _writeState(executor, accountId, jobKey, jsonEncode(job.toJson()));
+    }
+  }
+
   Future<void> clearConversationMessages(
     String accountId,
     String conversationId,
   ) async {
     final database = await _database;
-    await database.delete(
-      'im_messages',
-      where: 'account_id = ? AND conversation_id = ?',
-      whereArgs: [accountId, conversationId],
-    );
+    await database.transaction((transaction) async {
+      await transaction.delete(
+        'im_messages',
+        where: 'account_id = ? AND conversation_id = ?',
+        whereArgs: [accountId, conversationId],
+      );
+      await transaction.delete(
+        'im_sync_state',
+        where: 'account_id = ? AND state_key IN (?, ?)',
+        whereArgs: [
+          accountId,
+          'history.catchup.$conversationId',
+          'history.coverage.$conversationId',
+        ],
+      );
+    });
   }
 
   Future<void> deleteMessage(String accountId, String messageId) async {
@@ -779,7 +1269,7 @@ final class ImLocalStore {
     String? replyToMessageId,
     ImMessageReply? replyTo,
   }) async {
-    final createdAt = DateTime.now();
+    final createdAt = _clock();
     final message = ImMessage(
       id: 'local-$clientMessageId',
       conversationId: conversationId,
@@ -815,9 +1305,9 @@ final class ImLocalStore {
         'attachment_bytes_base64': '',
         'contact_member_id': null,
         'attempts': 0,
-        'next_retry_at': _now(),
+        'next_retry_at': _outboxNow(),
         'last_error': '',
-        'created_at': createdAt.toUtc().toIso8601String(),
+        'created_at': _sortableOutboxTimestamp(createdAt),
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     });
     return message;
@@ -828,22 +1318,23 @@ final class ImLocalStore {
     required String senderId,
     required String conversationId,
     required String clientMessageId,
-    required String fileName,
-    required Uint8List bytes,
-    required String contentType,
+    required ImOutboxStoredFile file,
   }) async {
-    final createdAt = DateTime.now();
+    if (file.role != 'file') {
+      throw ArgumentError('Queued attachment role is invalid.');
+    }
+    final createdAt = _clock();
     final message = ImMessage(
       id: 'local-$clientMessageId',
       conversationId: conversationId,
       sequence: 0,
       senderId: senderId,
       clientMessageId: clientMessageId,
-      content: '附件：$fileName',
+      content: '附件：${file.fileName}',
       kind: 'file',
-      attachmentName: fileName,
-      attachmentSize: bytes.length,
-      attachmentContentType: contentType,
+      attachmentName: file.fileName,
+      attachmentSize: file.length,
+      attachmentContentType: file.contentType,
       createdAt: createdAt,
       localStatus: ImLocalMessageStatus.pending,
     );
@@ -859,17 +1350,151 @@ final class ImLocalStore {
         'mentioned_member_ids_json': '[]',
         'mention_all': 0,
         'reply_to_message_id': null,
-        'attachment_name': await _cipher.protect(accountId, fileName),
-        'attachment_content_type': contentType,
-        'attachment_bytes_base64': await _cipher.protect(
+        'attachment_name': await _cipher.protect(accountId, file.fileName),
+        'attachment_content_type': file.contentType,
+        'attachment_bytes_base64': '',
+        'media_files_json': await _cipher.protect(
           accountId,
-          base64Encode(bytes),
+          jsonEncode([file.toJson()]),
         ),
         'contact_member_id': null,
         'attempts': 0,
-        'next_retry_at': _now(),
+        'next_retry_at': _outboxNow(),
         'last_error': '',
-        'created_at': createdAt.toUtc().toIso8601String(),
+        'created_at': _sortableOutboxTimestamp(createdAt),
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    });
+    return message;
+  }
+
+  Future<ImMessage> enqueueImages({
+    required String accountId,
+    required String senderId,
+    required String conversationId,
+    required String clientMessageId,
+    required List<ImOutboxStoredFile> files,
+    String caption = '',
+  }) async {
+    if (files.isEmpty) throw ArgumentError('At least one image is required.');
+    final createdAt = _clock();
+    final images = files
+        .map(
+          (file) => ImMessageImage(
+            id: imOutboxSyntheticFileId(clientMessageId, file.token),
+            fileName: file.fileName,
+            size: file.length,
+            contentType: file.contentType,
+            sha256: file.sha256,
+          ),
+        )
+        .toList(growable: false);
+    final message = ImMessage(
+      id: 'local-$clientMessageId',
+      conversationId: conversationId,
+      sequence: 0,
+      senderId: senderId,
+      clientMessageId: clientMessageId,
+      content: caption.trim(),
+      kind: 'image',
+      images: images,
+      createdAt: createdAt,
+      localStatus: ImLocalMessageStatus.pending,
+    );
+    final database = await _database;
+    await database.transaction((transaction) async {
+      await _upsertMessage(transaction, accountId, message);
+      await transaction.insert('im_outbox', {
+        'account_id': accountId,
+        'client_message_id': clientMessageId,
+        'conversation_id': conversationId,
+        'content': await _cipher.protect(accountId, message.content),
+        'kind': 'image',
+        'mentioned_member_ids_json': '[]',
+        'mention_all': 0,
+        'reply_to_message_id': null,
+        'attachment_name': '',
+        'attachment_content_type': '',
+        'attachment_bytes_base64': '',
+        'media_files_json': await _cipher.protect(
+          accountId,
+          jsonEncode(files.map((file) => file.toJson()).toList()),
+        ),
+        'contact_member_id': null,
+        'attempts': 0,
+        'next_retry_at': _outboxNow(),
+        'last_error': '',
+        'created_at': _sortableOutboxTimestamp(createdAt),
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    });
+    return message;
+  }
+
+  Future<ImMessage> enqueueMedia({
+    required String accountId,
+    required String senderId,
+    required String conversationId,
+    required String clientMessageId,
+    required String kind,
+    required ImOutboxStoredFile mediaFile,
+    ImOutboxStoredFile? coverFile,
+    String caption = '',
+  }) async {
+    if (!const {'video', 'audio'}.contains(kind)) {
+      throw ArgumentError('Queued media kind is invalid.');
+    }
+    final createdAt = _clock();
+    final attachment = ImMessageAttachment(
+      id: imOutboxSyntheticFileId(clientMessageId, mediaFile.token),
+      type: kind,
+      fileName: mediaFile.fileName,
+      contentType: mediaFile.contentType,
+      size: mediaFile.length,
+      sha256: mediaFile.sha256,
+      width: mediaFile.width,
+      height: mediaFile.height,
+      coverObjectId: coverFile == null
+          ? ''
+          : imOutboxSyntheticFileId(clientMessageId, coverFile.token),
+      coverWidth: coverFile?.width,
+      coverHeight: coverFile?.height,
+    );
+    final message = ImMessage(
+      id: 'local-$clientMessageId',
+      conversationId: conversationId,
+      sequence: 0,
+      senderId: senderId,
+      clientMessageId: clientMessageId,
+      content: caption.trim(),
+      kind: kind,
+      attachments: [attachment],
+      createdAt: createdAt,
+      localStatus: ImLocalMessageStatus.pending,
+    );
+    final files = [mediaFile, ?coverFile];
+    final database = await _database;
+    await database.transaction((transaction) async {
+      await _upsertMessage(transaction, accountId, message);
+      await transaction.insert('im_outbox', {
+        'account_id': accountId,
+        'client_message_id': clientMessageId,
+        'conversation_id': conversationId,
+        'content': await _cipher.protect(accountId, message.content),
+        'kind': kind,
+        'mentioned_member_ids_json': '[]',
+        'mention_all': 0,
+        'reply_to_message_id': null,
+        'attachment_name': '',
+        'attachment_content_type': '',
+        'attachment_bytes_base64': '',
+        'media_files_json': await _cipher.protect(
+          accountId,
+          jsonEncode(files.map((file) => file.toJson()).toList()),
+        ),
+        'contact_member_id': null,
+        'attempts': 0,
+        'next_retry_at': _outboxNow(),
+        'last_error': '',
+        'created_at': _sortableOutboxTimestamp(createdAt),
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     });
     return message;
@@ -882,7 +1507,7 @@ final class ImLocalStore {
     required String clientMessageId,
     required String memberId,
   }) async {
-    final createdAt = DateTime.now();
+    final createdAt = _clock();
     final message = ImMessage(
       id: 'local-$clientMessageId',
       conversationId: conversationId,
@@ -911,9 +1536,9 @@ final class ImLocalStore {
         'attachment_bytes_base64': '',
         'contact_member_id': memberId,
         'attempts': 0,
-        'next_retry_at': _now(),
+        'next_retry_at': _outboxNow(),
         'last_error': '',
-        'created_at': createdAt.toUtc().toIso8601String(),
+        'created_at': _sortableOutboxTimestamp(createdAt),
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     });
     return message;
@@ -921,43 +1546,81 @@ final class ImLocalStore {
 
   Future<List<ImOutboxItem>> dueOutbox(String accountId) async {
     final database = await _database;
-    final rows = await database.query(
-      'im_outbox',
-      where: 'account_id = ? AND next_retry_at <= ?',
-      whereArgs: [accountId, _now()],
-      orderBy: 'created_at',
-      limit: 50,
+    final now = _outboxNow();
+    // Ordering belongs to a conversation, not the whole account. Apply the
+    // eligibility filter before LIMIT so a long blocked chat cannot starve
+    // another chat. A later retry never overtakes its own earlier pending item.
+    final dueRows = await database.rawQuery(
+      '''
+      SELECT queued.* FROM im_outbox AS queued
+      WHERE queued.account_id = ? AND queued.next_retry_at <= ?
+        AND NOT EXISTS (
+          SELECT 1 FROM im_outbox AS earlier
+          WHERE earlier.account_id = queued.account_id
+            AND earlier.conversation_id = queued.conversation_id
+            AND earlier.next_retry_at > ?
+            AND (earlier.created_at < queued.created_at OR
+              (earlier.created_at = queued.created_at AND earlier.rowid < queued.rowid))
+        )
+      ORDER BY queued.created_at, queued.rowid LIMIT 50
+    ''',
+      [accountId, now, now],
     );
     return Future.wait(
-      rows.map(
-        (row) async => ImOutboxItem(
-          clientMessageId: row['client_message_id'] as String,
-          conversationId: row['conversation_id'] as String,
-          content: await _cipher.reveal(accountId, row['content'] as String),
-          kind: row['kind'] as String,
-          attempts: row['attempts'] as int,
-          mentionedMemberIds: _decodeStringList(
-            await _cipher.reveal(
-              accountId,
-              row['mentioned_member_ids_json'] as String,
-            ),
-          ),
-          mentionAll: (row['mention_all'] as int) != 0,
-          replyToMessageId: row['reply_to_message_id'] as String?,
-          attachmentName: await _cipher.reveal(
-            accountId,
-            row['attachment_name'] as String,
-          ),
-          attachmentContentType: row['attachment_content_type'] as String,
-          attachmentBytes: _decodeBytes(
-            await _cipher.reveal(
-              accountId,
-              row['attachment_bytes_base64'] as String,
-            ),
-          ),
-          contactMemberId: row['contact_member_id'] as String?,
+      dueRows.map((row) => _outboxItemFromRow(accountId, row)),
+    );
+  }
+
+  Future<ImOutboxItem?> outboxItem(
+    String accountId,
+    String clientMessageId,
+  ) async {
+    final database = await _database;
+    final rows = await database.query(
+      'im_outbox',
+      where: 'account_id = ? AND client_message_id = ?',
+      whereArgs: [accountId, clientMessageId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return _outboxItemFromRow(accountId, rows.single);
+  }
+
+  Future<ImOutboxItem> _outboxItemFromRow(
+    String accountId,
+    Map<String, Object?> row,
+  ) async {
+    final mediaJson = await _cipher.reveal(
+      accountId,
+      row['media_files_json']?.toString() ?? '',
+    );
+    return ImOutboxItem(
+      clientMessageId: row['client_message_id'] as String,
+      conversationId: row['conversation_id'] as String,
+      content: await _cipher.reveal(accountId, row['content'] as String),
+      kind: row['kind'] as String,
+      attempts: row['attempts'] as int,
+      mentionedMemberIds: _decodeStringList(
+        await _cipher.reveal(
+          accountId,
+          row['mentioned_member_ids_json'] as String,
         ),
       ),
+      mentionAll: (row['mention_all'] as int) != 0,
+      replyToMessageId: row['reply_to_message_id'] as String?,
+      attachmentName: await _cipher.reveal(
+        accountId,
+        row['attachment_name'] as String,
+      ),
+      attachmentContentType: row['attachment_content_type'] as String,
+      attachmentBytes: _decodeBytes(
+        await _cipher.reveal(
+          accountId,
+          row['attachment_bytes_base64'] as String,
+        ),
+      ),
+      mediaFiles: _decodeOutboxFiles(mediaJson),
+      contactMemberId: row['contact_member_id'] as String?,
     );
   }
 
@@ -981,10 +1644,63 @@ final class ImLocalStore {
           lastError: '',
         ),
       );
+      // The send response is authoritative even if this device never receives
+      // its own message.created event. Commit the list projection with the
+      // message/outbox transaction, without marking unseen messages as read.
+      if (serverMessage.sequence > 0 &&
+          serverMessage.conversationId.isNotEmpty) {
+        final preview = switch (serverMessage.kind) {
+          'image' => '[图片]',
+          'video' => '[视频]',
+          'audio' => '[语音]',
+          'file' => '[文件] ${serverMessage.attachmentName}'.trim(),
+          'contact' => '[名片]',
+          _ => serverMessage.content,
+        };
+        await transaction.update(
+          'im_conversations',
+          {
+            'preview': await _cipher.protect(accountId, preview),
+            'last_message_sequence': serverMessage.sequence,
+            if (serverMessage.createdAt != null)
+              'updated_at': serverMessage.createdAt!.toUtc().toIso8601String(),
+          },
+          where: 'account_id = ? AND id = ? AND last_message_sequence < ?',
+          whereArgs: [
+            accountId,
+            serverMessage.conversationId,
+            serverMessage.sequence,
+          ],
+        );
+      }
       await transaction.delete(
         'im_outbox',
         where: 'account_id = ? AND client_message_id = ?',
         whereArgs: [accountId, clientMessageId],
+      );
+      final remaining = await transaction.query(
+        'im_outbox',
+        columns: ['client_message_id'],
+        where: 'account_id = ? AND conversation_id = ?',
+        whereArgs: [accountId, serverMessage.conversationId],
+        limit: 1,
+      );
+      if (remaining.isEmpty) {
+        // SQLite may reuse rowids after a queue empties. An old batch's order
+        // must never affect a later independent batch.
+        await transaction.delete(
+          'im_sync_state',
+          where: 'account_id = ? AND state_key = ?',
+          whereArgs: [
+            accountId,
+            'preview.confirmed_order.${serverMessage.conversationId}',
+          ],
+        );
+      }
+      await transaction.delete(
+        'im_sync_state',
+        where: 'account_id = ? AND state_key = ?',
+        whereArgs: [accountId, 'outbox.transport.$clientMessageId'],
       );
     });
   }
@@ -992,13 +1708,25 @@ final class ImLocalStore {
   Future<void> markOutboxFailed(
     String accountId,
     ImOutboxItem item,
-    String error,
-  ) async {
+    String error, {
+    bool retryScheduled = false,
+    bool retryOnConnectionChange = false,
+  }) async {
     final attempts = item.attempts + 1;
     final delay = Duration(seconds: 5 * (1 << attempts.clamp(0, 6)));
-    final nextRetryAt = DateTime.now().add(delay).toUtc().toIso8601String();
+    final nextRetryAt = _sortableOutboxTimestamp(_clock().add(delay));
     final database = await _database;
     await database.transaction((transaction) async {
+      final transportKey = 'outbox.transport.${item.clientMessageId}';
+      if (retryScheduled && retryOnConnectionChange) {
+        await _writeState(transaction, accountId, transportKey, '1');
+      } else {
+        await transaction.delete(
+          'im_sync_state',
+          where: 'account_id = ? AND state_key = ?',
+          whereArgs: [accountId, transportKey],
+        );
+      }
       await transaction.update(
         'im_outbox',
         {
@@ -1012,7 +1740,9 @@ final class ImLocalStore {
       await transaction.update(
         'im_messages',
         {
-          'local_status': ImLocalMessageStatus.failed.name,
+          'local_status': retryScheduled
+              ? ImLocalMessageStatus.pending.name
+              : ImLocalMessageStatus.failed.name,
           'last_error': error,
           'updated_at': _now(),
         },
@@ -1027,7 +1757,7 @@ final class ImLocalStore {
     await database.transaction((transaction) async {
       await transaction.update(
         'im_outbox',
-        {'next_retry_at': _now(), 'last_error': ''},
+        {'next_retry_at': _outboxNow(), 'last_error': ''},
         where: 'account_id = ? AND client_message_id = ?',
         whereArgs: [accountId, clientMessageId],
       );
@@ -1064,6 +1794,14 @@ final class ImLocalStore {
     final value = await _readState(accountId, _eventAckSequenceKey(deviceId));
     return int.tryParse(value ?? '') ?? 0;
   }
+
+  Future<({int appliedSequence, int acknowledgedSequence})> syncCursors(
+    String accountId,
+    String deviceId,
+  ) async => (
+    appliedSequence: await lastEventSequence(accountId, deviceId),
+    acknowledgedSequence: await lastAckedEventSequence(accountId, deviceId),
+  );
 
   Future<void> markEventsAcked(
     String accountId,
@@ -1159,15 +1897,19 @@ final class ImLocalStore {
     } catch (_) {
       return;
     }
-    if (event.type == 'message.created') {
+    if (ImEventSemantics.isMessageCreated(event.type)) {
       await _upsertMessage(executor, accountId, ImMessage.fromJson(payload));
       return;
     }
-    if (event.type == 'conversation.read') {
+    if (ImEventSemantics.isConversationRead(event.type)) {
       final readerId = _jsonText(payload, 'readerId');
       final conversationId = _jsonText(payload, 'conversationId');
       final sequence = int.tryParse(_jsonText(payload, 'sequence')) ?? 0;
-      if ((readerId == currentMemberId || readerId == accountId) &&
+      if (ImEventSemantics.isCurrentReader(
+            readerId: readerId,
+            accountId: accountId,
+            currentMemberId: currentMemberId,
+          ) &&
           conversationId.isNotEmpty) {
         await _applyOwnRead(
           executor,
@@ -1176,6 +1918,21 @@ final class ImLocalStore {
           sequence,
           currentMemberId: currentMemberId,
         );
+      } else if (readerId.isNotEmpty &&
+          currentMemberId.isNotEmpty &&
+          conversationId.isNotEmpty &&
+          sequence > 0) {
+        // Own read moves the inbox cursor; another member's read confirms
+        // outgoing delivery. Never infer peer reading from our own read.
+        final key = 'recipient.read.$conversationId';
+        final previous =
+            int.tryParse(
+              await _readStateFromExecutor(executor, accountId, key) ?? '',
+            ) ??
+            0;
+        if (sequence > previous) {
+          await _writeState(executor, accountId, key, sequence.toString());
+        }
       }
       return;
     }
@@ -1267,6 +2024,7 @@ final class ImLocalStore {
         ),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
+    await _prepareHistoryCatchups(executor, accountId, value.conversations);
     await _writeState(
       executor,
       accountId,
@@ -1311,6 +2069,7 @@ final class ImLocalStore {
     'username': member.username,
     'display_name': member.displayName,
     'is_online': member.isOnline ? 1 : 0,
+    'last_seen_at': member.lastSeenAt?.toUtc().toIso8601String(),
     'avatar_key': member.avatarKey,
     'avatar_data_url': member.avatarDataUrl,
     'department_id': member.departmentId,
@@ -1328,7 +2087,48 @@ final class ImLocalStore {
     String accountId,
     ImMessage message,
   ) async {
-    if (message.clientMessageId.isNotEmpty) {
+    final clientDedupeKey = ImEventSemantics.messageDedupeKey(
+      serverMessageId: '',
+      senderId: message.senderId,
+      clientMessageId: message.clientMessageId,
+    );
+    if (message.sequence > 0 && clientDedupeKey.isNotEmpty) {
+      // Keep local FIFO identity across a late send response or sync echo. A
+      // server confirmation timestamp is not the original enqueue timestamp.
+      final queued = await executor.rawQuery(
+        '''
+        SELECT o.rowid AS enqueue_order FROM im_outbox o
+        JOIN im_members member ON member.account_id = o.account_id
+         AND member.is_current = 1 AND member.id = ?
+        WHERE o.account_id = ? AND o.conversation_id = ?
+          AND o.client_message_id = ? LIMIT 1
+      ''',
+        [
+          message.senderId,
+          accountId,
+          message.conversationId,
+          message.clientMessageId,
+        ],
+      );
+      if (queued.isNotEmpty) {
+        final key = 'preview.confirmed_order.${message.conversationId}';
+        final previous = _decodeStateMap(
+          await _readStateFromExecutor(executor, accountId, key),
+        );
+        if ((previous['sequence'] as int? ?? 0) < message.sequence) {
+          await _writeState(
+            executor,
+            accountId,
+            key,
+            jsonEncode({
+              'sequence': message.sequence,
+              'order': queued.single['enqueue_order'],
+            }),
+          );
+        }
+      }
+    }
+    if (clientDedupeKey.isNotEmpty) {
       await executor.delete(
         'im_messages',
         where: 'account_id = ? AND sender_id = ? AND client_message_id = ? AND id <> ?',
@@ -1462,7 +2262,7 @@ final class ImLocalStore {
     );
     if (rows.isEmpty) return;
     final current = rows.single['last_read_sequence'] as int? ?? 0;
-    final next = sequence > current ? sequence : current;
+    final next = ImEventSemantics.mergeReadSequence(current, sequence);
     final mentions = _decodeIntegerList(
       rows.single['unread_mention_sequences_json']?.toString() ?? '[]',
     ).where((value) => value > next).toList();
@@ -1520,19 +2320,64 @@ final class ImLocalStore {
     'updated_at': _now(),
   }, conflictAlgorithm: ConflictAlgorithm.replace);
 
+  void clearDecodedMessages() => _decodedMessages.clear();
+
   Future<void> close() async {
+    clearDecodedMessages();
     final opening = _opening;
     _opening = null;
     if (opening != null) await (await opening).close();
   }
 
-  static String _now() => DateTime.now().toUtc().toIso8601String();
+  String _now() => _clock().toUtc().toIso8601String();
+
+  String _outboxNow() => _sortableOutboxTimestamp(_clock());
+
+  static String _sortableOutboxTimestamp(DateTime value) {
+    final utc = value.toUtc();
+    final iso = utc.toIso8601String();
+    // Dart omits microseconds when zero: .123Z sorts AFTER .123001Z.
+    // SQLite text comparisons need a fixed six-digit fractional component.
+    return utc.microsecond == 0
+        ? '${iso.substring(0, iso.length - 1)}000Z'
+        : iso;
+  }
+
+  /// Consume only classified transport failures, once per recovery hint. Keep
+  /// IDs, attempts, media and FIFO intact; never accelerate HTTP 429/5xx or
+  /// infer a legacy failure's category by parsing its human-readable message.
+  Future<int> resumeNetworkOutbox(String accountId) async {
+    final database = await _database;
+    return database.transaction((transaction) async {
+      final now = _outboxNow();
+      final changed = await transaction.rawUpdate(
+        '''
+        UPDATE im_outbox SET next_retry_at = ?
+        WHERE account_id = ? AND next_retry_at > ? AND EXISTS (
+          SELECT 1 FROM im_sync_state s
+          WHERE s.account_id = im_outbox.account_id
+            AND s.state_key = 'outbox.transport.' || im_outbox.client_message_id
+            AND s.value = '1'
+        )
+      ''',
+        [now, accountId, now],
+      );
+      await transaction.delete(
+        'im_sync_state',
+        where: "account_id = ? AND state_key LIKE 'outbox.transport.%'",
+        whereArgs: [accountId],
+      );
+      return changed;
+    });
+  }
 
   static ImMember _memberFromRow(Map<String, Object?> row) => ImMember(
     id: row['id'] as String,
     username: row['username'] as String,
     displayName: row['display_name'] as String,
     isOnline: (row['is_online'] as int) != 0,
+    lastSeenAt: DateTime.tryParse(row['last_seen_at'] as String? ?? '')
+        ?.toLocal(),
     avatarKey: row['avatar_key'] as String,
     avatarDataUrl: row['avatar_data_url'] as String,
     departmentId: row['department_id'] as String,
@@ -1548,6 +2393,8 @@ final class ImLocalStore {
         username: row['username'] as String,
         displayName: row['display_name'] as String,
         isOnline: (row['is_online'] as int) != 0,
+        lastSeenAt: DateTime.tryParse(row['last_seen_at'] as String? ?? '')
+            ?.toLocal(),
         avatarKey: row['avatar_key'] as String,
         avatarDataUrl: row['avatar_data_url'] as String,
         departmentId: row['department_id'] as String,
@@ -1586,22 +2433,64 @@ final class ImLocalStore {
   Future<ImConversation> _conversationFromRow(
     String accountId,
     Map<String, Object?> row,
-  ) async => ImConversation(
-    id: row['id'] as String,
-    type: row['type'] as String,
-    title: row['title'] as String,
-    preview: await _cipher.reveal(accountId, row['preview'] as String),
-    updatedAt: DateTime.tryParse(row['updated_at']?.toString() ?? '')
-        ?.toLocal(),
-    unreadCount: row['unread_count'] as int,
-    lastMessageSequence: row['last_message_sequence'] as int,
-    lastReadSequence: row['last_read_sequence'] as int? ?? 0,
-    isPinned: (row['is_pinned'] as int) != 0,
-    isMuted: (row['is_muted'] as int) != 0,
-    unreadMentionSequences: _decodeIntegerList(
-      row['unread_mention_sequences_json']?.toString() ?? '[]',
-    ),
-  );
+  ) async {
+    final serverUpdatedAt = DateTime.tryParse(
+      row['updated_at']?.toString() ?? '',
+    )?.toLocal();
+    final localCreatedAt = DateTime.tryParse(
+      row['local_preview_created_at']?.toString() ?? '',
+    )?.toLocal();
+    final confirmedOrder = _decodeStateMap(
+      row['local_confirmed_order'] as String?,
+    );
+    final sameLocalBatch =
+        confirmedOrder['sequence'] == row['last_message_sequence'];
+    final useLocalPreview =
+        localCreatedAt != null &&
+        (sameLocalBatch
+            ? (row['local_preview_order'] as int? ?? 0) >
+                  (confirmedOrder['order'] as int? ?? 0)
+            : serverUpdatedAt == null ||
+                  !localCreatedAt.isBefore(serverUpdatedAt));
+    final String preview;
+    if (useLocalPreview) {
+      preview = switch (row['local_preview_kind']) {
+        'image' => '[图片]',
+        'video' => '[视频]',
+        'audio' => '[语音]',
+        'contact' => '[名片]',
+        'file' =>
+          '[文件] ${await _cipher.reveal(accountId, row['local_preview_file_name'] as String)}'
+              .trim(),
+        _ => await _cipher.reveal(
+          accountId,
+          row['local_preview_content'] as String,
+        ),
+      };
+    } else {
+      preview = await _cipher.reveal(accountId, row['preview'] as String);
+    }
+    return ImConversation(
+      id: row['id'] as String,
+      type: row['type'] as String,
+      title: row['title'] as String,
+      preview: preview,
+      updatedAt: useLocalPreview ? localCreatedAt : serverUpdatedAt,
+      localPreviewStatus: useLocalPreview
+          ? row['local_preview_status'] == 'failed'
+                ? ImLocalMessageStatus.failed
+                : ImLocalMessageStatus.pending
+          : null,
+      unreadCount: row['unread_count'] as int,
+      lastMessageSequence: row['last_message_sequence'] as int,
+      lastReadSequence: row['last_read_sequence'] as int? ?? 0,
+      isPinned: (row['is_pinned'] as int) != 0,
+      isMuted: (row['is_muted'] as int) != 0,
+      unreadMentionSequences: _decodeIntegerList(
+        row['unread_mention_sequences_json']?.toString() ?? '[]',
+      ),
+    );
+  }
 
   static List<int> _decodeIntegerList(String value) {
     try {
@@ -1637,21 +2526,27 @@ final class ImLocalStore {
     contactCard: _decodeContactCard(
       await _cipher.reveal(accountId, row['contact_card_json'] as String),
     ),
-    images: _decodeImages(
-      await _cipher.reveal(accountId, row['images_json']?.toString() ?? ''),
+    images: List.unmodifiable(
+      _decodeImages(
+        await _cipher.reveal(accountId, row['images_json']?.toString() ?? ''),
+      ),
     ),
-    attachments: _decodeAttachments(
-      await _cipher.reveal(
-        accountId,
-        row['media_attachments_json']?.toString() ?? '',
+    attachments: List.unmodifiable(
+      _decodeAttachments(
+        await _cipher.reveal(
+          accountId,
+          row['media_attachments_json']?.toString() ?? '',
+        ),
       ),
     ),
     createdAt: DateTime.tryParse(row['created_at']?.toString() ?? '')
         ?.toLocal(),
     recalledAt: DateTime.tryParse(row['recalled_at']?.toString() ?? '')
         ?.toLocal(),
-    mentions: _decodeMentions(
-      await _cipher.reveal(accountId, row['mentions_json'] as String),
+    mentions: List.unmodifiable(
+      _decodeMentions(
+        await _cipher.reveal(accountId, row['mentions_json'] as String),
+      ),
     ),
     replyTo: _decodeReply(
       await _cipher.reveal(accountId, row['reply_to_json'] as String),
@@ -1660,6 +2555,7 @@ final class ImLocalStore {
       row['local_status'] as String,
     ),
     lastError: row['last_error'] as String,
+    hasRecipientRead: (row['recipient_read'] as int? ?? 0) != 0,
   );
 
   static List<ImMessageImage> _decodeImages(String value) {
@@ -1728,6 +2624,25 @@ final class ImLocalStore {
     }
   }
 
+  static List<ImOutboxStoredFile> _decodeOutboxFiles(String value) {
+    if (value.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(value);
+      return decoded is List
+          ? decoded
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      ImOutboxStoredFile.fromJson(item.cast<String, Object?>()),
+                )
+                .where((item) => item.token.isNotEmpty && item.length > 0)
+                .toList(growable: false)
+          : const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
   static List<ImMessageMention> _decodeMentions(String value) {
     if (value.isEmpty) return const [];
     try {
@@ -1757,4 +2672,29 @@ final class ImLocalStore {
       return null;
     }
   }
+}
+
+final class ImHistoryCatchup {
+  const ImHistoryCatchup({
+    required this.conversationId,
+    required this.afterSequence,
+    required this.beforeSequence,
+    required this.targetSequence,
+  });
+  factory ImHistoryCatchup.fromJson(String id, Map<String, Object?> json) =>
+      ImHistoryCatchup(
+        conversationId: id,
+        afterSequence: json['after'] as int,
+        beforeSequence: json['before'] as int,
+        targetSequence: json['target'] as int,
+      );
+  final String conversationId;
+  final int afterSequence;
+  final int beforeSequence;
+  final int targetSequence;
+  Map<String, Object?> toJson() => {
+    'after': afterSequence,
+    'before': beforeSequence,
+    'target': targetSequence,
+  };
 }

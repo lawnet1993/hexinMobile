@@ -1,0 +1,503 @@
+{
+  "checkedAt": "2026-09-03T02:33:44.6086991+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260903-",
+  "bootstrapStatus": 200,
+  "requestId": null,
+  "pageStatus": 200,
+  "pageRequestId": null,
+  "hasMore": false,
+  "requests": [
+    {
+      "id": "5303a348-ddea-40e0-938a-3ed2b7fd3486",
+      "detailStatus": 200,
+      "requestId": null,
+      "markerMatched": true,
+      "status": "withdrawn",
+      "title": "Test Terminal 03的借支审批",
+      "requesterName": "Test Terminal 03",
+      "requesterDepartmentName": "财顺",
+      "createdAt": "2026-09-02T18:25:27.604471Z",
+      "updatedAt": "2026-09-02T18:28:59.841046Z",
+      "allowedActions": [],
+      "templateVersion": 1,
+      "requestVersion": 4,
+      "workflowKey": "system.default.finance.advance-request",
+      "clientRequestId": "58725c23-076c-4f9e-9a82-526d32a5abdf",
+      "completedAt": "2026-09-02T18:28:59.841046Z",
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "e812f16f-a2d8-4d04-986f-335dcc51e1c9",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+          "assigneeName": "Test Terminal 03",
+          "assigneeDepartmentName": "财顺",
+          "status": "approved",
+          "version": 3,
+          "canOperate": false,
+          "completedAt": "2026-09-02T18:28:13.187009Z"
+        },
+        {
+          "id": "5b7c27f8-3b00-44b5-bf44-9dcf8ab6f6e5",
+          "nodeName": "部门负责人审批（加签）",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "canceled",
+          "version": 3,
+          "canOperate": false,
+          "completedAt": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "0a3e7995-79f8-4a94-a24d-29e234ba3f4c",
+          "action": "submitted",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:25:27.604471Z"
+        },
+        {
+          "id": "7f2cbbe6-7661-4143-a841-0538a747f88d",
+          "action": "add_signed",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:27:18.396058Z"
+        },
+        {
+          "id": "f090274a-8303-41df-a748-0d71bb4af01c",
+          "action": "approved",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:28:13.187009Z"
+        },
+        {
+          "id": "e01229a4-9020-475e-ac11-b7c16306d342",
+          "action": "withdrawn",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:28:59.841046Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": [
+        {
+          "id": "5e67d0ef-1428-41c4-b510-b80eceeb8295",
+          "type": "approval.task.canceled",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T18:28:59.841046Z"
+        },
+        {
+          "id": "69deea1f-4d23-45c2-a635-d6b09d54b6f8",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T18:28:13.187009Z"
+        }
+      ]
+    },
+    {
+      "id": "8b87b0c1-486c-41fe-9e1a-1fd98495d7eb",
+      "detailStatus": 200,
+      "requestId": null,
+      "markerMatched": true,
+      "status": "withdrawn",
+      "title": "Test Terminal 03的借支审批",
+      "requesterName": "Test Terminal 03",
+      "requesterDepartmentName": "财顺",
+      "createdAt": "2026-09-02T18:16:38.058148Z",
+      "updatedAt": "2026-09-02T18:23:49.249038Z",
+      "allowedActions": [],
+      "templateVersion": 1,
+      "requestVersion": 3,
+      "workflowKey": "system.default.finance.advance-request",
+      "clientRequestId": "7ddcbbc3-d6e0-4157-8e35-463fc0f21af1",
+      "completedAt": "2026-09-02T18:23:49.249038Z",
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "6e079f8c-5cc8-46d2-bae7-9a125662bd30",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+          "assigneeName": "Test Terminal 03",
+          "assigneeDepartmentName": "财顺",
+          "status": "waiting",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "5c4ffaee-046c-476c-8bbb-5fae346425aa",
+          "nodeName": "部门负责人审批（加签）",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "canceled",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "e5d408c0-099f-4651-8adc-f526b71bdb4f",
+          "action": "submitted",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:16:38.058148Z"
+        },
+        {
+          "id": "8bc53c84-dd05-48d8-a22f-250670c0eb8a",
+          "action": "add_signed",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:22:47.832555Z"
+        },
+        {
+          "id": "48b83d1f-93a5-41c4-8a03-aaa35008232c",
+          "action": "withdrawn",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:23:49.249038Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": [
+        {
+          "id": "ec7a680c-d0d6-4ec4-9c11-4836e66d2a57",
+          "type": "approval.task.canceled",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T18:23:49.249038Z"
+        },
+        {
+          "id": "1f4cd96b-4b2a-4661-a494-3eb89a496b70",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T18:22:47.832555Z"
+        }
+      ]
+    },
+    {
+      "id": "e5f0977a-c8c0-46a0-baff-aeecea59094c",
+      "detailStatus": 200,
+      "requestId": null,
+      "markerMatched": true,
+      "status": "withdrawn",
+      "title": "Test Terminal 03的借支审批",
+      "requesterName": "Test Terminal 03",
+      "requesterDepartmentName": "财顺",
+      "createdAt": "2026-09-02T18:13:37.072238Z",
+      "updatedAt": "2026-09-02T18:15:49.80321Z",
+      "allowedActions": [],
+      "templateVersion": 1,
+      "requestVersion": 3,
+      "workflowKey": "system.default.finance.advance-request",
+      "clientRequestId": "14442de9-9efd-46fb-82cc-a165732832ed",
+      "completedAt": "2026-09-02T18:15:49.80321Z",
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "d9f33c2b-4687-4ae3-866c-e292cefe00e5",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+          "assigneeName": "Test Terminal 03",
+          "assigneeDepartmentName": "财顺",
+          "status": "transferred",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-02T18:14:45.659688Z"
+        },
+        {
+          "id": "e45129a1-8058-4215-8417-60954e44cdb1",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "canceled",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "f782b5f2-3b90-4f7a-9bb9-adba5a448821",
+          "action": "submitted",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:13:37.072238Z"
+        },
+        {
+          "id": "813227a4-8490-49bf-a8ea-023aaf713936",
+          "action": "transferred",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:14:45.659688Z"
+        },
+        {
+          "id": "9ff92d2d-69c7-40b2-84b9-59567265ed08",
+          "action": "withdrawn",
+          "actorName": "Test Terminal 03",
+          "occurredAt": "2026-09-02T18:15:49.80321Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": [
+        {
+          "id": "9424ef77-57f5-4e77-8d49-ee081bcb9ca4",
+          "type": "approval.task.canceled",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T18:15:49.80321Z"
+        },
+        {
+          "id": "b6cbcb6a-2eed-4a1e-9dfe-1ee3932d230a",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-02T18:14:45.659688Z"
+        }
+      ]
+    }
+  ],
+  "matchCount": 3,
+  "sync": {
+    "status": 200,
+    "requestId": null,
+    "latestSequence": 451,
+    "afterSequence": 343,
+    "totalReturned": 12,
+    "events": [
+      {
+        "id": "763c5529-13d8-4d10-8217-75a08fad503d",
+        "sequence": 419,
+        "type": "oa.notification.created",
+        "requestId": "e5f0977a-c8c0-46a0-baff-aeecea59094c",
+        "createdAt": "2026-09-02T18:14:45.659688Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "id": "a9a69be2-2950-4260-977b-ceb87fc57f55",
+        "sequence": 425,
+        "type": "oa.notification.created",
+        "requestId": "e5f0977a-c8c0-46a0-baff-aeecea59094c",
+        "createdAt": "2026-09-02T18:15:49.80321Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "id": "d9610a19-d0e7-44f4-a40b-93cd3d61dee5",
+        "sequence": 431,
+        "type": "oa.notification.created",
+        "requestId": "8b87b0c1-486c-41fe-9e1a-1fd98495d7eb",
+        "createdAt": "2026-09-02T18:22:47.832555Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "id": "b344c71b-6276-4a88-9709-2f1da32e0e6f",
+        "sequence": 437,
+        "type": "oa.notification.created",
+        "requestId": "8b87b0c1-486c-41fe-9e1a-1fd98495d7eb",
+        "createdAt": "2026-09-02T18:23:49.249038Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "id": "8919bc13-ef44-4993-a62f-3876c0f1a562",
+        "sequence": 445,
+        "type": "oa.notification.created",
+        "requestId": "5303a348-ddea-40e0-938a-3ed2b7fd3486",
+        "createdAt": "2026-09-02T18:28:13.187009Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      },
+      {
+        "id": "3370ed07-dcdb-44e3-a463-ffa984386c3b",
+        "sequence": 451,
+        "type": "oa.notification.created",
+        "requestId": "5303a348-ddea-40e0-938a-3ed2b7fd3486",
+        "createdAt": "2026-09-02T18:28:59.841046Z",
+        "payloadFields": [
+          "Id",
+          "Body",
+          "Type",
+          "Title",
+          "Action",
+          "IsRead",
+          "ReadAt",
+          "Category",
+          "CreatedAt",
+          "RequestId",
+          "Importance",
+          "SourceEventId"
+        ]
+      }
+    ]
+  }
+}

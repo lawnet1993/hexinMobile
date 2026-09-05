@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-09-03T04:18:51.9544163+08:00",
+  "draftsBefore": 2,
+  "draftsAfter": 2,
+  "draftsIdentical": true,
+  "receiptsBefore": 10,
+  "receiptsAfter": 10,
+  "receiptsIdentical": true,
+  "oaCursorBefore": [
+    {
+      "value": "458",
+      "updated_at": "2026-09-02T20:01:04.428449Z"
+    }
+  ],
+  "oaCursorAfter": [
+    {
+      "value": "458",
+      "updated_at": "2026-09-02T20:01:04.428449Z"
+    }
+  ],
+  "oaOutboxBefore": 0,
+  "oaOutboxAfter": 0,
+  "messageLedgerIdentical": true,
+  "groupMessagesIdentical": true,
+  "imCursorsBefore": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 236
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 236
+    }
+  ],
+  "imCursorsAfter": [
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "applied",
+      "sequence": 236
+    },
+    {
+      "account_id": "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc",
+      "cursor_kind": "acked",
+      "sequence": 236
+    }
+  ],
+  "imOutboxBefore": 2,
+  "imOutboxAfter": 2,
+  "imOutboxStableFieldsIdentical": true
+}

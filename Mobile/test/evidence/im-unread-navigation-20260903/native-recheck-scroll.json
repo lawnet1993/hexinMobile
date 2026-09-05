@@ -1,0 +1,44 @@
+[
+  {
+    "last": 51,
+    "screenshot": "m3-recheck-first-unread.png",
+    "gestures": 0,
+    "first": 40,
+    "at": "2026-09-03T10:02:31.5173543+08:00"
+  },
+  {
+    "screenshot": "m3-recheck-before-scroll.png",
+    "last": 51,
+    "first": 40,
+    "gestures": 0,
+    "at": "2026-09-03T10:03:16.5516303+08:00"
+  },
+  {
+    "screenshot": "m3-recheck-forward-01.png",
+    "last": 73,
+    "first": 62,
+    "gestures": 2,
+    "at": "2026-09-03T10:03:21.3364128+08:00"
+  },
+  {
+    "screenshot": "m3-recheck-forward-02.png",
+    "last": 91,
+    "first": 80,
+    "gestures": 4,
+    "at": "2026-09-03T10:03:26.0309858+08:00"
+  },
+  {
+    "screenshot": "m3-recheck-forward-03.png",
+    "last": 100,
+    "first": 90,
+    "gestures": 6,
+    "at": "2026-09-03T10:03:30.6981933+08:00"
+  },
+  {
+    "screenshot": "m3-recheck-latest.png",
+    "last": 100,
+    "first": 90,
+    "gestures": 7,
+    "at": "2026-09-03T10:03:34.2989405+08:00"
+  }
+]

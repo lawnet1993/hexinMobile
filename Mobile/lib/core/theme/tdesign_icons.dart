@@ -32,4 +32,5 @@ abstract final class TDIcons {
   static const usergroupFilled = IconData(0xE7EF, fontFamily: _family);
   static const usergroup = IconData(0xE7F0, fontFamily: _family);
   static const work = IconData(0xE83C, fontFamily: _family);
+  static const wallet = IconData(0xE818, fontFamily: _family);
 }

@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-09-03T07:12:12.3644277+08:00",
+  "localHash": "0DF03E73F7500F5E4216E36835690CB5A6B1F7CE76C7EA711034AD1F23277FB7",
+  "devices": [
+    {
+      "serial": "emulator-5556",
+      "processId": "20140",
+      "hash": "0DF03E73F7500F5E4216E36835690CB5A6B1F7CE76C7EA711034AD1F23277FB7",
+      "matchesLocal": true,
+      "fatalOrUnhandled": 0,
+      "temporaryDiagnostics": 0,
+      "wifi": "1",
+      "mobileData": "1"
+    },
+    {
+      "serial": "emulator-5558",
+      "processId": "2742",
+      "hash": "0DF03E73F7500F5E4216E36835690CB5A6B1F7CE76C7EA711034AD1F23277FB7",
+      "matchesLocal": true,
+      "fatalOrUnhandled": 0,
+      "temporaryDiagnostics": 0,
+      "wifi": "1",
+      "mobileData": "1"
+    }
+  ],
+  "instrumentationRemoved": true
+}
