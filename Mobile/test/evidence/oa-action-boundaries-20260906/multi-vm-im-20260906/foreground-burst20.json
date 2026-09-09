@@ -1,0 +1,98 @@
+{
+  "stamp": "20260906-031131",
+  "senders": [
+    {
+      "serial": "emulator-5554",
+      "startedAt": "2026-09-05T19:11:31.7497721Z",
+      "finishedAt": "2026-09-05T19:11:43.9532728Z",
+      "PSComputerName": "localhost",
+      "RunspaceId": "5b167007-532f-4c39-b157-1ed74e1c4c02",
+      "PSShowComputerName": false
+    },
+    {
+      "serial": "emulator-5556",
+      "startedAt": "2026-09-05T19:11:32.3187086Z",
+      "finishedAt": "2026-09-05T19:11:46.8794676Z",
+      "PSComputerName": "localhost",
+      "RunspaceId": "25343447-de20-4546-8d70-3282168cce42",
+      "PSShowComputerName": false
+    }
+  ],
+  "samples": [
+    {
+      "index": 1,
+      "capturedAt": "2026-09-05T19:11:33.2222914Z",
+      "newRows": 0
+    },
+    {
+      "index": 2,
+      "capturedAt": "2026-09-05T19:11:34.4240855Z",
+      "newRows": 1
+    },
+    {
+      "index": 3,
+      "capturedAt": "2026-09-05T19:11:35.5813684Z",
+      "newRows": 3
+    },
+    {
+      "index": 4,
+      "capturedAt": "2026-09-05T19:11:36.6630361Z",
+      "newRows": 5
+    },
+    {
+      "index": 5,
+      "capturedAt": "2026-09-05T19:11:37.7364293Z",
+      "newRows": 6
+    },
+    {
+      "index": 6,
+      "capturedAt": "2026-09-05T19:11:38.8164810Z",
+      "newRows": 8
+    },
+    {
+      "index": 7,
+      "capturedAt": "2026-09-05T19:11:39.9388683Z",
+      "newRows": 8
+    },
+    {
+      "index": 8,
+      "capturedAt": "2026-09-05T19:11:41.0371960Z",
+      "newRows": 12
+    },
+    {
+      "index": 9,
+      "capturedAt": "2026-09-05T19:11:42.2085308Z",
+      "newRows": 12
+    },
+    {
+      "index": 10,
+      "capturedAt": "2026-09-05T19:11:43.3065400Z",
+      "newRows": 14
+    },
+    {
+      "index": 11,
+      "capturedAt": "2026-09-05T19:11:44.4200938Z",
+      "newRows": 14
+    },
+    {
+      "index": 12,
+      "capturedAt": "2026-09-05T19:11:45.4722788Z",
+      "newRows": 16
+    },
+    {
+      "index": 13,
+      "capturedAt": "2026-09-05T19:11:46.5340343Z",
+      "newRows": 18
+    },
+    {
+      "index": 14,
+      "capturedAt": "2026-09-05T19:11:47.5489592Z",
+      "newRows": 19
+    },
+    {
+      "index": 15,
+      "capturedAt": "2026-09-05T19:11:48.4931259Z",
+      "newRows": 20
+    }
+  ]
+}

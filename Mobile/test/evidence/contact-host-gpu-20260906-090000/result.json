@@ -1,0 +1,62 @@
+{
+  "checkedAt": "2026-09-06T09:05:00+08:00",
+  "device": "emulator-5554",
+  "account": "test02",
+  "conversation": "Test Terminal 01",
+  "messageWindow": 80,
+  "dataWiped": false,
+  "uiVerification": {
+    "coldOpen": true,
+    "hotOpenRequested": 20,
+    "hotOpenCompleted": 20,
+    "singleBackReturned": 20,
+    "sameProcessDuringHotLoop": true
+  },
+  "swiftShader": {
+    "renderer": "Android Emulator OpenGL ES Translator / Google SwiftShader",
+    "cold": {
+      "routeMountedMs": 10.6,
+      "messagesAvailableMs": 54.8,
+      "latestMessageLaidOutMs": 719.0,
+      "firstFrameMs": 20.6,
+      "maxBuildMs": 46.8,
+      "maxRasterMs": 551.6,
+      "maxTotalSpanMs": 592.2
+    },
+    "hot": {
+      "samples": 20,
+      "messagesAvailableP50Ms": 13.7,
+      "messagesAvailableP95Ms": 22.6,
+      "latestMessageLaidOutP50Ms": 171.3,
+      "latestMessageLaidOutP95Ms": 252.3,
+      "firstFrameP50Ms": 17.6,
+      "firstFrameP95Ms": 21.4,
+      "maxRasterPerOpenP50Ms": 75.2,
+      "maxRasterPerOpenP95Ms": 89.0
+    }
+  },
+  "hostGpu": {
+    "renderer": "Android Emulator OpenGL ES Translator / NVIDIA GeForce RTX 4070 Laptop GPU",
+    "cold": {
+      "routeMountedMs": 6.0,
+      "messagesAvailableMs": 35.5,
+      "latestMessageLaidOutMs": 122.8,
+      "firstFrameMs": 11.2,
+      "maxBuildMs": 17.4,
+      "maxRasterMs": 33.8,
+      "maxTotalSpanMs": 51.4
+    },
+    "hot": {
+      "samples": 20,
+      "messagesAvailableP50Ms": 12.1,
+      "messagesAvailableP95Ms": 19.2,
+      "latestMessageLaidOutP50Ms": 80.2,
+      "latestMessageLaidOutP95Ms": 102.1,
+      "firstFrameP50Ms": 11.2,
+      "firstFrameP95Ms": 14.2,
+      "maxRasterPerOpenP50Ms": 17.9,
+      "maxRasterPerOpenP95Ms": 25.9
+    }
+  },
+  "verdict": "software_renderer_amplifies_jank; host_gpu_is_responsive_but_physical_device_still_required"
+}

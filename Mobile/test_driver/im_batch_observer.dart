@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:secure_tunnel/secure_tunnel.dart';
 import 'package:hexing_terminal_mobile/app.dart';
 import 'package:hexing_terminal_mobile/core/config/app_environment.dart';
 import 'package:hexing_terminal_mobile/core/diagnostics/mobile_startup_diagnostics.dart';
@@ -36,8 +35,6 @@ Future<void> main() async {
   PaintingBinding.instance.imageCache
     ..maximumSize = 120
     ..maximumSizeBytes = 48 * 1024 * 1024;
-  SecureTunnel.registerWith();
-  startup?.mark(MobileStartupStage.tunnelRegistered);
   var observed = 0;
   runApp(
     ProviderScope(

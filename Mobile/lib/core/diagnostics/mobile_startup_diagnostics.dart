@@ -7,9 +7,13 @@ import 'package:flutter/widgets.dart';
 
 enum MobileStartupStage {
   dartMain,
-  tunnelRegistered,
   runAppReturned,
   firstFrameworkFrame,
+  secureSessionHydrated,
+  shellCreated,
+  shellFirstFrame,
+  workbenchCacheReady,
+  collaborationSyncRequested,
 }
 
 /// Bounded, numeric-only startup diagnostics. No VM service, account data,
@@ -39,19 +43,27 @@ final class MobileStartupDiagnostics {
   }
 
   static bool _installed = false;
+  static MobileStartupDiagnostics? _current;
 
   static MobileStartupDiagnostics? install() {
     if (!kProfileMode || _installed) return null;
     _installed = true;
-    return MobileStartupDiagnostics._();
+    return _current = MobileStartupDiagnostics._();
   }
+
+  /// Records a process-wide startup milestone when profile diagnostics are
+  /// active. Each milestone is emitted at most once and carries no user or
+  /// business data.
+  static void markCurrent(MobileStartupStage stage) => _current?.mark(stage);
 
   final Stopwatch _clock = Stopwatch();
   late final StartupFrameSamples _samples;
   Timer? _timeout;
   bool _finished = false;
+  final Set<MobileStartupStage> _markedStages = {};
 
   void mark(MobileStartupStage stage) {
+    if (!_markedStages.add(stage)) return;
     debugPrint(
       'MOBILE_STARTUP ${jsonEncode({'stage': stage.name, 'elapsedMicros': _clock.elapsedMicroseconds})}',
     );

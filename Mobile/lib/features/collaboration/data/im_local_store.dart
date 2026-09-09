@@ -18,6 +18,7 @@ final class ImOutboxItem {
     required this.content,
     required this.kind,
     required this.attempts,
+    this.enqueuedAt,
     this.mentionedMemberIds = const [],
     this.mentionAll = false,
     this.replyToMessageId,
@@ -33,6 +34,7 @@ final class ImOutboxItem {
   final String content;
   final String kind;
   final int attempts;
+  final DateTime? enqueuedAt;
   final List<String> mentionedMemberIds;
   final bool mentionAll;
   final String? replyToMessageId;
@@ -629,6 +631,9 @@ final class ImLocalStore {
              m.attachment_name AS local_preview_file_name,
              m.created_at AS local_preview_created_at,
              m.local_status AS local_preview_status,
+             confirmed.kind AS confirmed_preview_kind,
+             confirmed.content AS confirmed_preview_content,
+             confirmed.attachment_name AS confirmed_preview_file_name,
              o.rowid AS local_preview_order, s.value AS local_confirmed_order
       FROM im_conversations c
       LEFT JOIN (
@@ -640,6 +645,14 @@ final class ImLocalStore {
         ON m.account_id = c.account_id AND m.conversation_id = c.id
        AND m.client_message_id = o.client_message_id
        AND m.sequence = 0 AND m.local_status IN ('pending', 'failed')
+      LEFT JOIN im_messages confirmed ON confirmed.rowid = (
+        SELECT MAX(latest.rowid) FROM im_messages latest
+        WHERE latest.account_id = c.account_id
+          AND latest.conversation_id = c.id
+          AND latest.sequence = c.last_message_sequence
+          AND latest.sequence > 0
+          AND latest.is_deleted = 0
+      )
       LEFT JOIN im_sync_state s ON s.account_id = c.account_id
        AND s.state_key = 'preview.confirmed_order.' || c.id
       WHERE c.account_id = ?
@@ -1603,6 +1616,7 @@ final class ImLocalStore {
       content: await _cipher.reveal(accountId, row['content'] as String),
       kind: row['kind'] as String,
       attempts: row['attempts'] as int,
+      enqueuedAt: DateTime.tryParse(row['created_at']?.toString() ?? ''),
       mentionedMemberIds: _decodeStringList(
         await _cipher.reveal(
           accountId,
@@ -1839,10 +1853,13 @@ final class ImLocalStore {
     required String deviceId,
     required List<ImSyncEvent> events,
     required ImBootstrap bootstrap,
+    bool replaceBootstrap = true,
   }) async {
     final database = await _database;
     await database.transaction((transaction) async {
-      await _replaceBootstrap(transaction, accountId, bootstrap);
+      if (replaceBootstrap) {
+        await _replaceBootstrap(transaction, accountId, bootstrap);
+      }
       for (final event in events) {
         await transaction.insert('im_event_inbox', {
           'account_id': accountId,
@@ -1901,7 +1918,19 @@ final class ImLocalStore {
       return;
     }
     if (ImEventSemantics.isMessageCreated(event.type)) {
-      await _upsertMessage(executor, accountId, ImMessage.fromJson(payload));
+      final message = ImMessage.fromJson(payload);
+      await _upsertMessage(executor, accountId, message);
+      if (currentMemberId.isNotEmpty &&
+          message.senderId != currentMemberId &&
+          message.conversationId.isNotEmpty &&
+          message.sequence > 0) {
+        await _recalculateIncomingUnread(
+          executor,
+          accountId,
+          currentMemberId,
+          message,
+        );
+      }
       return;
     }
     if (ImEventSemantics.isConversationRead(event.type)) {
@@ -2211,7 +2240,79 @@ final class ImLocalStore {
       'is_deleted': 0,
       'updated_at': _now(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+    if (message.sequence > 0 && message.conversationId.isNotEmpty) {
+      await executor.update(
+        'im_conversations',
+        {
+          'preview': await _cipher.protect(
+            accountId,
+            _conversationPreview(message),
+          ),
+          'last_message_sequence': message.sequence,
+          if (message.createdAt != null)
+            'updated_at': message.createdAt!.toUtc().toIso8601String(),
+        },
+        where: 'account_id = ? AND id = ? AND last_message_sequence < ?',
+        whereArgs: [accountId, message.conversationId, message.sequence],
+      );
+    }
   }
+
+  Future<void> _recalculateIncomingUnread(
+    DatabaseExecutor executor,
+    String accountId,
+    String currentMemberId,
+    ImMessage message,
+  ) async {
+    final rows = await executor.query(
+      'im_conversations',
+      columns: ['last_read_sequence', 'unread_mention_sequences_json'],
+      where: 'account_id = ? AND id = ?',
+      whereArgs: [accountId, message.conversationId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+    final lastReadSequence = rows.single['last_read_sequence'] as int? ?? 0;
+    final unreadRows = await executor.rawQuery(
+      '''
+      SELECT COUNT(*) AS unread_count
+      FROM im_messages
+      WHERE account_id = ? AND conversation_id = ? AND sequence > ?
+        AND sender_id <> ? AND is_deleted = 0
+      ''',
+      [accountId, message.conversationId, lastReadSequence, currentMemberId],
+    );
+    final mentions = _decodeIntegerList(
+      rows.single['unread_mention_sequences_json']?.toString() ?? '[]',
+    ).where((sequence) => sequence > lastReadSequence).toSet();
+    final mentionsCurrentMember = message.mentions.any(
+      (mention) =>
+          mention.isMentionAll || mention.mentionedMemberId == currentMemberId,
+    );
+    if (mentionsCurrentMember && message.sequence > lastReadSequence) {
+      mentions.add(message.sequence);
+    }
+    final orderedMentions = mentions.toList()..sort();
+    await executor.update(
+      'im_conversations',
+      {
+        'unread_count': Sqflite.firstIntValue(unreadRows) ?? 0,
+        'unread_mention_sequences_json': jsonEncode(orderedMentions),
+      },
+      where: 'account_id = ? AND id = ?',
+      whereArgs: [accountId, message.conversationId],
+    );
+  }
+
+  static String _conversationPreview(ImMessage message) =>
+      switch (message.kind) {
+        'image' => '[图片]',
+        'video' => '[视频]',
+        'audio' => '[语音]',
+        'file' => '[文件] ${message.attachmentName}'.trim(),
+        'contact' => '[名片]',
+        _ => message.content,
+      };
 
   Future<String?> _readState(String accountId, String key) async {
     final database = await _database;
@@ -2471,7 +2572,31 @@ final class ImLocalStore {
         ),
       };
     } else {
-      preview = await _cipher.reveal(accountId, row['preview'] as String);
+      final serverPreview = await _cipher.reveal(
+        accountId,
+        row['preview'] as String,
+      );
+      if (serverPreview.trim().isNotEmpty) {
+        preview = serverPreview;
+      } else {
+        final confirmedKind = row['confirmed_preview_kind']?.toString() ?? '';
+        final confirmedContent = await _cipher.reveal(
+          accountId,
+          row['confirmed_preview_content']?.toString() ?? '',
+        );
+        final confirmedFileName = await _cipher.reveal(
+          accountId,
+          row['confirmed_preview_file_name']?.toString() ?? '',
+        );
+        preview = switch (confirmedKind) {
+          'image' => '[图片]',
+          'video' => '[视频]',
+          'audio' => '[语音]',
+          'contact' => '[名片]',
+          'file' => '[文件] $confirmedFileName'.trim(),
+          _ => confirmedContent,
+        };
+      }
     }
     return ImConversation(
       id: row['id'] as String,

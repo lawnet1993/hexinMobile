@@ -1,0 +1,9 @@
+{
+  "activityStart": "Starting: Intent { cmp=com.hexing.zhilian.hexing_terminal_mobile/.MainActivity } | Status: ok | LaunchState: COLD | Activity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity | TotalTime: 2886 | WaitTime: 2920 | Complete",
+  "status": "ready",
+  "observationElapsedMs": 4518,
+  "polls": 1,
+  "fatalExceptionCount": 0,
+  "anrCount": 0,
+  "outOfMemoryCount": 0
+}

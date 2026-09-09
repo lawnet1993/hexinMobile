@@ -1,10 +1,16 @@
 package com.hexing.zhilian.hexing_terminal_mobile
 
+import android.Manifest
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -17,6 +23,7 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     private var eventSink: EventChannel.EventSink? = null
     private var eventNamespace: String? = null
     private var initialTargetRoute: String? = null
+    private var notificationPermissionResult: MethodChannel.Result? = null
     private var startupStartedAt = 0L
     private var firstFlutterUiReported = false
 
@@ -50,6 +57,15 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
                     "getInitialNotification" -> {
                         result.success(initialTargetRoute)
                         initialTargetRoute = null
+                    }
+                    "getNotificationPermission" -> {
+                        result.success(notificationPermissionState())
+                    }
+                    "requestNotificationPermission" -> {
+                        requestNotificationPermission(result)
+                    }
+                    "openNotificationSettings" -> {
+                        result.success(openNotificationSettings())
                     }
                     else -> result.notImplemented()
                 }
@@ -108,6 +124,83 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
         super.onDestroy()
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != NOTIFICATION_PERMISSION_REQUEST) return
+        notificationPermissionResult?.success(notificationPermissionState())
+        notificationPermissionResult = null
+    }
+
+    private fun notificationPermissionState(): String {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+        ) {
+            val requested = getSharedPreferences(
+                NOTIFICATION_PERMISSION_PREFERENCES,
+                Context.MODE_PRIVATE,
+            ).getBoolean(NOTIFICATION_PERMISSION_REQUESTED, false)
+            return if (requested) "denied" else "notDetermined"
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val manager = getSystemService(NotificationManager::class.java)
+            if (manager?.areNotificationsEnabled() == false) return "denied"
+        }
+        return "granted"
+    }
+
+    private fun requestNotificationPermission(result: MethodChannel.Result) {
+        if (notificationPermissionState() == "granted") {
+            result.success("granted")
+            return
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            result.success(notificationPermissionState())
+            return
+        }
+        if (notificationPermissionResult != null) {
+            result.error("permission_request_in_progress", "Notification permission request already active", null)
+            return
+        }
+        getSharedPreferences(NOTIFICATION_PERMISSION_PREFERENCES, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(NOTIFICATION_PERMISSION_REQUESTED, true)
+            .apply()
+        notificationPermissionResult = result
+        requestPermissions(
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            NOTIFICATION_PERMISSION_REQUEST,
+        )
+    }
+
+    private fun openNotificationSettings(): Boolean {
+        try {
+            startActivity(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName),
+            )
+            return true
+        } catch (_: Exception) {
+            // Some vendor ROMs do not expose the per-app notification page.
+        }
+        return try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:$packageName"),
+                ),
+            )
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun emitToken(namespace: String, provider: String, token: String) {
         if (namespace != eventNamespace) return
         eventSink?.success(
@@ -124,6 +217,9 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     companion object {
         private const val METHOD_CHANNEL = "com.hexing.zhilian/push"
         private const val EVENT_CHANNEL = "com.hexing.zhilian/push/events"
+        private const val NOTIFICATION_PERMISSION_REQUEST = 7101
+        private const val NOTIFICATION_PERMISSION_PREFERENCES = "mobile_notification_permission"
+        private const val NOTIFICATION_PERMISSION_REQUESTED = "requested"
         const val TARGET_ROUTE_EXTRA = "im_target_route"
 
         private var activeActivity = WeakReference<MainActivity>(null)

@@ -1,0 +1,20 @@
+[
+  {
+    "serial": "dd00d66d",
+    "versionName": "1.0.1",
+    "bytes": 69497080,
+    "sha256": "4007EF04E67DDA18D5B2080B1F0DDC2776BB406ACE839536F6FF3C01C754C700"
+  },
+  {
+    "serial": "emulator-5554",
+    "versionName": "1.0.1",
+    "bytes": 69497068,
+    "sha256": "EC39189A05131FA299BE1E481251AF0A99D6AADFE375C79F5B9247080FEEC4EF"
+  },
+  {
+    "serial": "emulator-5556",
+    "versionName": "1.0.1",
+    "bytes": 69497068,
+    "sha256": "EC39189A05131FA299BE1E481251AF0A99D6AADFE375C79F5B9247080FEEC4EF"
+  }
+]

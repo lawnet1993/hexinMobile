@@ -1,0 +1,10 @@
+{
+  "expected": 10,
+  "captured": 0,
+  "cacheHits": 0,
+  "messageCounts": [],
+  "elapsedMs": [],
+  "latestLaidOutMs": [],
+  "routeFrameMs": [],
+  "frames": []
+}

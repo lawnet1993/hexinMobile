@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-09-05T20:40:30.8436167+00:00",
+  "account": "test01",
+  "afterSequence": 3309,
+  "syncStatus": 200,
+  "requestId": "e1496e67-4ccb-43e1-9fb3-fef8e5a4ffb0",
+  "latestSequence": 3309,
+  "eventCount": 0,
+  "conversationState": [
+    {
+      "id": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+      "lastMessageSequence": 149,
+      "lastReadSequence": 74,
+      "unreadCount": 75,
+      "recentMessageCount": 50,
+      "latestTestSequence": 149.0
+    },
+    {
+      "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "lastMessageSequence": 98,
+      "lastReadSequence": 58,
+      "unreadCount": 40,
+      "recentMessageCount": 50,
+      "latestTestSequence": 98.0
+    }
+  ]
+}

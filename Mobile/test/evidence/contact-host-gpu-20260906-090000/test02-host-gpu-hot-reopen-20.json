@@ -1,0 +1,148 @@
+{
+  "checkedAt": "2026-09-06T08:57:31.4306271+08:00",
+  "serial": "emulator-5554",
+  "requested": 20,
+  "completed": 20,
+  "cycles": [
+    {
+      "iteration": 1,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 2,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 3,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 4,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 5,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 6,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 7,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 8,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 9,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 10,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 11,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 12,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 13,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 14,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 15,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 16,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 17,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 18,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 19,
+      "chatVerified": true,
+      "singleBackReturned": true
+    },
+    {
+      "iteration": 20,
+      "chatVerified": true,
+      "singleBackReturned": true
+    }
+  ],
+  "memory": [
+    {
+      "afterCycles": 0,
+      "sample": {
+        "pssKb": 189228,
+        "swapPssKb": 5235
+      }
+    },
+    {
+      "afterCycles": 5,
+      "sample": {
+        "pssKb": 211682,
+        "swapPssKb": 5032
+      }
+    },
+    {
+      "afterCycles": 10,
+      "sample": {
+        "pssKb": 202463,
+        "swapPssKb": 5045
+      }
+    },
+    {
+      "afterCycles": 15,
+      "sample": {
+        "pssKb": 210995,
+        "swapPssKb": 5159
+      }
+    },
+    {
+      "afterCycles": 20,
+      "sample": {
+        "pssKb": 211492,
+        "swapPssKb": 5159
+      }
+    }
+  ],
+  "sameProcess": true,
+  "pid": "4300",
+  "timingScope": "No frame or input-latency claim; each cycle verified by fresh UI hierarchy."
+}

@@ -1,0 +1,27 @@
+{
+  "device": "emulator-5554",
+  "source": "contacts avatar to existing direct conversation",
+  "samples": 10,
+  "cacheHits": 10,
+  "messageCountValues": [
+    58
+  ],
+  "routeMountedMs": {
+    "p50": 13.038,
+    "p95": 17.379,
+    "max": 18.692
+  },
+  "routeFrameMs": {
+    "p50": 18.374,
+    "p95": 22.932,
+    "max": 23.979
+  },
+  "latestMessageLaidOutMs": {
+    "p50": 116.965,
+    "p95": 162.782,
+    "max": 182.682
+  },
+  "buildOverBudgetTotal": 3.0,
+  "frameSampleTotal": 468.0,
+  "note": "x86_64 emulator uses software rendering; layout/cache timing is valid, raster jank is not a real-device verdict"
+}

@@ -1,0 +1,34 @@
+{
+  "serial": "emulator-5558",
+  "account": "test04",
+  "conversationId": "c26be3d2-df69-47d0-a54e-547b55a72f95",
+  "prefix": "AI-UAT-4AVD-20260906-154756-M4-",
+  "expected": 15,
+  "received": 0,
+  "complete": false,
+  "uniqueMessageIds": 0,
+  "uniqueSenderClientMessageKeys": 0,
+  "sequenceRange": null,
+  "sequenceContiguous": true,
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "eventCursors": {
+    "acked": 5107,
+    "applied": 5107
+  },
+  "createdAtUtcRange": null,
+  "localUpdatedAtUtcRange": null,
+  "createdToLocalUpdateAgeMs": {
+    "samples": 0,
+    "negativeSamples": 0,
+    "clockSkewWarning": false,
+    "min": null,
+    "average": null,
+    "p50": null,
+    "p90": null,
+    "p95": null,
+    "max": null
+  },
+  "timingNote": "createdToLocalUpdateAgeMs is not delivery latency because later reconciliation can rewrite updated_at; use profile sync event-age diagnostics for live-delivery timing"
+}

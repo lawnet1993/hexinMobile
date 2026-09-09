@@ -1,0 +1,52 @@
+{
+  "serial": "emulator-5560",
+  "expectedHeader": "Test Terminal 04",
+  "prefix": "AI-UAT-MULTIVM4-CONCURRENT-20260906-1435-M4D-",
+  "requested": 10,
+  "startedAtUtc": "2026-09-06T06:32:00.6318111+00:00",
+  "completedAtUtc": "2026-09-06T06:33:02.8013208+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T06:32:06.2080587+00:00"
+    },
+    {
+      "index": 2,
+      "tappedAtUtc": "2026-09-06T06:32:11.4497425+00:00"
+    },
+    {
+      "index": 3,
+      "tappedAtUtc": "2026-09-06T06:32:18.9089117+00:00"
+    },
+    {
+      "index": 4,
+      "tappedAtUtc": "2026-09-06T06:32:25.3315496+00:00"
+    },
+    {
+      "index": 5,
+      "tappedAtUtc": "2026-09-06T06:32:30.1844369+00:00"
+    },
+    {
+      "index": 6,
+      "tappedAtUtc": "2026-09-06T06:32:36.4589357+00:00"
+    },
+    {
+      "index": 7,
+      "tappedAtUtc": "2026-09-06T06:32:42.0203079+00:00"
+    },
+    {
+      "index": 8,
+      "tappedAtUtc": "2026-09-06T06:32:47.1497015+00:00"
+    },
+    {
+      "index": 9,
+      "tappedAtUtc": "2026-09-06T06:32:51.9024086+00:00"
+    },
+    {
+      "index": 10,
+      "tappedAtUtc": "2026-09-06T06:32:56.6707562+00:00"
+    }
+  ]
+}

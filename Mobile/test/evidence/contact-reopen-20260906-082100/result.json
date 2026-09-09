@@ -1,0 +1,57 @@
+{
+  "checkedAt": "2026-09-06T08:28:30+08:00",
+  "topology": {
+    "emulator-5554": "test02 -> Test Terminal 01",
+    "emulator-5556": "test03 -> Test Terminal 01",
+    "emulator-5558": "test04 -> Test Terminal 03"
+  },
+  "verifiedUiCycles": {
+    "requested": 40,
+    "completed": 40,
+    "singleBackReturned": 40,
+    "sameProcess": true
+  },
+  "memoryKb": {
+    "emulator-5554": {"before": 173561, "peak": 195920, "after": 182239},
+    "emulator-5556": {"before": 185224, "peak": 208173, "after": 201252},
+    "emulator-5558": {"before": 179296, "peak": 180806, "after": 180806}
+  },
+  "profileChatOpen": {
+    "emulator-5554": {
+      "samples": 10,
+      "cacheHits": 9,
+      "routeMountedMs": {"p50": 11.3, "p95": 25.0, "max": 25.0},
+      "messagesAvailableMs": {"p50": 11.3, "p95": 94.6, "max": 94.6},
+      "latestMessageLaidOutMs": {"p50": 182.0, "p95": 846.6, "max": 846.6},
+      "firstFrameMs": {"p50": 19.5, "p95": 23.0, "max": 23.0},
+      "coldOutlier": {"latestMessageLaidOutMs": 846.6, "maxRasterMs": 623.6}
+    },
+    "emulator-5556": {
+      "samples": 19,
+      "cacheHits": 19,
+      "routeMountedMs": {"p50": 15.9, "p95": 33.4, "max": 33.4},
+      "messagesAvailableMs": {"p50": 15.9, "p95": 33.5, "max": 33.5},
+      "latestMessageLaidOutMs": {"p50": 138.0, "p95": 246.5, "max": 246.5},
+      "firstFrameMs": {"p50": 20.0, "p95": 56.8, "max": 56.8}
+    },
+    "emulator-5558": {
+      "samples": 10,
+      "cacheHits": 9,
+      "routeMountedMs": {"p50": 13.1, "p95": 18.7, "max": 18.7},
+      "messagesAvailableMs": {"p50": 13.2, "p95": 36.0, "max": 36.0},
+      "latestMessageLaidOutMs": {"p50": 47.1, "p95": 217.8, "max": 217.8},
+      "firstFrameMs": {"p50": 13.5, "p95": 17.9, "max": 17.9}
+    }
+  },
+  "oaReturnCapability": {
+    "account": "test01",
+    "uniqueRequestsInspected": 28,
+    "pendingCount": 3,
+    "returnCandidateCount": 0,
+    "verdict": "not_testable_without_server_allowedActions_return"
+  },
+  "regression": {
+    "initialWindowReductionAttempt": "reverted_after_9_semantic_test_failures",
+    "targetedTestsAfterRevert": {"passed": 114, "failed": 0}
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "checkedAt": "2026-09-06T09:12:21.222031+00:00",
+  "accountId": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+  "schemaVersion": 3,
+  "cursor": [
+    {
+      "value": "1008",
+      "updated_at": "2026-09-06T09:09:22.635367Z"
+    }
+  ],
+  "caches": [
+    {
+      "cache_key": "app-catalog",
+      "updated_at": "2026-09-06T09:09:21.574528Z"
+    },
+    {
+      "cache_key": "approval:e280421d-41be-49e3-a95e-b9c70d746d6f",
+      "updated_at": "2026-09-06T09:08:51.245350Z"
+    },
+    {
+      "cache_key": "attendance-overview",
+      "updated_at": "2026-09-06T01:47:38.154492Z"
+    },
+    {
+      "cache_key": "bootstrap",
+      "updated_at": "2026-09-06T09:09:22.635367Z"
+    },
+    {
+      "cache_key": "notifications",
+      "updated_at": "2026-09-06T09:09:22.635367Z"
+    },
+    {
+      "cache_key": "notifications-page",
+      "updated_at": "2026-09-06T09:09:22.635367Z"
+    }
+  ],
+  "events": [
+    {
+      "sequence": 1008,
+      "event_id": "3e3ebca0-6781-4b42-bf4b-a92486da986f",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-06T09:08:51.713240Z",
+      "applied_at": "2026-09-06T09:09:22.635367Z"
+    },
+    {
+      "sequence": 1007,
+      "event_id": "b6b4bc8e-13fd-4047-9614-43e103a613f5",
+      "type": "approval.submitted",
+      "created_at": "2026-09-06T09:08:51.713240Z",
+      "applied_at": "2026-09-06T09:09:22.635367Z"
+    },
+    {
+      "sequence": 1000,
+      "event_id": "1d6e6377-5af7-4584-83b6-2edad67cc78a",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-06T08:23:44.916876Z",
+      "applied_at": "2026-09-06T08:24:30.773950Z"
+    },
+    {
+      "sequence": 999,
+      "event_id": "8f87f4b0-b39d-47ec-9e50-42a036cfe492",
+      "type": "approval.submitted",
+      "created_at": "2026-09-06T08:23:44.916876Z",
+      "applied_at": "2026-09-06T08:24:30.773950Z"
+    },
+    {
+      "sequence": 988,
+      "event_id": "ee975899-7968-4866-b8c2-bbd925661f28",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-06T07:19:41.509444Z",
+      "applied_at": "2026-09-06T07:20:01.699767Z"
+    },
+    {
+      "sequence": 987,
+      "event_id": "adca07ed-20cb-4142-8b04-a6199678a791",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-06T07:19:40.943533Z",
+      "applied_at": "2026-09-06T07:20:01.699767Z"
+    },
+    {
+      "sequence": 986,
+      "event_id": "ff640635-ab57-4254-98f6-63dcca901aa3",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-06T07:19:40.386799Z",
+      "applied_at": "2026-09-06T07:20:01.699767Z"
+    },
+    {
+      "sequence": 964,
+      "event_id": "2851c4df-9284-45ab-b3dc-f7895d354334",
+      "type": "inspection.finished",
+      "created_at": "2026-09-06T06:53:44.844397Z",
+      "applied_at": "2026-09-06T06:53:47.148026Z"
+    },
+    {
+      "sequence": 957,
+      "event_id": "57daf3ef-5368-4180-935a-40a75e3b5009",
+      "type": "inspection.response.accepted",
+      "created_at": "2026-09-06T06:51:01.498280Z",
+      "applied_at": "2026-09-06T06:51:03.261721Z"
+    },
+    {
+      "sequence": 956,
+      "event_id": "2d261f8e-43b5-4da4-a0d7-3dd04be54e11",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-06T06:51:01.498280Z",
+      "applied_at": "2026-09-06T06:51:03.261721Z"
+    },
+    {
+      "sequence": 942,
+      "event_id": "b658fd40-1b76-4059-9219-7e816d5664a1",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-06T06:50:42.231767Z",
+      "applied_at": "2026-09-06T06:51:02.546065Z"
+    },
+    {
+      "sequence": 932,
+      "event_id": "88edc0bf-ec80-4db9-91ac-3fbaf05b3205",
+      "type": "inspection.started",
+      "created_at": "2026-09-06T06:50:42.231767Z",
+      "applied_at": "2026-09-06T06:51:02.546065Z"
+    }
+  ],
+  "readReceipts": [],
+  "outbox": [
+    {
+      "id": "8bc17766-7892-4ffc-a7bb-0b34a23d470a",
+      "command_type": "submit-approval",
+      "state": "pending",
+      "attempts": 1,
+      "created_at": "2026-09-06T09:12:21.490480Z"
+    }
+  ],
+  "drafts": []
+}

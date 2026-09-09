@@ -1,0 +1,53 @@
+{
+  "round": "four-device-20260906-042800",
+  "capturedAtUtc": "2026-09-05T20:28:17.2032978+00:00",
+  "topology": [
+    "physical:test01:dd00d66d",
+    "emulator:test02:5554",
+    "emulator:test03:5556",
+    "emulator:test04:5558"
+  ],
+  "host": {
+    "totalMemoryGb": 31.73,
+    "freeMemoryGb": 4.16,
+    "qemu": [
+      {
+        "pid": 124588,
+        "workingSetGb": 3.37,
+        "cpuSeconds": 5137.75
+      },
+      {
+        "pid": 16272,
+        "workingSetGb": 3.67,
+        "cpuSeconds": 1376.03
+      },
+      {
+        "pid": 131688,
+        "workingSetGb": 3.51,
+        "cpuSeconds": 8674.19
+      }
+    ]
+  },
+  "devices": [
+    {
+      "serial": "dd00d66d",
+      "appPid": "26447",
+      "totalPssKb": 243050
+    },
+    {
+      "serial": "emulator-5554",
+      "appPid": "13815",
+      "totalPssKb": 180874
+    },
+    {
+      "serial": "emulator-5556",
+      "appPid": "19512",
+      "totalPssKb": 182836
+    },
+    {
+      "serial": "emulator-5558",
+      "appPid": "3991",
+      "totalPssKb": 176027
+    }
+  ]
+}

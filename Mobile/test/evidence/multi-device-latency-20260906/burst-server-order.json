@@ -1,0 +1,33 @@
+{
+  "checkedAtUtc": "2026-09-05T22:47:38.6514432+00:00",
+  "afterSequence": 3802,
+  "latestSequence": 3871,
+  "returnedEvents": 30,
+  "matchedEvents": 30,
+  "byPrefix": [
+    {
+      "prefix": "AI-UAT-LAT2-T02-",
+      "count": 10,
+      "firstEventSequence": 3804,
+      "lastEventSequence": 3822,
+      "firstCreatedAtUtc": "2026-09-05T22:46:52.8768190+00:00",
+      "lastCreatedAtUtc": "2026-09-05T22:47:01.0484170+00:00"
+    },
+    {
+      "prefix": "AI-UAT-LAT3-T02-",
+      "count": 10,
+      "firstEventSequence": 3833,
+      "lastEventSequence": 3863,
+      "firstCreatedAtUtc": "2026-09-05T22:47:17.8033820+00:00",
+      "lastCreatedAtUtc": "2026-09-05T22:47:27.9680790+00:00"
+    },
+    {
+      "prefix": "AI-UAT-LAT3-T03-",
+      "count": 10,
+      "firstEventSequence": 3835,
+      "lastEventSequence": 3871,
+      "firstCreatedAtUtc": "2026-09-05T22:47:18.5155400+00:00",
+      "lastCreatedAtUtc": "2026-09-05T22:47:31.2982880+00:00"
+    }
+  ]
+}

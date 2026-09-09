@@ -1,0 +1,78 @@
+{
+  "serial": "dd00d66d",
+  "account": "test01",
+  "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+  "conversationProjection": {
+    "lastMessageSequence": 277,
+    "maxStoredMessageSequence": 277,
+    "unreadCount": 0,
+    "lastReadSequence": 277
+  },
+  "tailMessages": [
+    {
+      "sequence": 277,
+      "createdAtUtc": "2026-09-09T09:29:36.615745+00:00",
+      "kind": "text",
+      "senderAccount": "test03"
+    },
+    {
+      "sequence": 276,
+      "createdAtUtc": "2026-09-09T09:20:10.140377+00:00",
+      "kind": "text",
+      "senderAccount": "test03"
+    },
+    {
+      "sequence": 275,
+      "createdAtUtc": "2026-09-09T09:11:51.945636+00:00",
+      "kind": "text",
+      "senderAccount": "test01"
+    },
+    {
+      "sequence": 274,
+      "createdAtUtc": "2026-09-09T09:11:38.170977+00:00",
+      "kind": "text",
+      "senderAccount": "test01"
+    },
+    {
+      "sequence": 273,
+      "createdAtUtc": "2026-09-09T09:11:18.865147+00:00",
+      "kind": "text",
+      "senderAccount": "test03"
+    }
+  ],
+  "prefix": "AI-UAT-SERVERFIX-UNSEEN-",
+  "expected": 1,
+  "received": 1,
+  "complete": true,
+  "uniqueMessageIds": 1,
+  "uniqueSenderClientMessageKeys": 1,
+  "sequenceRange": "277..277",
+  "sequenceContiguous": true,
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "eventCursors": {
+    "acked": 6526,
+    "applied": 6526
+  },
+  "createdAtUtcRange": [
+    "2026-09-09T09:29:36.615745+00:00",
+    "2026-09-09T09:29:36.615745+00:00"
+  ],
+  "localUpdatedAtUtcRange": [
+    "2026-09-09T09:29:36.273377+00:00",
+    "2026-09-09T09:29:36.273377+00:00"
+  ],
+  "createdToLocalUpdateAgeMs": {
+    "samples": 1,
+    "negativeSamples": 1,
+    "clockSkewWarning": true,
+    "min": -342.368,
+    "average": -342.368,
+    "p50": -342.368,
+    "p90": -342.368,
+    "p95": -342.368,
+    "max": -342.368
+  },
+  "timingNote": "createdToLocalUpdateAgeMs is not delivery latency because later reconciliation can rewrite updated_at; use profile sync event-age diagnostics for live-delivery timing"
+}

@@ -1,0 +1,12 @@
+{
+  "resumedAtUtc": "2026-09-05T20:34:56.9332151+00:00",
+  "launchReturnedAtUtc": "2026-09-05T20:34:57.1755339+00:00",
+  "launchSummary": [
+    "Status: ok",
+    "LaunchState: HOT",
+    "Activity: com.hexing.zhilian.hexing_terminal_mobile/.MainActivity",
+    "TotalTime: 84",
+    "WaitTime: 91",
+    "Complete"
+  ]
+}

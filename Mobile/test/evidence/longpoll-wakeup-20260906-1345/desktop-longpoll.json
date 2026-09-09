@@ -1,0 +1,14 @@
+﻿{
+    "source":  "installed-desktop-test-session",
+    "account":  "test01",
+    "baselineLatestSequence":  4786,
+    "startedAtUtc":  "2026-09-06T05:39:30.9828342+00:00",
+    "completedAtUtc":  "2026-09-06T05:39:31.5382946+00:00",
+    "durationMs":  555.46,
+    "httpStatus":  200,
+    "requestId":  "e73fe5f7-1a00-40c5-8023-25e9ccd5e7c4",
+    "returnedEvents":  1,
+    "matchingConversationEvents":  1,
+    "latestSequence":  4788,
+    "resetRequired":  false
+}

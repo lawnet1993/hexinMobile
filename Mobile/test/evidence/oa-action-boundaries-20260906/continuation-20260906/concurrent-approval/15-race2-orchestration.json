@@ -1,0 +1,9 @@
+{
+  "mobileTargetUtc": "2026-09-05T20:11:30.9321656+00:00",
+  "desktopTargetUtc": "2026-09-05T20:11:31.1821656+00:00",
+  "targetDeltaMs": 250,
+  "adbScheduledDelaySeconds": 4.919,
+  "desktopExitCode": 0,
+  "adbExitCode": 0,
+  "capturedAt": "2026-09-05T20:11:39.6207331+00:00"
+}

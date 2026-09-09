@@ -1,0 +1,31 @@
+[
+  {
+    "suffix": "C",
+    "marker": "AI-UAT-SERVERUPDATE-GROUP-20260909-2148-C",
+    "sentAt": "2026-09-09T21:45:26.6017836+08:00",
+    "observations": [
+      {
+        "elapsedMs": 3274.0,
+        "visible": true,
+        "appForeground": true
+      }
+    ]
+  },
+  {
+    "suffix": "D",
+    "marker": "AI-UAT-SERVERUPDATE-GROUP-20260909-2148-D",
+    "sentAt": "2026-09-09T21:45:32.3157735+08:00",
+    "observations": [
+      {
+        "elapsedMs": 3038.0,
+        "visible": false,
+        "appForeground": true
+      },
+      {
+        "elapsedMs": 5998.0,
+        "visible": true,
+        "appForeground": true
+      }
+    ]
+  }
+]

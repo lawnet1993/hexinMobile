@@ -1,0 +1,6 @@
+{
+  "action": "submit-ai-uat-leave",
+  "tapAt": "2026-09-06T16:23:42.6347817+08:00",
+  "forceStopAfterMs": 500,
+  "processRunningAfterStop": false
+}

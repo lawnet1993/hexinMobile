@@ -1,0 +1,31 @@
+{
+  "scenario": "AI-UAT multi-device presence expiry and foreground recovery",
+  "groupMemberCount": 3,
+  "expectedRunningClients": 2,
+  "initialOnlineCount": 2,
+  "afterClientStop": [
+    {
+      "elapsedApproxSeconds": 40,
+      "onlineCount": 2
+    },
+    {
+      "elapsedApproxSeconds": 80,
+      "onlineCount": 2
+    },
+    {
+      "elapsedApproxSeconds": 125,
+      "onlineCount": 1
+    }
+  ],
+  "afterForegroundRestart": {
+    "onlineCount": 2,
+    "uiObservationUpperBoundMs": 26702
+  },
+  "runtimeErrors": {
+    "fatalException": 0,
+    "anr": 0,
+    "outOfMemory": 0,
+    "flutterUnhandledError": 0
+  },
+  "result": "pass-with-documented-presence-ttl"
+}

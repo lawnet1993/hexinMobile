@@ -1,0 +1,40 @@
+{
+  "serial": "emulator-5560",
+  "account": "test05",
+  "conversationId": "c26be3d2-df69-47d0-a54e-547b55a72f95",
+  "prefix": "AI-UAT-MULTIVM4-DIRECT-20260906-1423-",
+  "expected": 10,
+  "received": 10,
+  "complete": true,
+  "uniqueMessageIds": 10,
+  "uniqueSenderClientMessageKeys": 10,
+  "sequenceRange": "6..15",
+  "sequenceContiguous": true,
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "eventCursors": {
+    "acked": 4913,
+    "applied": 4913
+  },
+  "createdAtUtcRange": [
+    "2026-09-06T06:26:27.656663+00:00",
+    "2026-09-06T06:26:49.009138+00:00"
+  ],
+  "localUpdatedAtUtcRange": [
+    "2026-09-06T06:26:28.315459+00:00",
+    "2026-09-06T06:26:49.643879+00:00"
+  ],
+  "createdToLocalUpdateAgeMs": {
+    "samples": 10,
+    "negativeSamples": 0,
+    "clockSkewWarning": false,
+    "min": 634.741,
+    "average": 780.737,
+    "p50": 752.119,
+    "p90": 936.377,
+    "p95": 970.962,
+    "max": 1005.548
+  },
+  "timingNote": "createdToLocalUpdateAgeMs is not delivery latency because later reconciliation can rewrite updated_at; use profile sync event-age diagnostics for live-delivery timing"
+}

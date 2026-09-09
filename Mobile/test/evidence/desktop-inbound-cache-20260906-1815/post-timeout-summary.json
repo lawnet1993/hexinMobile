@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-09-06T18:18:05.1884537+08:00",
+  "desktopMessageCount": 255,
+  "desktopMaxMessageSequence": 255.0,
+  "desktopInboxCount": 893,
+  "desktopImCursor": 5433,
+  "desktopIntegrity": "ok",
+  "serverStatus": 200,
+  "serverFirstMarkerCount": 1,
+  "serverSecondMarkerCount": 1,
+  "serverLastMessageSequence": 255,
+  "desktopProcessRunning": true
+}

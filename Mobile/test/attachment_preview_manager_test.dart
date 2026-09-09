@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -61,14 +62,20 @@ void main() {
         directoryLoader: () async => directory,
       );
       addTearDown(resumed.dispose);
+      final progress = <int>[];
       final result = await resumed.prepareImMedia(
         attachmentId: 'media-1',
         fileName: 'fixture.mp4',
         expectedSize: bytes.length,
         expectedSha256: digest,
+        onProgress: (received, total) {
+          expect(total, bytes.length);
+          progress.add(received);
+        },
       );
       expect(result.resumedBytes, attachmentPreviewChunkBytes);
       expect(resumedGateway.starts, [attachmentPreviewChunkBytes]);
+      expect(progress, [attachmentPreviewChunkBytes, bytes.length]);
       final completed = File(result.path);
       expect(await completed.length(), bytes.length);
       expect(
@@ -81,6 +88,76 @@ void main() {
         ),
         isEmpty,
       );
+    },
+  );
+
+  test(
+    'explicit cancellation preserves only flushed chunks and resumes safely',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'preview-cancel-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final store = await _sessionStore();
+      final bytes = Uint8List.fromList(
+        List<int>.generate(
+          attachmentPreviewChunkBytes + 7,
+          (index) => index % 241,
+        ),
+      );
+      final digest = sha256.convert(bytes).toString();
+      final blockingGateway = _BlockingAfterFirstChunkGateway(bytes);
+      final cancelled = AttachmentPreviewManager(
+        blockingGateway,
+        store,
+        directoryLoader: () async => directory,
+      );
+      addTearDown(cancelled.dispose);
+
+      final pending = cancelled.prepareImMedia(
+        attachmentId: 'media-cancel',
+        fileName: 'fixture.mp4',
+        expectedSize: bytes.length,
+        expectedSha256: digest,
+      );
+      await blockingGateway.secondReadStarted.future.timeout(
+        const Duration(seconds: 2),
+      );
+      cancelled.cancelAll();
+      blockingGateway.releaseSecondRead();
+
+      await expectLater(pending, throwsA(isA<AttachmentPreviewCancelled>()));
+      final parts = directory
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.part'))
+          .toList();
+      expect(parts, hasLength(1));
+      expect(await parts.single.length(), attachmentPreviewChunkBytes);
+      expect(
+        directory.listSync().whereType<File>().where(
+          (file) => file.path.endsWith('.mp4'),
+        ),
+        isEmpty,
+      );
+
+      final resumedGateway = _FakeGateway(bytes);
+      final resumed = AttachmentPreviewManager(
+        resumedGateway,
+        store,
+        directoryLoader: () async => directory,
+      );
+      addTearDown(resumed.dispose);
+      final result = await resumed.prepareImMedia(
+        attachmentId: 'media-cancel',
+        fileName: 'fixture.mp4',
+        expectedSize: bytes.length,
+        expectedSha256: digest,
+      );
+
+      expect(result.resumedBytes, attachmentPreviewChunkBytes);
+      expect(resumedGateway.starts, [attachmentPreviewChunkBytes]);
+      expect(await File(result.path).readAsBytes(), bytes);
     },
   );
 
@@ -278,4 +355,77 @@ final class _FakeGateway implements AttachmentPreviewGateway {
   }) async {
     closeCount++;
   }
+}
+
+final class _BlockingAfterFirstChunkGateway
+    implements AttachmentPreviewGateway {
+  _BlockingAfterFirstChunkGateway(this.bytes);
+
+  final Uint8List bytes;
+  final Completer<void> secondReadStarted = Completer<void>();
+  final Completer<void> _secondReadReleased = Completer<void>();
+
+  void releaseSecondRead() {
+    if (!_secondReadReleased.isCompleted) _secondReadReleased.complete();
+  }
+
+  @override
+  Future<AttachmentPreviewSession> createImMediaSession(
+    String attachmentId, {
+    bool cover = false,
+    CancelToken? cancelToken,
+    MobileSession? expectedSession,
+  }) async => const AttachmentPreviewSession(
+    sessionId: 'blocking-session',
+    status: AttachmentPreviewStatus.ready,
+    previewKind: 'video',
+    contentType: 'video/mp4',
+    previewUrl: '/api/im/attachment-preview-sessions/blocking/content',
+    expiresAt: null,
+    renewAfterSeconds: 120,
+    originalDownloadAllowed: false,
+    originalDownloadUrl: '',
+  );
+
+  @override
+  Future<AttachmentPreviewChunk> readSingleRange({
+    required AttachmentPreviewSession session,
+    required int start,
+    required int expectedTotalLength,
+    int length = attachmentPreviewChunkBytes,
+    CancelToken? cancelToken,
+    MobileSession? expectedSession,
+  }) async {
+    if (start > 0) {
+      if (!secondReadStarted.isCompleted) secondReadStarted.complete();
+      await _secondReadReleased.future;
+      if (cancelToken?.isCancelled == true) {
+        throw const AttachmentPreviewCancelled();
+      }
+    }
+    final end = min(start + length, bytes.length);
+    return AttachmentPreviewChunk(
+      bytes: Uint8List.fromList(bytes.sublist(start, end)),
+      range: AttachmentContentRange(
+        start: start,
+        end: end - 1,
+        totalLength: bytes.length,
+      ),
+      completeResponse: false,
+    );
+  }
+
+  @override
+  Future<AttachmentPreviewSession> renewImSession(
+    AttachmentPreviewSession session, {
+    CancelToken? cancelToken,
+    MobileSession? expectedSession,
+  }) async => session;
+
+  @override
+  Future<void> closeImSession(
+    AttachmentPreviewSession session, {
+    CancelToken? cancelToken,
+    MobileSession? expectedSession,
+  }) async {}
 }

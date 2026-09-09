@@ -1,0 +1,17 @@
+[
+  {
+    "sample": 1,
+    "totalTimeMs": 2557,
+    "waitTimeMs": 2565
+  },
+  {
+    "sample": 2,
+    "totalTimeMs": 2113,
+    "waitTimeMs": 2115
+  },
+  {
+    "sample": 3,
+    "totalTimeMs": 1893,
+    "waitTimeMs": 1899
+  }
+]

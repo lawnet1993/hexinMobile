@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/diagnostics/mobile_startup_diagnostics.dart';
 import '../../../core/theme/tdesign_icons.dart';
 import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/domain/collaboration_models.dart';
-import '../data/managed_sites_repository.dart';
 import '../domain/app_catalog.dart';
 import 'application_catalog_content.dart';
 
@@ -35,7 +34,7 @@ class _WorkbenchPageState extends ConsumerState<WorkbenchPage> {
     return Scaffold(
       body: SafeArea(
         child: value.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const ModuleLoadingState(label: '正在加载工作台'),
           error: (error, _) => EmptyState(
             icon: TDIcons.cloud,
             title: '工作台加载失败',
@@ -43,6 +42,9 @@ class _WorkbenchPageState extends ConsumerState<WorkbenchPage> {
             onRetry: () => ref.invalidate(oaBootstrapProvider),
           ),
           data: (data) {
+            MobileStartupDiagnostics.markCurrent(
+              MobileStartupStage.workbenchCacheReady,
+            );
             final pending = data.approvalRequests
                 .where((item) => item.operableTask != null)
                 .toList();
@@ -159,8 +161,8 @@ class _BrandHeader extends StatelessWidget {
           count: unreadNotifications,
           isLabelVisible: unreadNotifications > 0,
           child: IconButton(
-            tooltip: '通知',
-            visualDensity: VisualDensity.compact,
+            tooltip: '通知中心',
+            style: compactHeaderIconButtonStyle,
             onPressed: () => context.push('/notifications'),
             icon: const Icon(TDIcons.notification, size: 20),
           ),
@@ -187,175 +189,70 @@ bool _isSameDate(DateTime left, DateTime right) =>
     left.month == right.month &&
     left.day == right.day;
 
-class ManagedSitesPage extends ConsumerStatefulWidget {
+class ManagedSitesPage extends StatelessWidget {
   const ManagedSitesPage({super.key});
 
   @override
-  ConsumerState<ManagedSitesPage> createState() => _ManagedSitesPageState();
-}
-
-class _ManagedSitesPageState extends ConsumerState<ManagedSitesPage> {
-  String _query = '';
-
-  Future<void> _refresh() async {
-    final _ = await ref.refresh(managedSitesProvider.future);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final sites = ref.watch(managedSitesProvider);
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: const Text('全部站点'),
-        actions: [
-          IconButton(
-            tooltip: '刷新授权站点',
-            visualDensity: VisualDensity.compact,
-            onPressed: _refresh,
-            icon: const Icon(Icons.refresh_rounded, size: 20),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: sites.when(
-        loading: () => const ModuleLoadingState(label: '正在加载授权站点'),
-        error: (error, _) => EmptyState(
-          icon: TDIcons.cloud,
-          title: error is ManagedSitesSessionExpired
-              ? '登录已失效，请重新登录'
-              : '授权站点加载失败',
-          onRetry: () => ref.invalidate(managedSitesProvider),
-        ),
-        data: (items) {
-          final keyword = _query.toLowerCase();
-          final visibleItems = items
-              .where((site) {
-                return keyword.isEmpty ||
-                    site.name.toLowerCase().contains(keyword) ||
-                    site.category.toLowerCase().contains(keyword) ||
-                    site.departmentName.toLowerCase().contains(keyword) ||
-                    site.primaryDomain.toLowerCase().contains(keyword);
-              })
-              .toList(growable: false);
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 20),
-              children: [
-                MobileSearchField(
-                  hintText: '搜索站点、部门或域名',
-                  onChanged: (value) => setState(() => _query = value.trim()),
-                ),
-                const SizedBox(height: 8),
-                if (visibleItems.isEmpty)
-                  MobileSurface(
-                    padding: const EdgeInsets.symmetric(vertical: 26),
-                    child: Center(
-                      child: Text(
-                        items.isEmpty ? '当前账号暂无授权站点' : '暂无匹配站点',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.secondaryText,
-                        ),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(centerTitle: true, title: const Text('站点访问')),
+    body: ListView(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+      children: const [
+        MobileSurface(
+          key: Key('desktop-site-reminder'),
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DesktopOnlyIcon(icon: Icons.desktop_windows_outlined),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '请在桌面端访问授权站点',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  )
-                else
-                  MobileSurface(
-                    child: Column(
-                      children: [
-                        for (final site in visibleItems)
-                          _ManagedSiteRow(
-                            site: site,
-                            onTap: () => _openManagedSite(context, ref, site),
-                          ),
-                      ],
+                    SizedBox(height: 5),
+                    Text(
+                      '移动端不建立站点隧道，也不直接打开企业站点。授权变化和访问异常会在通知中心提醒。',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.45,
+                        color: AppColors.secondaryText,
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ManagedSiteRow extends StatelessWidget {
-  const _ManagedSiteRow({required this.site, required this.onTap});
-
-  final ManagedAccessSite site;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    type: MaterialType.transparency,
-    child: ListTile(
-      dense: true,
-      minTileHeight: 50,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-      leading: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: const Color(0xFFEAF2FF),
-          borderRadius: BorderRadius.circular(8),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.language_rounded,
-          size: 18,
-          color: AppColors.primary,
-        ),
-      ),
-      title: Text(
-        site.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-      ),
-      subtitle: Text(
-        [
-          site.departmentName,
-          site.primaryDomain,
-        ].where((value) => value.isNotEmpty).join(' · '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 11, color: AppColors.secondaryText),
-      ),
-      trailing: const Icon(Icons.open_in_new_rounded, size: 17),
-      onTap: onTap,
+      ],
     ),
   );
 }
 
-Future<void> _openManagedSite(
-  BuildContext context,
-  WidgetRef ref,
-  ManagedAccessSite site,
-) async {
-  final messenger = ScaffoldMessenger.of(context);
-  try {
-    final resolution = await ref
-        .read(managedSiteResolverProvider)
-        .resolve(site);
-    if (!context.mounted) return;
-    final opened = await launchUrl(
-      resolution.uri,
-      mode: LaunchMode.externalApplication,
-    );
-    if (!opened && context.mounted) {
-      messenger.showSnackBar(const SnackBar(content: Text('无法打开授权站点')));
-    } else if (resolution.usedBackup && context.mounted) {
-      messenger.showSnackBar(const SnackBar(content: Text('主地址不可用，已打开备用地址')));
-    }
-  } on ManagedSiteUnavailable catch (error) {
-    if (context.mounted) {
-      messenger.showSnackBar(SnackBar(content: Text(mobileErrorText(error))));
-    }
-  }
+class _DesktopOnlyIcon extends StatelessWidget {
+  const _DesktopOnlyIcon({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 34,
+    height: 34,
+    decoration: BoxDecoration(
+      color: const Color(0xFFEAF2FF),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    alignment: Alignment.center,
+    child: Icon(icon, size: 19, color: AppColors.primary),
+  );
 }
 
 // ignore: unused_element

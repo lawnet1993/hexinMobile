@@ -197,6 +197,28 @@ void main() {
     expect(preview.nodes.single.completionMode, 'all');
   });
 
+  test('approval task parses node completion semantics when supplied', () {
+    final task = OaApprovalTask.fromJson({
+      'id': 'task-1',
+      'nodeId': 'finance-review',
+      'nodeName': '财务复核',
+      'nodeType': 'approval',
+      'stage': 2,
+      'completionMode': 'any',
+      'assigneeId': 'member-1',
+      'assigneeName': '测试审批人',
+      'status': 'pending',
+      'version': 1,
+      'decision': '',
+      'comment': '',
+      'canOperate': true,
+    });
+
+    expect(task.nodeId, 'finance-review');
+    expect(task.nodeType, 'approval');
+    expect(task.completionMode, 'any');
+  });
+
   test('approval cursor page and bootstrap paging metadata parse', () {
     final page = OaApprovalRequestPage.fromJson({
       'items': <Object?>[],

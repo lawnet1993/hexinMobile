@@ -45,6 +45,7 @@ final class AttachmentPreviewManager {
     required int expectedSize,
     required String expectedSha256,
     bool cover = false,
+    void Function(int received, int total)? onProgress,
   }) async {
     if (_disposed) throw const AttachmentPreviewCancelled();
     final normalizedId = attachmentId.trim();
@@ -72,6 +73,7 @@ final class AttachmentPreviewManager {
         expectedSize: expectedSize,
         expectedSha256: normalizedSha,
         cover: cover,
+        onProgress: onProgress,
       );
     } finally {
       if (_operations[operationKey] == operation) {
@@ -107,6 +109,7 @@ final class AttachmentPreviewManager {
     required int expectedSize,
     required String expectedSha256,
     required bool cover,
+    required void Function(int received, int total)? onProgress,
   }) async {
     final directory = await _directoryLoader();
     await directory.create(recursive: true);
@@ -125,6 +128,7 @@ final class AttachmentPreviewManager {
     if (await completed.exists()) {
       if (await _isValid(completed, expectedSize, expectedSha256)) {
         await completed.setLastModified(DateTime.now());
+        onProgress?.call(expectedSize, expectedSize);
         return AttachmentPreviewFile(path: completed.path, resumedBytes: 0);
       }
       await completed.delete();
@@ -135,6 +139,7 @@ final class AttachmentPreviewManager {
       offset = 0;
     }
     final resumedBytes = offset;
+    if (offset > 0) onProgress?.call(offset, expectedSize);
     if (offset == expectedSize) {
       if (await _isValid(partial, expectedSize, expectedSha256)) {
         await partial.rename(completed.path);
@@ -218,6 +223,7 @@ final class AttachmentPreviewManager {
           await partial.delete();
           throw const AttachmentPreviewProtocolException('附件分片长度越界');
         }
+        onProgress?.call(offset, expectedSize);
       }
       _checkActive(operationKey, operation);
       if (!await _isValid(partial, expectedSize, expectedSha256)) {

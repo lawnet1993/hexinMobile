@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
+import '../../../shared/widgets/app_version_label.dart';
 import '../application/auth_controller.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -320,8 +321,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      const Text(
-                        'v1.0.1',
+                      const AppVersionLabel(
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,

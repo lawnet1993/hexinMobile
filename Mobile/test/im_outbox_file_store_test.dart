@@ -1,8 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hexing_terminal_mobile/core/config/app_environment.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/im_outbox_file_store.dart';
+import 'package:path/path.dart' as path;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -151,6 +156,126 @@ void main() {
       await directory.delete(recursive: true);
     }
   });
+
+  test(
+    'startup cleanup removes only incomplete files for the active account',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'im-outbox-incomplete-cleanup-',
+      );
+      final store = ImOutboxFileStore(
+        keyLoader: (_) async => List<int>.filled(32, 9),
+        directoryLoader: () async => directory,
+      );
+      Directory accountDirectory(String accountId) => Directory(
+        path.join(
+          directory.path,
+          AppEnvironment.storageNamespace,
+          crypto.sha256.convert(utf8.encode(accountId)).toString(),
+        ),
+      );
+
+      try {
+        final active = accountDirectory('account-active');
+        final other = accountDirectory('account-other');
+        await active.create(recursive: true);
+        await other.create(recursive: true);
+        final incomplete = File(path.join(active.path, 'interrupted.imq.tmp'));
+        final completed = File(path.join(active.path, 'completed.imq'));
+        final unrelated = File(path.join(active.path, 'unrelated.tmp'));
+        final otherIncomplete = File(
+          path.join(other.path, 'other-account.imq.tmp'),
+        );
+        await incomplete.writeAsBytes(const [1, 2, 3]);
+        await completed.writeAsBytes(const [4, 5, 6]);
+        await unrelated.writeAsBytes(const [7]);
+        await otherIncomplete.writeAsBytes(const [8, 9]);
+
+        await store.deleteIncompleteWrites('account-active');
+
+        expect(await incomplete.exists(), isFalse);
+        expect(await completed.exists(), isTrue);
+        expect(await unrelated.exists(), isTrue);
+        expect(await otherIncomplete.exists(), isTrue);
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    },
+  );
+
+  test(
+    'legacy v1 queued file remains readable after chunked upgrade',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'im-outbox-v1-compat-',
+      );
+      const accountId = 'account-legacy';
+      const clientMessageId = 'client-legacy';
+      const token = 'legacy-token';
+      final keyBytes = List<int>.generate(32, (index) => index + 11);
+      final clear = Uint8List.fromList(
+        List<int>.generate(512 * 1024 + 19, (index) => index % 251),
+      );
+      final algorithm = AesGcm.with256bits();
+      final nonce = algorithm.newNonce();
+      final box = await algorithm.encrypt(
+        clear,
+        secretKey: SecretKey(keyBytes),
+        nonce: nonce,
+        aad: utf8.encode(
+          'im-outbox-file-v1|$accountId|$clientMessageId|$token',
+        ),
+      );
+      final header = Uint8List(8 + 8 + nonce.length)
+        ..setRange(0, 8, ascii.encode('IMOBX001'))
+        ..setRange(16, 16 + nonce.length, nonce);
+      ByteData.sublistView(header).setUint64(8, clear.length, Endian.big);
+      final accountDirectory = Directory(
+        path.join(
+          directory.path,
+          AppEnvironment.storageNamespace,
+          crypto.sha256.convert(utf8.encode(accountId)).toString(),
+        ),
+      );
+      await accountDirectory.create(recursive: true);
+      final target = File(
+        path.join(
+          accountDirectory.path,
+          '${crypto.sha256.convert(utf8.encode(token))}.imq',
+        ),
+      );
+      await target.writeAsBytes([
+        ...header,
+        ...box.cipherText,
+        ...box.mac.bytes,
+      ]);
+      final store = ImOutboxFileStore(
+        keyLoader: (_) async => keyBytes,
+        directoryLoader: () async => directory,
+      );
+      final stored = ImOutboxStoredFile(
+        token: token,
+        role: 'file',
+        fileName: 'legacy.bin',
+        contentType: 'application/octet-stream',
+        length: clear.length,
+        sha256: crypto.sha256.convert(clear).toString(),
+      );
+
+      try {
+        expect(
+          await store.readBytes(
+            accountId: accountId,
+            clientMessageId: clientMessageId,
+            file: stored,
+          ),
+          clear,
+        );
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    },
+  );
 }
 
 bool _contains(List<int> haystack, List<int> needle) {

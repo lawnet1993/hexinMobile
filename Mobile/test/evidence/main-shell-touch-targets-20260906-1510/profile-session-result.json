@@ -1,0 +1,64 @@
+{
+  "testedAt": "2026-09-06T12:17:00+08:00",
+  "scope": "profile, cold-start session restore, notification offline recovery",
+  "device": {
+    "serial": "emulator-5556",
+    "profileBuild": true,
+    "systemTimeZoneBefore": "GMT",
+    "systemTimeZoneAfter": "Asia/Shanghai"
+  },
+  "coldStart": {
+    "launchState": "COLD",
+    "activityTotalTimeMs": 2781,
+    "shellVisibleObservationUpperBoundMs": 7274,
+    "loginFieldsVisible": false,
+    "mainShellVisible": true,
+    "heartbeatStatus": 204,
+    "im": {
+      "mode": "http_long_poll",
+      "appliedSequence": 4616,
+      "acknowledgedSequence": 4616,
+      "pendingAckCount": 0,
+      "cursorHealth": "healthy"
+    },
+    "oa": {
+      "mode": "http_long_poll",
+      "appliedSequence": 743,
+      "pendingCommandCount": 0,
+      "pendingNotificationReadCount": 0,
+      "state": "healthy"
+    }
+  },
+  "profile": {
+    "tunnelOrNetworkStatusExposed": false,
+    "deviceIdExposed": false,
+    "accountShownOnlyInsideAccountSecurity": true,
+    "authorizedDevicesShown": 4,
+    "currentAuthorizedDevicesShown": 1,
+    "duplicateMobileDeviceCreatedAfterRestart": false,
+    "localActivityTimeCorrectAfterEnvironmentTimeZoneFix": true
+  },
+  "offlineRecovery": {
+    "airplaneModeEnabled": true,
+    "offlineLabel": "连接恢复后同步",
+    "airplaneModeRestored": true,
+    "freshHeartbeatStatusAfterRestore": 204,
+    "onlineLabelRestored": "实时同步",
+    "reloginRequired": false
+  },
+  "passwordSheet": {
+    "openedAsBottomSheet": true,
+    "passwordFields": 3,
+    "passwordValuesEntered": false,
+    "submitted": false,
+    "keyboardVisibleAfterFieldTap": true,
+    "firstSystemBackClosedKeyboardOnly": true,
+    "secondSystemBackClosedSheet": true,
+    "accountSecurityPageRetained": true
+  },
+  "runtimeFatalAnrOomFlutterErrors": 0,
+  "limitations": [
+    "The connected physical realme device remained locked and dozing.",
+    "This does not prove vendor push wake-up after the app process is killed."
+  ]
+}

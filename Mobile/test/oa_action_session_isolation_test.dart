@@ -94,6 +94,32 @@ void main() {
     );
   }
 
+  test('attachment file download streams bytes and reports progress', () async {
+    final directory = await Directory.systemTemp.createTemp('oa-download-');
+    addTearDown(() async {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    });
+    final target = File('${directory.path}${Platform.pathSeparator}proof.bin');
+    final progress = <(int, int)>[];
+
+    await f.repository.downloadAttachmentToFile(
+      'proof',
+      target.path,
+      onReceiveProgress: (received, total) => progress.add((received, total)),
+    );
+
+    expect(await target.exists(), isTrue);
+    expect(await target.length(), greaterThan(0));
+    expect(progress, isNotEmpty);
+    expect(progress.last.$1, await target.length());
+    expect(
+      progress.last.$2 == -1 || progress.last.$2 == progress.last.$1,
+      isTrue,
+    );
+    expect(File('${target.path}.part').existsSync(), isFalse);
+    expect(f.identities, [true]);
+  });
+
   for (final operation in [
     'attachment',
     'attachment-thumbnail',

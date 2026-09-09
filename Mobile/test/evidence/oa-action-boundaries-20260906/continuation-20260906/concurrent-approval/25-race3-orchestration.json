@@ -1,0 +1,10 @@
+{
+  "mobileTargetUtc": "2026-09-05T20:13:46.7304301+00:00",
+  "desktopTargetUtc": "2026-09-05T20:13:46.9804301+00:00",
+  "targetDeltaMs": 250,
+  "tapStartedAt": "2026-09-05T20:13:46.7620357+00:00",
+  "tapCompletedAt": "2026-09-05T20:13:46.9082928+00:00",
+  "tapDurationMs": 146.257,
+  "desktopExitCode": 0,
+  "capturedAt": "2026-09-05T20:13:55.3683490+00:00"
+}

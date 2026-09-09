@@ -1,0 +1,26 @@
+[
+  {
+    "serial": "dd00d66d",
+    "pid": 29881,
+    "totalPssKiB": 241218,
+    "totalRssKiB": 358236,
+    "totalFrames": 57,
+    "jankyFrames": 4
+  },
+  {
+    "serial": "emulator-5554",
+    "pid": 13815,
+    "totalPssKiB": 183604,
+    "totalRssKiB": 189452,
+    "totalFrames": 680,
+    "jankyFrames": 115
+  },
+  {
+    "serial": "emulator-5556",
+    "pid": 19512,
+    "totalPssKiB": 175463,
+    "totalRssKiB": 205640,
+    "totalFrames": 78,
+    "jankyFrames": 22
+  }
+]

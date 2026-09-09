@@ -11,6 +11,23 @@ void main() {
     tester,
   ) async {
     await _open(tester);
+    final search = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const Key('contacts-search-field')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(search.decoration?.hintText, '搜索姓名或部门');
+    expect(
+      tester
+          .getSize(find.byKey(const Key('organization-department-selector')))
+          .height,
+      greaterThanOrEqualTo(40),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('directory-mode-组织'))).height,
+      greaterThanOrEqualTo(40),
+    );
     expect(find.byType(InitialAvatar), findsNothing);
     await tester.tap(find.byKey(const Key('department-group-a')));
     await tester.pumpAndSettle();

@@ -1,0 +1,52 @@
+{
+  "serial": "emulator-5558",
+  "expectedHeader": "AI-UAT-MULTIVM-20260906-1100",
+  "prefix": "AI-UAT-THREEVM-20260906-1320-M3-",
+  "requested": 10,
+  "startedAtUtc": "2026-09-06T05:09:57.8547833+00:00",
+  "completedAtUtc": "2026-09-06T05:10:12.7691551+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T05:09:58.8013270+00:00"
+    },
+    {
+      "index": 2,
+      "tappedAtUtc": "2026-09-06T05:09:59.9325539+00:00"
+    },
+    {
+      "index": 3,
+      "tappedAtUtc": "2026-09-06T05:10:01.1574579+00:00"
+    },
+    {
+      "index": 4,
+      "tappedAtUtc": "2026-09-06T05:10:02.3292621+00:00"
+    },
+    {
+      "index": 5,
+      "tappedAtUtc": "2026-09-06T05:10:03.6333348+00:00"
+    },
+    {
+      "index": 6,
+      "tappedAtUtc": "2026-09-06T05:10:04.8823260+00:00"
+    },
+    {
+      "index": 7,
+      "tappedAtUtc": "2026-09-06T05:10:06.0579245+00:00"
+    },
+    {
+      "index": 8,
+      "tappedAtUtc": "2026-09-06T05:10:07.2561647+00:00"
+    },
+    {
+      "index": 9,
+      "tappedAtUtc": "2026-09-06T05:10:08.4495225+00:00"
+    },
+    {
+      "index": 10,
+      "tappedAtUtc": "2026-09-06T05:10:09.6178013+00:00"
+    }
+  ]
+}

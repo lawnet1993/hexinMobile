@@ -1,0 +1,49 @@
+{
+  "checkedAtUtc": "2026-09-05T20:34:00.5534017+00:00",
+  "physicalPid": "26447",
+  "focus": "topResumedActivity=ActivityRecord{5376df9 u0 com.android.launcher/.Launcher t5}",
+  "metrics": [
+    {
+      "Name": "40-test02-bg-to-test01-metrics.json",
+      "Received": 0,
+      "Complete": false,
+      "Unique": 0,
+      "ClientKeys": 0,
+      "Contiguous": true,
+      "P50ms": null,
+      "P95ms": null,
+      "Maxms": null,
+      "Sequence": null,
+      "Outbox": 0,
+      "Integrity": "ok"
+    },
+    {
+      "Name": "41-test03-bg-to-test01-metrics.json",
+      "Received": 0,
+      "Complete": false,
+      "Unique": 0,
+      "ClientKeys": 0,
+      "Contiguous": true,
+      "P50ms": null,
+      "P95ms": null,
+      "Maxms": null,
+      "Sequence": null,
+      "Outbox": 0,
+      "Integrity": "ok"
+    },
+    {
+      "Name": "42-test04-group-to-test03-metrics.json",
+      "Received": 10,
+      "Complete": true,
+      "Unique": 10,
+      "ClientKeys": 10,
+      "Contiguous": true,
+      "P50ms": 299.278,
+      "P95ms": 1065.592,
+      "Maxms": 1213.467,
+      "Sequence": "635..644",
+      "Outbox": 0,
+      "Integrity": "ok"
+    }
+  ]
+}

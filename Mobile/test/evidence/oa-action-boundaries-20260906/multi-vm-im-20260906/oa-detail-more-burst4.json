@@ -1,0 +1,43 @@
+{
+  "stamp": "20260906-032252",
+  "senders": [
+    {
+      "serial": "emulator-5554",
+      "startedAt": "2026-09-05T19:22:52.5936305Z",
+      "finishedAt": "2026-09-05T19:22:54.9532044Z",
+      "PSComputerName": "localhost",
+      "RunspaceId": "c94fa88e-a6f0-4e05-9a6f-37a9468157a0",
+      "PSShowComputerName": false
+    },
+    {
+      "serial": "emulator-5556",
+      "startedAt": "2026-09-05T19:22:53.1313060Z",
+      "finishedAt": "2026-09-05T19:22:56.0697198Z",
+      "PSComputerName": "localhost",
+      "RunspaceId": "19e7cac7-c774-483c-9da5-f556cef3b68a",
+      "PSShowComputerName": false
+    }
+  ],
+  "samples": [
+    {
+      "index": 1,
+      "capturedAt": "2026-09-05T19:22:54.0407292Z",
+      "newRows": 0
+    },
+    {
+      "index": 2,
+      "capturedAt": "2026-09-05T19:22:55.2190199Z",
+      "newRows": 1
+    },
+    {
+      "index": 3,
+      "capturedAt": "2026-09-05T19:22:56.2883029Z",
+      "newRows": 1
+    },
+    {
+      "index": 4,
+      "capturedAt": "2026-09-05T19:22:57.2579844Z",
+      "newRows": 4
+    }
+  ]
+}

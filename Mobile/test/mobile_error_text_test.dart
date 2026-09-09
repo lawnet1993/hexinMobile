@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,4 +80,49 @@ void main() {
       expect(mobileErrorText(error), isNot(contains('private')));
     },
   );
+
+  test('maps full storage without exposing a local attachment path', () {
+    final error = FileSystemException(
+      'write failed',
+      r'C:\Users\fixture\secret\attachment.part',
+      const OSError('No space left on device', 28),
+    );
+
+    final text = mobileActionErrorText('媒体打开失败', error);
+
+    expect(text, '媒体打开失败：设备存储空间不足，请清理后重试');
+    expect(text, isNot(contains('attachment.part')));
+    expect(text, isNot(contains('secret')));
+  });
+
+  test('unwraps a Dio file write failure into the full storage message', () {
+    final request = RequestOptions(path: '/api/im/messages/test/attachment');
+    final error = DioException(
+      requestOptions: request,
+      type: DioExceptionType.unknown,
+      error: const FileSystemException(
+        'Cannot copy file',
+        '/private/cache/attachment.part',
+        OSError('No space left on device', 28),
+      ),
+    );
+
+    final text = mobileActionErrorText('附件打开失败', error);
+
+    expect(text, '附件打开失败：设备存储空间不足，请清理后重试');
+    expect(text, isNot(contains('/private/cache')));
+  });
+
+  test('hides raw local paths for other file system failures', () {
+    final error = FileSystemException(
+      'permission denied',
+      r'C:\Users\fixture\secret\attachment.part',
+      const OSError('Access is denied', 5),
+    );
+
+    final text = mobileErrorText(error);
+
+    expect(text, '无法访问本地文件，请检查系统权限或存储空间后重试');
+    expect(text, isNot(contains('attachment.part')));
+  });
 }

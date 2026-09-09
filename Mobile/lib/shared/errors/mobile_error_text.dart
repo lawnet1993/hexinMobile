@@ -16,6 +16,8 @@ String mobileErrorText(Object error, {String fallback = '暂时无法加载，�
       }
       return fallback;
     }
+    final cause = error.error;
+    if (cause is FileSystemException) return mobileErrorText(cause);
     return switch (error.type) {
       DioExceptionType.connectionTimeout ||
       DioExceptionType.sendTimeout ||
@@ -27,6 +29,19 @@ String mobileErrorText(Object error, {String fallback = '暂时无法加载，�
   }
   if (error is SocketException) return '网络不可用，请检查连接后重试';
   if (error is TimeoutException) return '网络连接超时，请检查网络后重试';
+  if (error is FileSystemException) {
+    final osCode = error.osError?.errorCode;
+    final details = '${error.message} ${error.osError?.message ?? ''}'
+        .toLowerCase();
+    if (osCode == 28 ||
+        osCode == 112 ||
+        details.contains('no space left on device') ||
+        details.contains('disk is full') ||
+        details.contains('not enough space')) {
+      return '设备存储空间不足，请清理后重试';
+    }
+    return '无法访问本地文件，请检查系统权限或存储空间后重试';
+  }
 
   final message = error.toString().replaceFirst('Exception: ', '').trim();
   final normalized = message.toLowerCase();

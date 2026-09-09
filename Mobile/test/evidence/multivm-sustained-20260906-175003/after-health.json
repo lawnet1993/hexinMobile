@@ -1,0 +1,26 @@
+[
+  {
+    "serial": "emulator-5554",
+    "pid": "7273",
+    "totalPssKb": 191600,
+    "crashAnrOomMatches": 0
+  },
+  {
+    "serial": "emulator-5556",
+    "pid": "3498",
+    "totalPssKb": 201646,
+    "crashAnrOomMatches": 0
+  },
+  {
+    "serial": "emulator-5558",
+    "pid": "5342",
+    "totalPssKb": 193251,
+    "crashAnrOomMatches": 0
+  },
+  {
+    "serial": "emulator-5560",
+    "pid": "16208",
+    "totalPssKb": 193699,
+    "crashAnrOomMatches": 0
+  }
+]

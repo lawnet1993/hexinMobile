@@ -105,7 +105,9 @@ void main() {
         final retries = status == null || status == 503;
         expect(calls, retries ? 2 : 1);
         expect(forms.every((value) => value['reason'] == _reason), isTrue);
-        if (retries) expect(find.text('网络不可用，表单与草稿已保留'), findsNothing);
+        if (retries) {
+          expect(find.text('审批流程暂时无法同步，表单与草稿已保留'), findsNothing);
+        }
         expect(tester.takeException(), isNull);
       },
     );
@@ -137,7 +139,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
       expect(calls, 2);
-      expect(find.text('网络不可用，表单与草稿已保留'), findsNothing);
+      expect(find.text('审批流程暂时无法同步，表单与草稿已保留'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -172,7 +174,7 @@ void main() {
       await tester.tap(retry);
       await tester.pumpAndSettle();
       expect(calls, 3);
-      expect(find.text('网络不可用，表单与草稿已保留'), findsNothing);
+      expect(find.text('审批流程暂时无法同步，表单与草稿已保留'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

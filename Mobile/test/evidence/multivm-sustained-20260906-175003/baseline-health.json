@@ -1,0 +1,22 @@
+[
+  {
+    "serial": "emulator-5554",
+    "pid": "7273",
+    "totalPssKb": 189194
+  },
+  {
+    "serial": "emulator-5556",
+    "pid": "3498",
+    "totalPssKb": 195609
+  },
+  {
+    "serial": "emulator-5558",
+    "pid": "5342",
+    "totalPssKb": 208388
+  },
+  {
+    "serial": "emulator-5560",
+    "pid": "16208",
+    "totalPssKb": 193767
+  }
+]

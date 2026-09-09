@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-09-06T04:40:50.353838+08:00",
+  "source": "installed-desktop-sqlite-read-only-transaction-not-ui",
+  "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+  "integrity": "ok",
+  "localRows": 149,
+  "sequenceRange": "1..149",
+  "messagesSyncedAt": 1788640842,
+  "eventTableCounts": {
+    "collaboration_event_cursors": 0,
+    "collaboration_event_inbox": 0
+  }
+}

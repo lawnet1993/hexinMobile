@@ -136,6 +136,53 @@ void main() {
   );
 
   test(
+    'empty server preview falls back to the confirmed local message kind',
+    () async {
+      final store = _store();
+      addTearDown(store.close);
+      await store.replaceBootstrap(
+        'account',
+        ImBootstrap(
+          currentMember: const ImMember(
+            id: 'member',
+            username: 'test',
+            displayName: 'Test',
+            isOnline: true,
+          ),
+          contacts: const [],
+          conversations: [
+            ImConversation.fromJson({
+              ..._conversationJson(7),
+              'lastMessagePreview': '',
+            }),
+          ],
+        ),
+      );
+      await store.mergeMessages('account', 'group', [
+        ImMessage.fromJson({
+          ..._messageJson(7),
+          'content': '',
+          'kind': 'audio',
+          'attachments': [
+            {
+              'id': 'audio-7',
+              'type': 'audio',
+              'fileName': 'AI-UAT-audio.wav',
+              'contentType': 'audio/wav',
+              'size': 14400078,
+            },
+          ],
+        }),
+      ]);
+
+      final conversation = (await store.readBootstrap('account'))!
+          .conversations
+          .single;
+      expect(conversation.preview, '[语音]');
+    },
+  );
+
+  test(
     'index requests coalesce and respect throttle without repeated bootstrap',
     () async {
       HttpOverrides.global = _RealHttpOverrides();

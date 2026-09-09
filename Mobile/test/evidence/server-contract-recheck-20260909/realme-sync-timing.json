@@ -1,0 +1,50 @@
+{
+  "checkedAt": "2026-09-09T17:22:38.8038169+08:00",
+  "serial": "dd00d66d",
+  "processId": 14106,
+  "source": "normal-app-scoped-logcat-whitelisted-im-timing",
+  "events": [
+    {
+      "recordedAt": "2026-09-09T09:21:53.4170000+00:00",
+      "waitSeconds": 25,
+      "eventCount": 0,
+      "firstEventSequence": null,
+      "lastEventSequence": null,
+      "requestMs": 25188,
+      "bootstrapMs": null,
+      "commitMs": null,
+      "ackMs": null,
+      "totalMs": 25194,
+      "oldestEventAgeMs": null,
+      "newestEventAgeMs": null
+    },
+    {
+      "recordedAt": "2026-09-09T09:21:59.6700000+00:00",
+      "waitSeconds": 25,
+      "eventCount": 1,
+      "firstEventSequence": 6505,
+      "lastEventSequence": 6505,
+      "requestMs": 5827,
+      "bootstrapMs": 49,
+      "commitMs": 38,
+      "ackMs": 91,
+      "totalMs": 6015,
+      "oldestEventAgeMs": 3163,
+      "newestEventAgeMs": 3163
+    },
+    {
+      "recordedAt": "2026-09-09T09:22:24.8430000+00:00",
+      "waitSeconds": 25,
+      "eventCount": 0,
+      "firstEventSequence": null,
+      "lastEventSequence": null,
+      "requestMs": 25160,
+      "bootstrapMs": null,
+      "commitMs": null,
+      "ackMs": null,
+      "totalMs": 25165,
+      "oldestEventAgeMs": null,
+      "newestEventAgeMs": null
+    }
+  ]
+}

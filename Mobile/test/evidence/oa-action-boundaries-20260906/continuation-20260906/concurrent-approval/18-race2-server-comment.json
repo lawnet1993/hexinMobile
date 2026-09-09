@@ -1,0 +1,141 @@
+{
+  "checkedAt": "2026-09-06T04:11:59.0783587+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-CONCURRENT-RACE2-20260906-0412",
+  "bootstrapStatus": 200,
+  "requestId": "a2e7d494-8bf5-4ab4-a526-457e7ce28e78",
+  "pageStatus": 200,
+  "pageRequestId": "04b4f218-1088-49aa-92ff-107e9d18b203",
+  "hasMore": false,
+  "requests": [
+    {
+      "id": "bcbf8313-ce4b-4ec1-9509-5bc665bab6b9",
+      "detailStatus": 200,
+      "requestId": "1f2e74b9-ada6-4c7d-b0ec-c8cf8c426133",
+      "markerMatched": true,
+      "status": "submitted",
+      "title": "Test Terminal 02的报销审批",
+      "requesterName": "Test Terminal 02",
+      "requesterDepartmentName": "公司总部",
+      "createdAt": "2026-09-05T20:10:17.57702Z",
+      "updatedAt": "2026-09-05T20:11:31.915006Z",
+      "allowedActions": [],
+      "templateVersion": 1,
+      "requestVersion": 2,
+      "workflowKey": "system.default.expense.reimbursement",
+      "clientRequestId": "ed6380df-c981-46d2-af8a-3f7e2aed47de",
+      "completedAt": null,
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "044bfe0b-6c67-4abf-8ac8-816585e7a0eb",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "approved",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-05T20:11:31.915006Z"
+        },
+        {
+          "id": "e3aaebdd-b8c3-48aa-b24c-0c684ea284df",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "3a23732d-35f5-8845-7860-d12b3a4844cf",
+          "assigneeName": "陆炳",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "f6ca15c2-ed53-433a-9caa-e0448a789d4d",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "3a23747a-5421-2cfa-a239-69cf81eecd6c",
+          "assigneeName": "陆炳002",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "fda723b2-e20c-4e1d-bf27-97be02abb5e8",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "8e0b6fdd-4490-435a-9be5-5a345e3b3ebc",
+          "assigneeName": "宋扬",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "a722cfac-f231-4fff-83e3-c30cbb0283f9",
+          "action": "submitted",
+          "actorName": "Test Terminal 02",
+          "comment": "",
+          "occurredAt": "2026-09-05T20:10:17.57702Z"
+        },
+        {
+          "id": "d62935da-aee1-4264-b4a5-f0b38668c3c9",
+          "action": "approved",
+          "actorName": "Test Terminal 01",
+          "comment": "AI-UAT-CONCURRENT-DESKTOP-LATE-0412",
+          "occurredAt": "2026-09-05T20:11:31.915006Z"
+        }
+      ],
+      "attachments": [],
+      "notifications": [
+        {
+          "id": "5575934f-8cc2-4cdd-bbf0-67deef04cc05",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-05T20:10:17.57702Z"
+        }
+      ]
+    }
+  ],
+  "matchCount": 1
+}

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -18,6 +19,37 @@ import 'package:hexing_terminal_mobile/features/collaboration/domain/collaborati
 import 'package:hexing_terminal_mobile/features/todos/presentation/approval_detail_page.dart';
 
 void main() {
+  testWidgets('unknown attachment stays downloadable on desktop only', (
+    tester,
+  ) async {
+    final f = await _Fixture.create(tester);
+    addTearDown(f.close);
+    f
+      ..withAttachment = true
+      ..imageAttachment = false
+      ..attachmentFileName = 'AI-UAT-proof.bin';
+    f.current = f.request();
+    await f.pump(tester);
+
+    expect(find.textContaining('· 请在桌面端查看'), findsOneWidget);
+    expect(find.byIcon(Icons.desktop_windows_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right), findsNothing);
+
+    final row = find
+        .ancestor(
+          of: find.text('AI-UAT-proof.bin'),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    tester.widget<InkWell>(row).onTap!();
+    await tester.pump();
+
+    expect(find.text('暂不支持在移动端打开此格式，请在桌面端查看'), findsOneWidget);
+    expect(f.openedPaths, isEmpty);
+    expect(f.writes, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final change in ['same', 'account', 'disposed', 'open-error']) {
     testWidgets('external attachment handoff guards $change', (tester) async {
       final f = await _Fixture.create(tester);
@@ -54,12 +86,39 @@ void main() {
       if (change == 'disposed') await tester.pumpWidget(const SizedBox());
       f.tempGate!.complete(directory);
       await f.finishDialog(tester);
-      await tester.pumpAndSettle();
       final allowed = change == 'same' || change == 'open-error';
+      if (allowed) {
+        for (var i = 0; i < 100 && f.openedPaths.isEmpty; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+          );
+        }
+        if (change == 'open-error') {
+          await tester.pump();
+          expect(find.text('附件打开失败，请稍后重试'), findsOneWidget);
+          expect(find.text('fixture'), findsNothing);
+        }
+      }
+      await tester.pump(const Duration(seconds: 4));
       expect(f.openedPaths.length, allowed ? 1 : 0);
       if (allowed) {
         expect(f.openedPaths.single, contains('oa-attachments'));
         expect(f.openedPaths.single.endsWith('AI-UAT-proof.txt'), isTrue);
+        if (change == 'open-error') {
+          // File deletion runs in the async finally block after the external
+          // opener returns. Advancing the widget clock does not wait for real
+          // filesystem I/O, so observe the bounded cleanup instead of racing it.
+          for (var i = 0; i < 100; i++) {
+            final exists = await tester.runAsync(
+              () => File(f.openedPaths.single).exists(),
+            );
+            if (exists != true) break;
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 20)),
+            );
+          }
+        }
         expect(
           await tester.runAsync(() => File(f.openedPaths.single).exists()),
           change == 'same',
@@ -69,6 +128,169 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  testWidgets('external attachment streams to disk and shows progress', (
+    tester,
+  ) async {
+    final f = await _Fixture.create(tester);
+    addTearDown(f.close);
+    final directory = (await tester.runAsync(
+      () => Directory.systemTemp.createTemp('oa-file-progress-'),
+    ))!;
+    addTearDown(() async {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    });
+    f
+      ..withAttachment = true
+      ..imageAttachment = false
+      ..chunkedAttachment = true
+      ..expectedOpenedLength = _streamChunk.length * 2
+      ..attachmentGate = Completer<void>()
+      ..tempGate = (Completer<Directory>()..complete(directory));
+    f.current = f.request();
+    await f.pump(tester);
+
+    final row = find
+        .ancestor(
+          of: find.text('AI-UAT-proof.txt'),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    tester.widget<InkWell>(row).onTap!();
+    await tester.pump();
+    expect(
+      find.byKey(const Key('oa-attachment-download-progress-proof')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('下载'), findsOneWidget);
+    for (var i = 0; i < 150 && !f.attachmentFirstChunk.isCompleted; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+    }
+    expect(f.attachmentFirstChunk.isCompleted, isTrue);
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('oa-attachment-download-progress-proof')),
+      findsOneWidget,
+    );
+
+    f.attachmentGate!.complete();
+    for (var i = 0; i < 150 && f.openedPaths.isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+    }
+    await tester.pump(const Duration(seconds: 4));
+    expect(f.openedWithBytes, [true]);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('completed external attachment is reused without redownload', (
+    tester,
+  ) async {
+    final f = await _Fixture.create(tester);
+    addTearDown(f.close);
+    final directory = (await tester.runAsync(
+      () => Directory.systemTemp.createTemp('oa-file-cache-'),
+    ))!;
+    addTearDown(() async {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    });
+    f
+      ..withAttachment = true
+      ..imageAttachment = false
+      ..tempGate = (Completer<Directory>()..complete(directory));
+    f.current = f.request();
+    await f.pump(tester);
+
+    final row = find
+        .ancestor(
+          of: find.text('AI-UAT-proof.txt'),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    tester.widget<InkWell>(row).onTap!();
+    // Full-suite parallelism can briefly starve the filesystem isolate on
+    // Windows. Keep this an eventual cache assertion instead of a 2 s timing
+    // assertion; dedicated latency coverage lives in the manager tests.
+    for (var i = 0; i < 300 && f.openedPaths.isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+    }
+    tester.widget<InkWell>(row).onTap!();
+    for (var i = 0; i < 300 && f.openedPaths.length < 2; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+    }
+    await tester.pump(const Duration(seconds: 4));
+
+    expect(f.openedPaths.length, 2);
+    expect(f.openedPaths.toSet().length, 1);
+    expect(
+      f.writes.where((path) => path == '/api/oa/attachments/proof'),
+      hasLength(1),
+    );
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('same-size corrupt external attachment is downloaded again', (
+    tester,
+  ) async {
+    final f = await _Fixture.create(tester);
+    addTearDown(f.close);
+    final directory = (await tester.runAsync(
+      () => Directory.systemTemp.createTemp('oa-file-integrity-'),
+    ))!;
+    addTearDown(() async {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    });
+    f
+      ..withAttachment = true
+      ..imageAttachment = false
+      ..tempGate = (Completer<Directory>()..complete(directory));
+    f.current = f.request();
+    await f.pump(tester);
+
+    final row = find
+        .ancestor(
+          of: find.text('AI-UAT-proof.txt'),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    tester.widget<InkWell>(row).onTap!();
+    for (var i = 0; i < 100 && f.openedPaths.isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+    }
+    await tester.runAsync(
+      () => File(
+        f.openedPaths.single,
+      ).writeAsBytes(List<int>.filled(f.expectedOpenedLength, 0), flush: true),
+    );
+    tester.widget<InkWell>(row).onTap!();
+    for (var i = 0; i < 100 && f.openedPaths.length < 2; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+    }
+    await tester.pump(const Duration(seconds: 4));
+
+    expect(f.openedPaths, hasLength(2));
+    expect(
+      f.writes.where((path) => path == '/api/oa/attachments/proof'),
+      hasLength(2),
+    );
+    expect(f.openedWithBytes, [true, true]);
+    expect(tester.takeException(), isNull);
+  });
   for (final change in [
     'double',
     'account',
@@ -313,13 +535,17 @@ class _Fixture {
   final received = Completer<void>();
   bool withAttachment = false;
   bool imageAttachment = true;
+  String? attachmentFileName;
   Completer<Directory>? tempGate;
   bool tempRequested = false;
   final openedPaths = <String>[];
   final openedWithBytes = <bool>[];
+  bool chunkedAttachment = false;
+  int expectedOpenedLength = _pixel.length;
   ResultType openResult = ResultType.done;
   Completer<void>? attachmentGate;
   final attachmentStarted = Completer<void>();
+  final attachmentFirstChunk = Completer<void>();
 
   MobileSession session(String account, String token) => MobileSession(
     accessToken: token,
@@ -343,12 +569,19 @@ class _Fixture {
           'attachments': [
             {
               'id': 'proof',
-              'fileName': imageAttachment
-                  ? 'AI-UAT-proof.png'
-                  : 'AI-UAT-proof.txt',
+              'fileName':
+                  attachmentFileName ??
+                  (imageAttachment ? 'AI-UAT-proof.png' : 'AI-UAT-proof.txt'),
               'contentType': imageAttachment ? 'image/png' : 'text/plain',
               'isPreviewableImage': imageAttachment,
-              'size': _pixel.length,
+              'size': expectedOpenedLength,
+              'sha256': sha256
+                  .convert(
+                    chunkedAttachment
+                        ? [..._streamChunk, ..._streamChunk]
+                        : _pixel,
+                  )
+                  .toString(),
             },
           ],
         'allowedActions': ended
@@ -393,10 +626,21 @@ class _Fixture {
         if (request.uri.path == '/api/oa/attachments/proof/preview' ||
             request.uri.path == '/api/oa/attachments/proof') {
           if (!f.attachmentStarted.isCompleted) f.attachmentStarted.complete();
-          await f.attachmentGate?.future;
           try {
             request.response.headers.contentType = ContentType('image', 'png');
-            request.response.add(_pixel);
+            if (f.chunkedAttachment) {
+              request.response.contentLength = f.expectedOpenedLength;
+              request.response.add(_streamChunk);
+              await request.response.flush();
+              if (!f.attachmentFirstChunk.isCompleted) {
+                f.attachmentFirstChunk.complete();
+              }
+              await f.attachmentGate?.future;
+              request.response.add(_streamChunk);
+            } else {
+              await f.attachmentGate?.future;
+              request.response.add(_pixel);
+            }
             await request.response.close();
           } catch (_) {
             /* The detail can cancel the held download. */
@@ -426,7 +670,9 @@ class _Fixture {
           file,
         ) async {
           f.openedPaths.add(file);
-          f.openedWithBytes.add(File(file).lengthSync() == _pixel.length);
+          f.openedWithBytes.add(
+            File(file).lengthSync() == f.expectedOpenedLength,
+          );
           return OpenResult(type: f.openResult, message: 'fixture');
         }),
         oaAttachmentThumbnailProvider('proof')
@@ -546,3 +792,4 @@ class _RealHttp extends HttpOverrides {}
 final _pixel = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==',
 );
+final _streamChunk = List<int>.filled(64 * 1024, 0x41);

@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-09-06T17:54:18.9645749+08:00",
+  "serial": "emulator-5558",
+  "processId": 11773,
+  "source": "normal-app-scoped-logcat-whitelisted-im-timing",
+  "events": [
+    {
+      "recordedAt": "2026-09-06T09:53:59.3220000+00:00",
+      "waitSeconds": 0,
+      "eventCount": 20,
+      "firstEventSequence": 5391,
+      "lastEventSequence": 5428,
+      "requestMs": 256,
+      "bootstrapMs": 7,
+      "commitMs": 270,
+      "ackMs": 107,
+      "totalMs": 646,
+      "oldestEventAgeMs": 61175,
+      "newestEventAgeMs": 28973
+    },
+    {
+      "recordedAt": "2026-09-06T09:53:59.5100000+00:00",
+      "waitSeconds": 0,
+      "eventCount": 0,
+      "firstEventSequence": null,
+      "lastEventSequence": null,
+      "requestMs": 167,
+      "bootstrapMs": null,
+      "commitMs": null,
+      "ackMs": null,
+      "totalMs": 170,
+      "oldestEventAgeMs": null,
+      "newestEventAgeMs": null
+    }
+  ]
+}

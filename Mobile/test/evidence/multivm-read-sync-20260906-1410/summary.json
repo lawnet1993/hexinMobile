@@ -1,0 +1,34 @@
+{
+  "scenario": "AI-UAT three-device offline backlog visible-read synchronization",
+  "conversationTitle": "AI-UAT-MULTIVM-20260906-1100",
+  "baseline": {
+    "messageCount": 65,
+    "receiverLastReadSequence": 45,
+    "receiverUnreadCount": 20,
+    "senderLastReadSequence": 65,
+    "senderUnreadCount": 0
+  },
+  "afterConversationOpen": {
+    "observationUpperBoundMs": 1305,
+    "receiverLastReadSequence": 54,
+    "receiverUnreadCount": 11,
+    "meaning": "only messages that entered the visible region were marked read"
+  },
+  "afterJumpToLatest": {
+    "observationUpperBoundMs": 1296,
+    "receiverLastReadSequence": 65,
+    "receiverUnreadCount": 0
+  },
+  "crossDevice": {
+    "foregroundCatchUpUpperBoundMs": 5993,
+    "receivedEventTypes": [
+      "conversation.read",
+      "conversation.read"
+    ],
+    "messageCountAfterCatchUp": 65,
+    "uniqueMessageCountAfterCatchUp": 65,
+    "outboxCountAfterCatchUp": 0,
+    "sqliteIntegrity": "ok"
+  },
+  "result": "pass"
+}

@@ -1,0 +1,19 @@
+{
+  "startedAtUtc": "2026-09-06T10:16:14.9534433+00:00",
+  "reached": true,
+  "baselineCount": 253,
+  "targetCount": 254,
+  "reachedAfterMs": 1165,
+  "samples": [
+    {
+      "elapsedMs": 1165,
+      "messageCount": 254,
+      "maxMessageSequence": 254.0,
+      "eventInboxCount": 892,
+      "imCursor": 5431
+    }
+  ],
+  "serverMarkerCount": 1,
+  "serverMessageStatus": 200,
+  "desktopProcessRunning": true
+}

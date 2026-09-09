@@ -1,0 +1,33 @@
+{
+  "serial": "emulator-5554",
+  "expectedHeader": "AI-UAT-MULTIVM-20260906-1100",
+  "prefix": "AI-UAT-POSTOAFIX-20260906-1725-M1-",
+  "requested": 5,
+  "inputSettleMilliseconds": 750,
+  "startedAtUtc": "2026-09-06T09:25:05.0097349+00:00",
+  "completedAtUtc": "2026-09-06T09:25:25.3331418+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T09:25:07.6510701+00:00"
+    },
+    {
+      "index": 2,
+      "tappedAtUtc": "2026-09-06T09:25:11.0269606+00:00"
+    },
+    {
+      "index": 3,
+      "tappedAtUtc": "2026-09-06T09:25:14.4178557+00:00"
+    },
+    {
+      "index": 4,
+      "tappedAtUtc": "2026-09-06T09:25:17.6608016+00:00"
+    },
+    {
+      "index": 5,
+      "tappedAtUtc": "2026-09-06T09:25:20.8693402+00:00"
+    }
+  ]
+}

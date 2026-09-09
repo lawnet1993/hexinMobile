@@ -135,7 +135,7 @@ Future<ProviderContainer> _open(
 }
 
 Future<void> _edit(WidgetTester tester, String value) async {
-  await tester.enterText(find.byType(TextFormField), value);
+  await tester.enterText(find.byKey(const ValueKey('schema-reason')), value);
   await tester.pump(const Duration(milliseconds: 650));
 }
 
@@ -147,7 +147,10 @@ void main() {
     final container = await _open(tester, calls);
     await _edit(tester, 'AI-UAT-account-a');
     expect(calls.first.id, isNotNull);
-    await tester.enterText(find.byType(TextFormField), 'AI-UAT-later-edit');
+    await tester.enterText(
+      find.byKey(const ValueKey('schema-reason')),
+      'AI-UAT-later-edit',
+    );
     container.read(_account.notifier).change('account-b');
     await tester.pump();
     calls.first.succeed();
@@ -189,7 +192,10 @@ void main() {
       final calls = <_SaveCall>[];
       await _open(tester, calls);
       await _edit(tester, 'AI-UAT-first');
-      await tester.enterText(find.byType(TextFormField), 'AI-UAT-back-latest');
+      await tester.enterText(
+        find.byKey(const ValueKey('schema-reason')),
+        'AI-UAT-back-latest',
+      );
       await tester.pump(const Duration(milliseconds: 20));
       await tester.binding.handlePopRoute();
       await tester.binding.handlePopRoute();
@@ -272,7 +278,10 @@ void main() {
       final calls = <_SaveCall>[];
       await _open(tester, calls);
       await _edit(tester, 'AI-UAT-old');
-      await tester.enterText(find.byType(TextFormField), 'AI-UAT-new');
+      await tester.enterText(
+        find.byKey(const ValueKey('schema-reason')),
+        'AI-UAT-new',
+      );
       await tester.pumpWidget(const SizedBox.shrink());
       calls.first.succeed();
       await tester.pumpAndSettle();

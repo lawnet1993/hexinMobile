@@ -59,6 +59,47 @@ void main() {
     expect(data['peerLastSeenAt'], isNull);
     expect(data['kind'], 'response');
   });
+  test('member telemetry reports only aggregate presence coverage', () {
+    final lines = <String>[];
+    ImPresenceDiagnostics(enabled: true, write: lines.add).memberResponse(
+      [
+        const ImMember(
+          id: 'hidden-1',
+          username: 'secret-account',
+          displayName: 'Hidden Person',
+          isOnline: true,
+        ),
+        const ImMember(
+          id: 'hidden-2',
+          username: 'secret-account-2',
+          displayName: 'Hidden Person 2',
+          isOnline: false,
+          presenceKnown: false,
+        ),
+      ],
+      source: 'bootstrap',
+      status: 200,
+    );
+    final data =
+        jsonDecode(lines.single.split('MOBILE_IM_PRESENCE ').last) as Map;
+    expect(data.keys.toSet(), {
+      'sampledAt',
+      'kind',
+      'source',
+      'httpStatus',
+      'received',
+      'presenceKnown',
+      'online',
+      'withLastSeen',
+    });
+    expect(data['received'], 2);
+    expect(data['presenceKnown'], 1);
+    expect(data['online'], 1);
+    expect(data['withLastSeen'], 0);
+    expect(lines.single, isNot(contains('hidden-1')));
+    expect(lines.single, isNot(contains('secret-account')));
+    expect(lines.single, isNot(contains('Hidden Person')));
+  });
   test(
     'render telemetry preserves unknown and distinguishes projection sources',
     () {

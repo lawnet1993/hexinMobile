@@ -210,6 +210,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(managerPage2, 1);
     expect(find.text('管理成员 2'), findsOneWidget);
+    expect(find.text('manager.2'), findsNothing);
 
     await tester.tap(find.text('记录 2'));
     await tester.pumpAndSettle();

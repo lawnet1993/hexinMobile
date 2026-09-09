@@ -1,0 +1,26 @@
+{
+  "cycles": [
+    {
+      "cycle": 1,
+      "status": "ready",
+      "elapsedMs": 3487
+    },
+    {
+      "cycle": 2,
+      "status": "ready",
+      "elapsedMs": 3261
+    },
+    {
+      "cycle": 3,
+      "status": "ready",
+      "elapsedMs": 3183
+    }
+  ],
+  "allReady": true,
+  "imComplete": true,
+  "receivedTotal": 65,
+  "outboxCount": 0,
+  "cursorHealthy": true,
+  "fatalExceptionCount": 0,
+  "anrCount": 0
+}

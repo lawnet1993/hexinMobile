@@ -1,0 +1,16 @@
+{
+  "serial": "emulator-5554",
+  "expectedHeader": "Test Terminal 01",
+  "prefix": "AI-UAT-LONGPOLL-LIVE-20260906-",
+  "requested": 1,
+  "startedAtUtc": "2026-09-05T21:45:41.4780449+00:00",
+  "completedAtUtc": "2026-09-05T21:45:45.4319498+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-05T21:45:42.3924883+00:00"
+    }
+  ]
+}

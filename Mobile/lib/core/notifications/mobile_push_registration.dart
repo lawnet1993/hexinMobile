@@ -39,6 +39,88 @@ abstract interface class MobilePushTokenSource {
   Stream<String> get notificationClicks;
 }
 
+enum MobileNotificationPermissionState {
+  granted,
+  notDetermined,
+  denied,
+  unavailable,
+}
+
+abstract interface class MobileNotificationPermissionSource {
+  Future<MobileNotificationPermissionState> currentState();
+  Future<MobileNotificationPermissionState> request();
+  Future<bool> openSettings();
+}
+
+final class NativeMobileNotificationPermissionSource
+    implements MobileNotificationPermissionSource {
+  NativeMobileNotificationPermissionSource({MethodChannel? methodChannel})
+    : _methodChannel =
+          methodChannel ?? const MethodChannel('com.hexing.zhilian/push');
+
+  final MethodChannel _methodChannel;
+
+  @override
+  Future<MobileNotificationPermissionState> currentState() =>
+      _readState('getNotificationPermission');
+
+  @override
+  Future<MobileNotificationPermissionState> request() =>
+      _readState('requestNotificationPermission');
+
+  @override
+  Future<bool> openSettings() async {
+    try {
+      return await _methodChannel.invokeMethod<bool>(
+            'openNotificationSettings',
+          ) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<MobileNotificationPermissionState> _readState(String method) async {
+    try {
+      final value = await _methodChannel.invokeMethod<String>(method);
+      return switch (value) {
+        'granted' => MobileNotificationPermissionState.granted,
+        'notDetermined' => MobileNotificationPermissionState.notDetermined,
+        'denied' => MobileNotificationPermissionState.denied,
+        _ => MobileNotificationPermissionState.unavailable,
+      };
+    } on MissingPluginException {
+      return MobileNotificationPermissionState.unavailable;
+    } on PlatformException {
+      return MobileNotificationPermissionState.unavailable;
+    }
+  }
+}
+
+final mobileNotificationPermissionSourceProvider =
+    Provider<MobileNotificationPermissionSource>(
+      (ref) => NativeMobileNotificationPermissionSource(),
+    );
+
+final mobileNotificationPermissionStateProvider =
+    FutureProvider<MobileNotificationPermissionState>(
+      (ref) =>
+          ref.read(mobileNotificationPermissionSourceProvider).currentState(),
+    );
+
+Future<MobileNotificationPermissionState>
+requestMobileNotificationPermissionIfNeeded(
+  MobileNotificationPermissionSource source,
+) async {
+  final current = await source.currentState();
+  if (current != MobileNotificationPermissionState.notDetermined) {
+    return current;
+  }
+  return source.request();
+}
+
 final class NativeMobilePushTokenSource implements MobilePushTokenSource {
   NativeMobilePushTokenSource({
     MethodChannel? methodChannel,

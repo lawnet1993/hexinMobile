@@ -1,0 +1,34 @@
+{
+  "scenario": "three-avd-concurrent-send-and-unopened-receiver",
+  "buildSha256": "599237f6f0252da8897150e8662cdc3b2ede0c55d16f41da6caf4455c1873e04",
+  "preFix": {
+    "test02Requested": 10,
+    "test02Committed": 0,
+    "test02ComposerRetained": true,
+    "test04Requested": 10,
+    "test04Committed": 10,
+    "allDevicesConvergedAt": 106
+  },
+  "postFix": {
+    "test02Requested": 10,
+    "test02Committed": 10,
+    "test04Requested": 10,
+    "test04Committed": 10,
+    "allDevicesConvergedAt": 126,
+    "uniqueMessageIds": 126,
+    "uniqueSenderClientMessageKeys": 126,
+    "sequenceRange": "1..126",
+    "sequenceStrictlyIncreasing": true,
+    "outboxCountEach": 0,
+    "sqliteQuickCheckEach": "ok",
+    "unopenedTest03Unread": 30,
+    "eventCursorAppliedEqualsAckedEach": true
+  },
+  "syncStages": {
+    "emulator-5554": {"events": 26, "commitP95Ms": 247, "totalMaxMs": 2594, "oldestEventAgeMaxMs": 284},
+    "emulator-5556": {"events": 21, "commitP95Ms": 247, "totalMaxMs": 15146, "oldestEventAgeMaxMs": 13159},
+    "emulator-5558": {"events": 31, "commitP95Ms": 130, "totalMaxMs": 5407, "oldestEventAgeMaxMs": 2158}
+  },
+  "runtime": {"fatal": 0, "anr": 0, "oom": 0},
+  "verdict": {"integrity": "passed", "rapidSendComposer": "passed-after-fix", "timeliness": "partial"}
+}

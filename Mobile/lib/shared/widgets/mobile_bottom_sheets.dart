@@ -41,7 +41,9 @@ Future<T?> showMobileChoiceSheet<T>(
   String emptyText = '暂无可选项',
 }) async {
   FocusManager.instance.primaryFocus?.unfocus();
-  final searchController = TextEditingController();
+  final searchController = MobileSearchTextController(
+    searchLabel: searchHint,
+  );
   var query = '';
   final result = await showModalBottomSheet<T>(
     context: context,
@@ -151,7 +153,9 @@ Future<List<T>?> showMobileMultiChoiceSheet<T>(
 }) async {
   FocusManager.instance.primaryFocus?.unfocus();
   final selected = selectedValues.toSet();
-  final searchController = TextEditingController();
+  final searchController = MobileSearchTextController(
+    searchLabel: searchHint,
+  );
   var query = '';
   final result = await showModalBottomSheet<List<T>>(
     context: context,

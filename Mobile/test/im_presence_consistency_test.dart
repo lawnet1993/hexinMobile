@@ -50,61 +50,109 @@ const conversation = ImConversation(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
-  testWidgets('one member observation follows list to contacts and expires without per-row HTTP', (tester) async {
-    var presenceRequests = 0;
-    final container = ProviderContainer(overrides: [
-      authControllerProvider.overrideWith(_FixtureAuth.new),
-      imBootstrapProvider.overrideWith((ref) async => const ImBootstrap(
-        currentMember: self, contacts: [oldPeer], conversations: [conversation],
-      )),
-      imDepartmentsProvider.overrideWith((ref) async => []),
-      pendingFriendApplicationsProvider.overrideWith((ref) async => []),
-      contactPresenceRefresherProvider.overrideWithValue(() async {}),
-      conversationMembersProvider.overrideWith((ref, id) async => [self, oldPeer]),
-      conversationPresenceProvider.overrideWith((ref, id) async {
-        presenceRequests++;
-        return _presence(true);
-      }),
-      messageListPresenceLoaderProvider.overrideWithValue((_, _, _) async => null),
-    ]);
-    addTearDown(container.dispose);
-    await container.read(authControllerProvider.future);
-    await tester.pumpWidget(UncontrolledProviderScope(container: container,
-      child: const MaterialApp(home: MessagesPage())));
-    await tester.pumpAndSettle();
-    InitialAvatar avatar() => tester.widget<InitialAvatar>(find.byKey(const ValueKey('message-direct-avatar-direct')));
-    expect(avatar().online, isNull);
-    final projection = container.read(imMemberPresenceProjectionProvider.notifier);
-    final delayedDirectory = projection.beginRequest();
-    projection.observe(_session, projection.beginRequest(), [currentPeer]);
-    await tester.pump();
-    expect(avatar().online, false);
-    projection.observe(_session, delayedDirectory, [oldPeer]);
-    await tester.pump();
-    expect(avatar().online, false);
-    await tester.pumpWidget(UncontrolledProviderScope(container: container,
-      child: const MaterialApp(home: ContactsPage())));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(ExpansionTile).first);
-    await tester.pumpAndSettle();
-    final peerTile = find.ancestor(of: find.text('对方'), matching: find.byType(ListTile));
-    expect(find.descendant(of: peerTile, matching: find.text('离线')), findsOneWidget);
-    projection.observe(_session, projection.beginRequest(), [ImMember(
-      id: 'peer', username: 'peer', displayName: '对方', isOnline: false,
-      lastSeenAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-    )]);
-    await tester.pump();
-    expect(find.descendant(of: peerTile, matching: find.text('离线')), findsOneWidget);
-    expect(find.textContaining('01-01'), findsNothing);
-    projection.observe(_session, projection.beginRequest(), [oldPeer]);
-    await tester.pump();
-    expect(find.descendant(of: peerTile, matching: find.text('在线')), findsOneWidget);
-    await tester.pump(const Duration(seconds: 61));
-    await tester.pumpAndSettle();
-    expect(find.descendant(of: peerTile, matching: find.text('状态未知')), findsOneWidget);
-    expect(presenceRequests, 0);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+  testWidgets(
+    'one member observation follows list to contacts and expires without per-row HTTP',
+    (tester) async {
+      var presenceRequests = 0;
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_FixtureAuth.new),
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.available,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) async => const ImBootstrap(
+              currentMember: self,
+              contacts: [oldPeer],
+              conversations: [conversation],
+            ),
+          ),
+          imDepartmentsProvider.overrideWith((ref) async => []),
+          pendingFriendApplicationsProvider.overrideWith((ref) async => []),
+          contactPresenceRefresherProvider.overrideWithValue(() async {}),
+          conversationMembersProvider.overrideWith(
+            (ref, id) async => [self, oldPeer],
+          ),
+          conversationPresenceProvider.overrideWith((ref, id) async {
+            presenceRequests++;
+            return _presence(true);
+          }),
+          messageListPresenceLoaderProvider.overrideWithValue(
+            (_, _, _) async => null,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.future);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: MessagesPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      InitialAvatar avatar() => tester.widget<InitialAvatar>(
+        find.byKey(const ValueKey('message-direct-avatar-direct')),
+      );
+      expect(avatar().online, isNull);
+      final projection = container.read(
+        imMemberPresenceProjectionProvider.notifier,
+      );
+      final delayedDirectory = projection.beginRequest();
+      projection.observe(_session, projection.beginRequest(), [currentPeer]);
+      await tester.pump();
+      expect(avatar().online, false);
+      projection.observe(_session, delayedDirectory, [oldPeer]);
+      await tester.pump();
+      expect(avatar().online, false);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: ContactsPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(ExpansionTile).first);
+      await tester.pumpAndSettle();
+      final peerTile = find.ancestor(
+        of: find.text('对方'),
+        matching: find.byType(ListTile),
+      );
+      expect(
+        find.descendant(of: peerTile, matching: find.text('离线')),
+        findsOneWidget,
+      );
+      projection.observe(_session, projection.beginRequest(), [
+        ImMember(
+          id: 'peer',
+          username: 'peer',
+          displayName: '对方',
+          isOnline: false,
+          lastSeenAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+        ),
+      ]);
+      await tester.pump();
+      expect(
+        find.descendant(of: peerTile, matching: find.text('离线')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('01-01'), findsNothing);
+      projection.observe(_session, projection.beginRequest(), [oldPeer]);
+      await tester.pump();
+      expect(
+        find.descendant(of: peerTile, matching: find.text('在线')),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 61));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: peerTile, matching: find.text('状态未知')),
+        findsOneWidget,
+      );
+      expect(presenceRequests, 0);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets(
     'directory and member cache alone do not establish current presence',
     (tester) async {
@@ -144,6 +192,9 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           authControllerProvider.overrideWith(_FixtureAuth.new),
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.available,
+          ),
           imBootstrapProvider.overrideWith(
             (ref) async => const ImBootstrap(
               currentMember: self,
@@ -159,7 +210,9 @@ void main() {
             return _presence(true);
           }),
           // This test owns projection samples; viewport polling has its own tests.
-          messageListPresenceLoaderProvider.overrideWithValue((_, _, _) async => null),
+          messageListPresenceLoaderProvider.overrideWithValue(
+            (_, _, _) async => null,
+          ),
         ],
       );
       addTearDown(container.dispose);

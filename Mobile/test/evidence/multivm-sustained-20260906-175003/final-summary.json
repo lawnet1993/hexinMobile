@@ -1,0 +1,132 @@
+{
+  "windowStartUtc": "2026-09-06T09:50:07.9149194+00:00",
+  "timing": [
+    {
+      "serial": "emulator-5554",
+      "batches": 49,
+      "nonEmpty": 44,
+      "events": 95.0,
+      "oldestP50Ms": 1246,
+      "oldestP95Ms": 3448,
+      "oldestMaxMs": 3448,
+      "newestP95Ms": null,
+      "requestMaxMs": 25228.0,
+      "commitMaxMs": 786.0,
+      "negativeAgeSamples": 43
+    },
+    {
+      "serial": "emulator-5556",
+      "batches": 44,
+      "nonEmpty": 40,
+      "events": 93.0,
+      "oldestP50Ms": 469,
+      "oldestP95Ms": 2652,
+      "oldestMaxMs": 4940,
+      "newestP95Ms": 709,
+      "requestMaxMs": 25262.0,
+      "commitMaxMs": 1073.0,
+      "negativeAgeSamples": 14
+    },
+    {
+      "serial": "emulator-5558",
+      "batches": 2,
+      "nonEmpty": 1,
+      "events": 20.0,
+      "oldestP50Ms": 61175,
+      "oldestP95Ms": 61175,
+      "oldestMaxMs": 61175,
+      "newestP95Ms": 28973,
+      "requestMaxMs": 256.0,
+      "commitMaxMs": 270.0,
+      "negativeAgeSamples": 1
+    },
+    {
+      "serial": "emulator-5560",
+      "batches": 10,
+      "nonEmpty": 0,
+      "events": 0.0,
+      "oldestP50Ms": null,
+      "oldestP95Ms": null,
+      "oldestMaxMs": null,
+      "newestP95Ms": null,
+      "requestMaxMs": 25501.0,
+      "commitMaxMs": null,
+      "negativeAgeSamples": 10
+    }
+  ],
+  "health": [
+    {
+      "serial": "emulator-5554",
+      "alive": true,
+      "totalPssKb": 190355,
+      "crashAnrOomMatches": 0
+    },
+    {
+      "serial": "emulator-5556",
+      "alive": true,
+      "totalPssKb": 202832,
+      "crashAnrOomMatches": 0
+    },
+    {
+      "serial": "emulator-5558",
+      "alive": true,
+      "totalPssKb": 182086,
+      "crashAnrOomMatches": 0
+    },
+    {
+      "serial": "emulator-5560",
+      "alive": true,
+      "totalPssKb": 193842,
+      "crashAnrOomMatches": 0
+    }
+  ],
+  "offlineRecovery": {
+    "launchedAtUtc": "2026-09-06T17:53:53.5610307+08:00",
+    "stoppedTotal": 304,
+    "targetTotal": 324,
+    "complete": true,
+    "recoveryMs": 5427,
+    "samples": [
+      {
+        "elapsedMs": 1577,
+        "receivedTotal": 304,
+        "test02": 113,
+        "test03": 81,
+        "test04": 110,
+        "complete": false,
+        "acked": 5387,
+        "applied": 5387
+      },
+      {
+        "elapsedMs": 2741,
+        "receivedTotal": 304,
+        "test02": 113,
+        "test03": 81,
+        "test04": 110,
+        "complete": false,
+        "acked": 5387,
+        "applied": 5387
+      },
+      {
+        "elapsedMs": 4351,
+        "receivedTotal": 304,
+        "test02": 113,
+        "test03": 81,
+        "test04": 110,
+        "complete": false,
+        "acked": 5387,
+        "applied": 5387
+      },
+      {
+        "elapsedMs": 5427,
+        "receivedTotal": 324,
+        "test02": 123,
+        "test03": 91,
+        "test04": 110,
+        "complete": true,
+        "acked": 5428,
+        "applied": 5428
+      }
+    ]
+  }
+}

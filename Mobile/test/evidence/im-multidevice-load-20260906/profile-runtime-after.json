@@ -1,0 +1,29 @@
+[
+  {
+    "serial": "dd00d66d",
+    "pid": 4133,
+    "totalPssKiB": 225539,
+    "totalRssKiB": 340280,
+    "totalFrames": 0,
+    "jankyFrames": 0,
+    "syncStages": 34
+  },
+  {
+    "serial": "emulator-5554",
+    "pid": 15363,
+    "totalPssKiB": 198758,
+    "totalRssKiB": 269792,
+    "totalFrames": 21,
+    "jankyFrames": 12,
+    "syncStages": 38
+  },
+  {
+    "serial": "emulator-5556",
+    "pid": 16333,
+    "totalPssKiB": 204630,
+    "totalRssKiB": 277376,
+    "totalFrames": 16,
+    "jankyFrames": 9,
+    "syncStages": 31
+  }
+]

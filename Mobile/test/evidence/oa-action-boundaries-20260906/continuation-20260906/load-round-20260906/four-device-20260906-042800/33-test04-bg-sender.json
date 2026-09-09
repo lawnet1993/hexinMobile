@@ -1,0 +1,52 @@
+{
+  "serial": "emulator-5558",
+  "expectedHeader": "AI-UAT-20260903-IM-BATCH-701",
+  "prefix": "AI-UAT-MV4BG-20260906-043300-T04-",
+  "requested": 10,
+  "startedAtUtc": "2026-09-05T20:33:07.4456884+00:00",
+  "completedAtUtc": "2026-09-05T20:33:31.5478483+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-05T20:33:09.1818665+00:00"
+    },
+    {
+      "index": 2,
+      "tappedAtUtc": "2026-09-05T20:33:11.6204915+00:00"
+    },
+    {
+      "index": 3,
+      "tappedAtUtc": "2026-09-05T20:33:14.1657447+00:00"
+    },
+    {
+      "index": 4,
+      "tappedAtUtc": "2026-09-05T20:33:16.6562279+00:00"
+    },
+    {
+      "index": 5,
+      "tappedAtUtc": "2026-09-05T20:33:19.1934446+00:00"
+    },
+    {
+      "index": 6,
+      "tappedAtUtc": "2026-09-05T20:33:21.6258449+00:00"
+    },
+    {
+      "index": 7,
+      "tappedAtUtc": "2026-09-05T20:33:23.4603859+00:00"
+    },
+    {
+      "index": 8,
+      "tappedAtUtc": "2026-09-05T20:33:25.0779312+00:00"
+    },
+    {
+      "index": 9,
+      "tappedAtUtc": "2026-09-05T20:33:26.7067986+00:00"
+    },
+    {
+      "index": 10,
+      "tappedAtUtc": "2026-09-05T20:33:28.2888130+00:00"
+    }
+  ]
+}

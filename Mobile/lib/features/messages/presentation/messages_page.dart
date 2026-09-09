@@ -81,19 +81,22 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
               actions: [
                 IconButton(
                   tooltip: '我的收藏',
+                  style: compactHeaderIconButtonStyle,
                   onPressed: () => context.push('/message-favorites'),
                   icon: const Icon(Icons.star_outline_rounded, size: 20),
                 ),
                 if (value.value?.permissions.batchSend == true)
                   IconButton(
                     tooltip: '群发助手',
+                    style: compactHeaderIconButtonStyle,
                     onPressed: () => context.push('/message-assistant'),
                     icon: const Icon(Icons.campaign_outlined, size: 20),
                   ),
                 value.value == null
-                    ? const SizedBox(width: 48)
+                    ? const SizedBox(width: 44)
                     : IconButton(
                         tooltip: '发起会话',
+                        style: compactHeaderIconButtonStyle,
                         onPressed: _creating
                             ? null
                             : () => _startConversation(value.requireValue),
@@ -401,13 +404,12 @@ class _NewConversationSheetState extends State<_NewConversationSheet> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          subtitle: Text(
-                            [
-                              member.departmentName,
-                              member.username,
-                            ].where((value) => value.isNotEmpty).join(' · '),
-                            style: const TextStyle(fontSize: 11),
-                          ),
+                          subtitle: member.departmentName.isEmpty
+                              ? null
+                              : Text(
+                                  member.departmentName,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
                           trailing: _group
                               ? Checkbox(
                                   value: selected,
@@ -579,6 +581,7 @@ class _ConversationTile extends ConsumerWidget {
                       Flexible(
                         child: Text(
                           title,
+                          key: ValueKey('conversation-title-${item.id}'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -587,8 +590,12 @@ class _ConversationTile extends ConsumerWidget {
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
                       if (item.isGroup) ...[
-                        const SizedBox(width: 5),
                         Container(
                           key: ValueKey('group-badge-${item.id}'),
                           padding: const EdgeInsets.symmetric(
@@ -608,12 +615,8 @@ class _ConversationTile extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 4),
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
                       if (item.localPreviewStatus ==
                               ImLocalMessageStatus.pending ||
                           item.localPreviewStatus ==
@@ -655,11 +658,16 @@ class _ConversationTile extends ConsumerWidget {
                 ],
               ),
             ),
+            SizedBox(
+              key: ValueKey('conversation-title-time-gap-${item.id}'),
+              width: 8,
+            ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
                   compactListDateTimeLabel(item.updatedAt),
+                  key: ValueKey('conversation-time-${item.id}'),
                   style: const TextStyle(
                     fontSize: 10.5,
                     color: AppColors.secondaryText,

@@ -1,0 +1,51 @@
+{
+  "addedRows": 10,
+  "removedRows": 0,
+  "uniqueIds": 10,
+  "uniqueClientKeys": 10,
+  "latencyMs": {
+    "count": 10,
+    "min": 383.302,
+    "p50": 2705.939,
+    "p90": 4526.977,
+    "p95": 6543.437,
+    "p99": 6543.437,
+    "max": 6543.437
+  },
+  "conversations": {
+    "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136": {
+      "count": 5,
+      "sequenceMin": 100,
+      "sequenceMax": 104,
+      "sequenceContiguous": true,
+      "uniqueIds": 5,
+      "uniqueClientKeys": 5,
+      "latencyMs": {
+        "count": 5,
+        "min": 2680.024,
+        "p50": 3686.944,
+        "p90": 6543.437,
+        "p95": 6543.437,
+        "p99": 6543.437,
+        "max": 6543.437
+      }
+    },
+    "a164a0c0-4cad-44b0-9ece-e095371b2f91": {
+      "count": 5,
+      "sequenceMin": 49,
+      "sequenceMax": 53,
+      "sequenceContiguous": true,
+      "uniqueIds": 5,
+      "uniqueClientKeys": 5,
+      "latencyMs": {
+        "count": 5,
+        "min": 383.302,
+        "p50": 1866.332,
+        "p90": 4105.951,
+        "p95": 4105.951,
+        "p99": 4105.951,
+        "max": 4105.951
+      }
+    }
+  }
+}

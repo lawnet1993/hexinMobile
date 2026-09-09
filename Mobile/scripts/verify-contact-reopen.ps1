@@ -1,11 +1,13 @@
 param(
   [ValidateRange(1, 30)][int]$Iterations = 20,
   [Parameter(Mandatory)][string]$EvidenceDirectory,
-  [Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]+$')][string]$RunName
+  [Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]+$')][string]$RunName,
+  [ValidatePattern('^[a-zA-Z0-9._:-]+$')][string]$Serial = 'emulator-5556',
+  [ValidatePattern('^[^''"]{1,100}$')][string]$ContactName = 'Test Terminal 01'
 )
 
-# UI-only M3 check. Begin on the expanded directory containing the existing
-# test01 contact. Never log credentials, inspect other devices, or send messages.
+# UI-only Android check. Begin on the expanded directory containing the existing
+# target contact. Never log credentials, inspect other devices, or send messages.
 # Durations include adb/uiautomator and MUST NOT be reported as Flutter latency.
 $ErrorActionPreference = 'Stop'
 $adb = 'C:\Users\86137\AppData\Local\Android\Sdk\platform-tools\adb.exe'
@@ -20,7 +22,7 @@ $summaryPath = Join-Path $target ($RunName + '.json')
 if (Test-Path -LiteralPath $summaryPath) { throw 'Choose a new run name.' }
 
 function Invoke-TestAdb([string[]]$CommandArgs) {
-  $result = @(& $adb -s emulator-5556 @CommandArgs 2>&1)
+  $result = @(& $adb -s $Serial @CommandArgs 2>&1)
   if ($LASTEXITCODE -ne 0) { throw 'Android diagnostic command failed.' }
   return $result
 }
@@ -51,7 +53,9 @@ $cycles = @()
 $ui = Read-TestUi 'start'
 try {
   for ($i = 1; $i -le $Iterations; $i++) {
-    $avatar = $ui.SelectSingleNode('//node[contains(@content-desc,"联系Test Terminal 01")]')
+    $avatar = $ui.SelectSingleNode(
+      '//node[contains(@content-desc,"联系' + $ContactName + '")]'
+    )
     $directory = $ui.SelectSingleNode('//node[@content-desc="通讯录"]')
     if ($null -eq $avatar -or $null -eq $directory) { throw 'Expected directory/contact is not visible; no input sent.' }
     $bounds = [regex]::Match($avatar.bounds, '^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$')
@@ -61,7 +65,9 @@ try {
     Invoke-TestAdb @('shell', 'input', 'tap', "$x", "$y") | Out-Null
     $chat = Read-TestUi ("{0:D2}-chat" -f $i)
     if ($null -eq $chat.SelectSingleNode('//node[@content-desc="聊天"]') -or
-        $null -eq $chat.SelectSingleNode('//node[contains(@content-desc,"Test Terminal 01")]')) {
+        $null -eq $chat.SelectSingleNode(
+          '//node[contains(@content-desc,"' + $ContactName + '")]'
+        )) {
       throw 'Expected direct chat did not open.'
     }
     Invoke-TestAdb @('shell', 'input', 'keyevent', '4') | Out-Null
@@ -77,7 +83,7 @@ try {
 } finally {
   $endPid = (Invoke-TestAdb @('shell', 'pidof', $package)) -join ''
   [ordered]@{
-    checkedAt=[DateTimeOffset]::Now.ToString('o');serial='emulator-5556';
+    checkedAt=[DateTimeOffset]::Now.ToString('o');serial=$Serial;
     requested=$Iterations;completed=$cycles.Count;cycles=$cycles;memory=$memory;
     sameProcess=($initialPid -eq $endPid);pid=$endPid;
     timingScope='No frame or input-latency claim; each cycle verified by fresh UI hierarchy.'

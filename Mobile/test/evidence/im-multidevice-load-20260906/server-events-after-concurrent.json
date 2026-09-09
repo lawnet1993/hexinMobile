@@ -1,0 +1,23 @@
+{
+  "checkedAt": "2026-09-06T05:43:27.2192676+08:00",
+  "status": 200,
+  "requestId": "86a9a68d-89f9-4828-bf47-11127d4aba11",
+  "latestSequence": 3560,
+  "returnedEvents": 103,
+  "targetMessageEvents": 60,
+  "uniqueEventIds": 60,
+  "byConversation": [
+    {
+      "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+      "count": 30,
+      "firstEventSequence": 3444.0,
+      "lastEventSequence": 3560.0
+    },
+    {
+      "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "count": 30,
+      "firstEventSequence": 3442.0,
+      "lastEventSequence": 3546.0
+    }
+  ]
+}

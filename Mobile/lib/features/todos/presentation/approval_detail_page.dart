@@ -34,13 +34,21 @@ class ApprovalDetailPage extends ConsumerStatefulWidget {
 }
 
 final approvalDetailAutoRefreshProvider = Provider<bool>((ref) => true);
-final approvalAttachmentTempDirectoryProvider = Provider<Future<Directory> Function()>((ref) => getTemporaryDirectory);
-final approvalAttachmentExternalOpenerProvider = Provider<Future<OpenResult> Function(String)>((ref) => (file) => OpenFilex.open(file));
+final approvalAttachmentTempDirectoryProvider =
+    Provider<Future<Directory> Function()>((ref) => getTemporaryDirectory);
+final approvalAttachmentExternalOpenerProvider =
+    Provider<Future<OpenResult> Function(String)>(
+      (ref) =>
+          (file) => OpenFilex.open(file),
+    );
 
 class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
     with WidgetsBindingObserver {
   bool _submitting = false;
   bool _openingAttachment = false;
+  String? _openingAttachmentId;
+  double? _attachmentDownloadProgress;
+  int _attachmentDownloadReceived = 0;
   CancelToken? _attachmentDownload;
   bool _interacting = false;
   bool _ccReadAttempted = false;
@@ -52,7 +60,18 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_cleanupStaleAttachmentHandoffs());
     _scheduleReconcile();
+  }
+
+  Future<void> _cleanupStaleAttachmentHandoffs() async {
+    try {
+      await cleanupStaleApprovalAttachmentHandoffs(
+        await ref.read(approvalAttachmentTempDirectoryProvider)(),
+      );
+    } catch (_) {
+      // Cache maintenance must never block approval details.
+    }
   }
 
   @override
@@ -166,6 +185,7 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
         imBootstrap.currentMember.id: imBootstrap.currentMember,
       for (final member in members) member.id: member,
     };
+    final taskGroups = _approvalTaskGroups(request.tasks);
     final actionsAvailable = syncAvailability == OaSyncAvailability.available;
     final canApprove =
         actionsAvailable &&
@@ -237,6 +257,13 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
                       (attachment) => _AttachmentRow(
                         attachment,
                         onTap: () => _openAttachment(attachment),
+                        downloading: _openingAttachmentId == attachment.id,
+                        progress: _openingAttachmentId == attachment.id
+                            ? _attachmentDownloadProgress
+                            : null,
+                        receivedBytes: _openingAttachmentId == attachment.id
+                            ? _attachmentDownloadReceived
+                            : 0,
                       ),
                     ),
                   ],
@@ -257,11 +284,11 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
                     member: membersById[request.requesterId],
                     last: request.tasks.isEmpty,
                   ),
-                  ...request.tasks.indexed.map(
-                    (entry) => _TimelineItem(
-                      task: entry.$2,
-                      member: membersById[entry.$2.assigneeId],
-                      last: entry.$1 == request.tasks.length - 1,
+                  ...taskGroups.indexed.map(
+                    (entry) => _TimelineTaskGroup(
+                      group: entry.$2,
+                      membersById: membersById,
+                      last: entry.$1 == taskGroups.length - 1,
                     ),
                   ),
                   if (request.actions.isNotEmpty) ...[
@@ -334,7 +361,11 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
                           onPressed: _submitting || _interacting
                               ? null
                               : () => _chooseSecondaryAction(
-                                  request, task, secondaryActions, members),
+                                  request,
+                                  task,
+                                  secondaryActions,
+                                  members,
+                                ),
                           style: _compactApprovalButtonStyle().copyWith(
                             minimumSize: const WidgetStatePropertyAll(
                               Size(80, 34),
@@ -508,96 +539,197 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
     if (_openingAttachment) return;
     final session = ref.read(authControllerProvider).value;
     if (session == null) return;
-    final temporaryDirectory = ref.read(approvalAttachmentTempDirectoryProvider);
+    final temporaryDirectory = ref.read(
+      approvalAttachmentTempDirectoryProvider,
+    );
     final openExternal = ref.read(approvalAttachmentExternalOpenerProvider);
     final cancel = _attachmentDownload = CancelToken();
-    _openingAttachment = true;
+    setState(() {
+      _openingAttachment = true;
+      _openingAttachmentId = attachment.id;
+      _attachmentDownloadProgress = null;
+      _attachmentDownloadReceived = 0;
+    });
     Directory? downloadedDirectory;
+    Directory? cacheDirectory;
+    var downloadedThisAttempt = false;
     var handedOff = false;
-    bool canOpen() => !cancel.isCancelled && _sameActionSession(session) &&
+    bool canOpen() =>
+        !cancel.isCancelled &&
+        _sameActionSession(session) &&
         ModalRoute.of(context)?.isCurrent == true;
+    void reportProgress(int received, int total) {
+      if (!mounted || !canOpen()) return;
+      final next = total > 0 ? (received / total).clamp(0.0, 1.0) : null;
+      final previous = _attachmentDownloadProgress;
+      final advancedEnough = next != null
+          ? previous == null || next == 1 || next - previous >= 0.01
+          : received == 0 ||
+                received - _attachmentDownloadReceived >= 256 * 1024;
+      if (!advancedEnough) return;
+      setState(() {
+        _attachmentDownloadProgress = next;
+        _attachmentDownloadReceived = received;
+      });
+    }
+
     try {
       if (attachment.isPreviewableImage) {
         final bytes = await ref
             .read(oaRepositoryProvider)
-            .downloadAttachmentPreview(attachment.id,
-                expectedSession: session, cancelToken: cancel);
+            .downloadAttachmentPreview(
+              attachment.id,
+              expectedSession: session,
+              cancelToken: cancel,
+              onReceiveProgress: reportProgress,
+            );
         if (!mounted || !canOpen()) return;
         await Navigator.of(context).push<void>(
           MaterialPageRoute<void>(
             fullscreenDialog: true,
-            builder: (context) => Consumer(builder: (context, ref, _) {
-              final current = ref.watch(authControllerProvider).value;
-              if (current?.isSameSession(session) != true) {
-                return Scaffold(appBar: AppBar(title: const Text('附件预览')),
-                    body: const Center(child: Text('登录状态已变化，请重新打开附件')));
-              }
-              return Scaffold(
-              backgroundColor: Colors.black,
-              body: SafeArea(
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: InteractiveViewer(
-                        minScale: 0.8,
-                        maxScale: 4,
-                        child: Center(child: Image.memory(bytes)),
-                      ),
+            builder: (context) => Consumer(
+              builder: (context, ref, _) {
+                final current = ref.watch(authControllerProvider).value;
+                if (current?.isSameSession(session) != true) {
+                  return Scaffold(
+                    appBar: AppBar(title: const Text('附件预览')),
+                    body: const Center(child: Text('登录状态已变化，请重新打开附件')),
+                  );
+                }
+                return Scaffold(
+                  backgroundColor: Colors.black,
+                  body: SafeArea(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: InteractiveViewer(
+                            minScale: 0.8,
+                            maxScale: 4,
+                            child: Center(child: Image.memory(bytes)),
+                          ),
+                        ),
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: IconButton(
+                            tooltip: '关闭',
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: IconButton(
-                        tooltip: '关闭',
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              );
-            }),
+                  ),
+                );
+              },
+            ),
           ),
         );
         return;
       }
-      final bytes = await ref
-          .read(oaRepositoryProvider)
-          .downloadAttachment(attachment.id,
-              expectedSession: session, cancelToken: cancel);
-      if (!mounted || !canOpen()) return;
+      if (!_isSupportedExternalAttachment(attachment.fileName)) {
+        if (mounted && canOpen()) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('暂不支持在移动端打开此格式，请在桌面端查看')),
+          );
+        }
+        return;
+      }
       final directory = await temporaryDirectory();
       if (!mounted || !canOpen()) return;
-      final scope = sha256.convert(utf8.encode('${session.oaApiUrl}\n${session.userId}')).toString();
-      final accountDirectory = await Directory(path.join(directory.path, 'oa-attachments', scope)).create(recursive: true);
+      final scope = sha256
+          .convert(utf8.encode('${session.oaApiUrl}\n${session.userId}'))
+          .toString();
+      final accountDirectory = await Directory(
+        path.join(directory.path, 'oa-attachments', scope),
+      ).create(recursive: true);
       if (!mounted || !canOpen()) return;
-      downloadedDirectory = await accountDirectory.createTemp('open-');
-      final target = File(
-        path.join(downloadedDirectory.path, path.basename(attachment.fileName)),
+      final safeName = path.basename(attachment.fileName);
+      final cacheKey = sha256
+          .convert(
+            utf8.encode(
+              '${attachment.id}\n$safeName\n${attachment.size}\n${attachment.sha256.trim().toLowerCase()}',
+            ),
+          )
+          .toString();
+      cacheDirectory = Directory(
+        path.join(accountDirectory.path, 'cache-$cacheKey'),
       );
-      await target.writeAsBytes(bytes, flush: true);
+      var target = File(path.join(cacheDirectory.path, safeName));
+      if (!await _isCompleteApprovalAttachment(
+        target,
+        attachment.size,
+        attachment.sha256,
+      )) {
+        if (await cacheDirectory.exists()) {
+          await cacheDirectory.delete(recursive: true);
+        }
+        downloadedDirectory = await accountDirectory.createTemp('download-');
+        final partial = File(path.join(downloadedDirectory.path, safeName));
+        await ref
+            .read(oaRepositoryProvider)
+            .downloadAttachmentToFile(
+              attachment.id,
+              partial.path,
+              expectedSession: session,
+              cancelToken: cancel,
+              onReceiveProgress: reportProgress,
+            );
+        if (!mounted || !canOpen()) return;
+        if (!await _isCompleteApprovalAttachment(
+          partial,
+          attachment.size,
+          attachment.sha256,
+        )) {
+          throw const FileSystemException('附件完整性校验失败');
+        }
+        await cacheDirectory.create(recursive: true);
+        target = await partial.rename(path.join(cacheDirectory.path, safeName));
+        downloadedThisAttempt = true;
+        try {
+          await downloadedDirectory.delete(recursive: true);
+          downloadedDirectory = null;
+        } catch (_) {}
+      }
       if (!mounted || !canOpen()) return;
       final result = await openExternal(target.path);
       handedOff = result.type == ResultType.done;
       if (result.type != ResultType.done && mounted && canOpen()) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(result.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_externalAttachmentOpenFailure(result.type))),
+        );
       }
     } on SessionChangedException {
       return;
     } catch (error) {
       if (mounted && canOpen()) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(mobileErrorText(error, fallback: '附件打开失败，请稍后重试'))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(mobileErrorText(error, fallback: '附件打开失败，请稍后重试')),
+          ),
+        );
       }
     } finally {
       _openingAttachment = false;
       if (identical(_attachmentDownload, cancel)) _attachmentDownload = null;
-      // Only remove the unique directory created by this attempt. Files already
-      // handed to another app must remain readable while that app opens them.
-      if (!handedOff && downloadedDirectory != null) {
-        try { await downloadedDirectory.delete(recursive: true); } catch (_) {}
+      if (mounted && _openingAttachmentId == attachment.id) {
+        setState(() {
+          _openingAttachmentId = null;
+          _attachmentDownloadProgress = null;
+          _attachmentDownloadReceived = 0;
+        });
+      }
+      // Incomplete transfers never become cache entries. A freshly downloaded
+      // file is also discarded if Android could not hand it to a viewer.
+      if (downloadedDirectory != null) {
+        try {
+          await downloadedDirectory.delete(recursive: true);
+        } catch (_) {}
+      }
+      if (!handedOff && downloadedThisAttempt && cacheDirectory != null) {
+        try {
+          await cacheDirectory.delete(recursive: true);
+        } catch (_) {}
       }
     }
   }
@@ -605,7 +737,9 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
   bool _sameActionSession(MobileSession? expected) {
     if (!mounted) return false;
     final current = ref.read(authControllerProvider).value;
-    return expected == null ? current == null : current?.isSameSession(expected) == true;
+    return expected == null
+        ? current == null
+        : current?.isSameSession(expected) == true;
   }
 
   bool _canContinueAction(
@@ -620,16 +754,26 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
     if (!_sameActionSession(expected) ||
         (sending && expected == null && !AppEnvironment.demoMode)) {
       notice = '登录状态已更新，请重新打开审批';
-    } else if (ref.read(oaSyncAvailabilityProvider) != OaSyncAvailability.available) {
+    } else if (ref.read(oaSyncAvailabilityProvider) !=
+        OaSyncAvailability.available) {
       notice = '当前连接不可用，请联网后重新操作';
     } else {
       final latest = ref.read(oaApprovalRequestProvider(original.id)).value;
-      final sameTask = task == null || latest?.tasks.any((candidate) =>
-          candidate.id == task.id && candidate.version == task.version &&
-          candidate.assigneeId == task.assigneeId && candidate.canOperate) == true;
-      if (latest == null || latest.id != original.id ||
+      final sameTask =
+          task == null ||
+          latest?.tasks.any(
+                (candidate) =>
+                    candidate.id == task.id &&
+                    candidate.version == task.version &&
+                    candidate.assigneeId == task.assigneeId &&
+                    candidate.canOperate,
+              ) ==
+              true;
+      if (latest == null ||
+          latest.id != original.id ||
           latest.requesterId != original.requesterId ||
-          !latest.allowedActions.contains(action) || !sameTask) {
+          !latest.allowedActions.contains(action) ||
+          !sameTask) {
         notice = '审批状态已更新，请重新确认';
       }
     }
@@ -651,9 +795,16 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
     setState(() => _interacting = true);
     try {
       final action = await _showSecondaryActionsSheet(context, actions);
-      if (action == null || !mounted || !_canContinueAction(session, request,
-          const {'transfer', 'add_sign', 'return'}.contains(action) ? task : null,
-          action)) {
+      if (action == null ||
+          !mounted ||
+          !_canContinueAction(
+            session,
+            request,
+            const {'transfer', 'add_sign', 'return'}.contains(action)
+                ? task
+                : null,
+            action,
+          )) {
         return;
       }
       await _runSecondaryAction(request, task, action, members, session);
@@ -671,9 +822,12 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
   ) async {
     Future<OaApprovalRequest> Function()? operation;
     bool canContinue({bool sending = false}) => _canContinueAction(
-      expectedSession, request,
+      expectedSession,
+      request,
       const {'transfer', 'add_sign', 'return'}.contains(action) ? task : null,
-      action, sending: sending);
+      action,
+      sending: sending,
+    );
     if (action == 'transfer' || action == 'add_sign') {
       if (task == null) return;
       final member = await _showMemberPicker(
@@ -720,15 +874,22 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
       if (reason == null) return;
       operation = () => ref
           .read(oaRepositoryProvider)
-          .returnApproval(requestId: request.id, task: task, reason: reason,
-              expectedSession: expectedSession);
+          .returnApproval(
+            requestId: request.id,
+            task: task,
+            reason: reason,
+            expectedSession: expectedSession,
+          );
     } else if (action == 'withdraw') {
       final reason = await _showReasonSheet(context, title: '撤回原因');
       if (reason == null) return;
       operation = () => ref
           .read(oaRepositoryProvider)
-          .withdrawApproval(requestId: request.id, reason: reason,
-              expectedSession: expectedSession);
+          .withdrawApproval(
+            requestId: request.id,
+            reason: reason,
+            expectedSession: expectedSession,
+          );
     } else if (action == 'remind') {
       final comment = await _showReasonSheet(
         context,
@@ -738,8 +899,11 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
       if (comment == null) return;
       operation = () => ref
           .read(oaRepositoryProvider)
-          .remindApproval(requestId: request.id, comment: comment,
-              expectedSession: expectedSession);
+          .remindApproval(
+            requestId: request.id,
+            comment: comment,
+            expectedSession: expectedSession,
+          );
     }
     if (operation == null || !canContinue(sending: true)) return;
     setState(() => _submitting = true);
@@ -781,8 +945,15 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
     setState(() => _interacting = true);
     try {
       final draft = await _showReviewSheet(context, approve);
-      if (draft == null || !mounted || !_canContinueAction(session, request, task,
-          approve ? 'approve' : 'reject', sending: true)) {
+      if (draft == null ||
+          !mounted ||
+          !_canContinueAction(
+            session,
+            request,
+            task,
+            approve ? 'approve' : 'reject',
+            sending: true,
+          )) {
         return;
       }
       setState(() => _submitting = true);
@@ -826,6 +997,74 @@ class _ApprovalDetailPageState extends ConsumerState<ApprovalDetailPage>
       }
     }
   }
+}
+
+Future<void> cleanupStaleApprovalAttachmentHandoffs(
+  Directory temporaryRoot, {
+  DateTime? now,
+  Duration maxAge = const Duration(hours: 24),
+}) async {
+  final root = Directory(path.join(temporaryRoot.path, 'oa-attachments'));
+  if (!await root.exists()) return;
+  final cutoff = (now ?? DateTime.now()).subtract(maxAge);
+  await for (final account in root.list(followLinks: false)) {
+    if (account is! Directory) continue;
+    await for (final candidate in account.list(followLinks: false)) {
+      final name = path.basename(candidate.path);
+      if (candidate is! Directory ||
+          !(name.startsWith('open-') ||
+              name.startsWith('cache-') ||
+              name.startsWith('download-'))) {
+        continue;
+      }
+      try {
+        if ((await _latestModified(candidate)).isBefore(cutoff)) {
+          await candidate.delete(recursive: true);
+        }
+      } catch (_) {
+        // The external viewer may still own the file. Retry on a later visit.
+      }
+    }
+    try {
+      if (await account.list(followLinks: false).isEmpty) {
+        await account.delete();
+      }
+    } catch (_) {}
+  }
+  try {
+    if (await root.list(followLinks: false).isEmpty) await root.delete();
+  } catch (_) {}
+}
+
+Future<bool> _isCompleteApprovalAttachment(
+  File file,
+  int expectedSize,
+  String expectedSha256,
+) async {
+  try {
+    if (!await file.exists()) return false;
+    final actualSize = await file.length();
+    if (actualSize <= 0) return false;
+    if (expectedSize > 0 && actualSize != expectedSize) return false;
+    final normalizedDigest = expectedSha256.trim().toLowerCase();
+    if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(normalizedDigest)) return true;
+    final actualDigest = await sha256.bind(file.openRead()).first;
+    return actualDigest.toString() == normalizedDigest;
+  } catch (_) {
+    return false;
+  }
+}
+
+Future<DateTime> _latestModified(Directory directory) async {
+  DateTime? latest;
+  await for (final entity in directory.list(
+    recursive: true,
+    followLinks: false,
+  )) {
+    final modified = (await entity.stat()).modified;
+    if (latest == null || modified.isAfter(latest)) latest = modified;
+  }
+  return latest ?? (await directory.stat()).modified;
 }
 
 class _ApprovalDetailSyncStrip extends StatelessWidget {
@@ -1088,84 +1327,171 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _AttachmentRow extends ConsumerWidget {
-  const _AttachmentRow(this.attachment, {required this.onTap});
+  const _AttachmentRow(
+    this.attachment, {
+    required this.onTap,
+    required this.downloading,
+    this.progress,
+    this.receivedBytes = 0,
+  });
 
   final OaApprovalAttachment attachment;
   final VoidCallback onTap;
+  final bool downloading;
+  final double? progress;
+  final int receivedBytes;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(8),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 32,
-            height: 32,
-            child: attachment.isPreviewableImage
-                ? ref
-                      .watch(oaAttachmentThumbnailProvider(attachment.id))
-                      .when(
-                        data: (bytes) => ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: Image.memory(
-                            bytes,
-                            fit: BoxFit.cover,
-                            cacheWidth:
-                                (32 * MediaQuery.devicePixelRatioOf(context))
-                                    .round()
-                                    .clamp(32, 192),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final requiresDesktop =
+        !attachment.isPreviewableImage &&
+        !_isSupportedExternalAttachment(attachment.fileName);
+    final idleActionLabel = attachment.isPreviewableImage
+        ? '点击预览'
+        : requiresDesktop
+        ? '请在桌面端查看'
+        : '点击打开';
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: attachment.isPreviewableImage
+                  ? ref
+                        .watch(oaAttachmentThumbnailProvider(attachment.id))
+                        .when(
+                          data: (bytes) => ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.memory(
+                              bytes,
+                              fit: BoxFit.cover,
+                              cacheWidth:
+                                  (32 * MediaQuery.devicePixelRatioOf(context))
+                                      .round()
+                                      .clamp(32, 192),
+                            ),
                           ),
-                        ),
-                        loading: () => const Center(
-                          child: SizedBox.square(
-                            dimension: 14,
-                            child: CircularProgressIndicator(strokeWidth: 1.5),
+                          loading: () => const Center(
+                            child: SizedBox.square(
+                              dimension: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                              ),
+                            ),
                           ),
-                        ),
-                        error: (_, _) => const Icon(
-                          Icons.image_outlined,
-                          color: AppColors.primary,
-                          size: 24,
-                        ),
-                      )
-                : const Icon(
-                    Icons.insert_drive_file_outlined,
-                    color: AppColors.primary,
-                    size: 25,
-                  ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  attachment.fileName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  '${_fileSize(attachment.size)} · ${attachment.isPreviewableImage ? '点击预览' : '点击打开'}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryText,
-                  ),
-                ),
-              ],
+                          error: (_, _) => const Icon(
+                            Icons.image_outlined,
+                            color: AppColors.primary,
+                            size: 24,
+                          ),
+                        )
+                  : const Icon(
+                      Icons.insert_drive_file_outlined,
+                      color: AppColors.primary,
+                      size: 25,
+                    ),
             ),
-          ),
-          const Icon(
-            Icons.chevron_right,
-            size: 20,
-            color: AppColors.secondaryText,
-          ),
-        ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    attachment.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    downloading
+                        ? '${_fileSize(attachment.size)} · ${_downloadLabel(progress, receivedBytes)}'
+                        : '${_fileSize(attachment.size)} · $idleActionLabel',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (downloading)
+              SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(
+                  key: ValueKey(
+                    'oa-attachment-download-progress-${attachment.id}',
+                  ),
+                  value: progress,
+                  strokeWidth: 2,
+                ),
+              )
+            else if (requiresDesktop)
+              const Icon(
+                Icons.desktop_windows_outlined,
+                size: 18,
+                color: AppColors.secondaryText,
+              )
+            else
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppColors.secondaryText,
+              ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+String _downloadLabel(double? progress, int receivedBytes) {
+  if (progress != null) return '下载 ${(progress * 100).round()}%';
+  if (receivedBytes > 0) return '已下载 ${_fileSize(receivedBytes)}';
+  return '正在下载';
+}
+
+String _externalAttachmentOpenFailure(ResultType type) => switch (type) {
+  ResultType.fileNotFound => '附件文件不存在，请重新下载',
+  ResultType.noAppToOpen => '未找到可打开此格式的应用',
+  ResultType.permissionDenied => '没有权限打开附件，请在系统设置中允许文件访问',
+  ResultType.error => '附件打开失败，请稍后重试',
+  ResultType.done => '',
+};
+
+bool _isSupportedExternalAttachment(String fileName) {
+  final extension = path.extension(fileName).toLowerCase();
+  return const {
+    '.pdf',
+    '.doc',
+    '.docx',
+    '.xls',
+    '.xlsx',
+    '.csv',
+    '.ppt',
+    '.pptx',
+    '.txt',
+    '.md',
+    '.json',
+    '.xml',
+    '.zip',
+    '.rar',
+    '.7z',
+    '.mp3',
+    '.m4a',
+    '.aac',
+    '.wav',
+    '.ogg',
+    '.flac',
+    '.mp4',
+    '.mov',
+    '.mkv',
+    '.webm',
+    '.avi',
+  }.contains(extension);
 }
 
 class _SubmissionTimelineItem extends StatelessWidget {
@@ -1260,13 +1586,7 @@ class _TimelineItem extends StatelessWidget {
     final canceled = status == 'canceled' || status == 'cancelled';
     final active = task.canOperate || status == 'pending';
     final actorDetails = _approvalTaskActorDetails(task, member);
-    final color = rejected
-        ? AppColors.error
-        : completed
-        ? AppColors.success
-        : active
-        ? AppColors.primary
-        : AppColors.weakText;
+    final color = _approvalTaskStatusColor(task);
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1393,6 +1713,241 @@ class _TimelineItem extends StatelessWidget {
       ),
     );
   }
+}
+
+final class _ApprovalTaskGroup {
+  const _ApprovalTaskGroup(this.tasks);
+
+  final List<OaApprovalTask> tasks;
+
+  OaApprovalTask get first => tasks.first;
+}
+
+List<_ApprovalTaskGroup> _approvalTaskGroups(List<OaApprovalTask> tasks) {
+  final groups = <_ApprovalTaskGroup>[];
+  for (final task in tasks) {
+    final nodeId = task.nodeId.trim();
+    final previous = groups.isEmpty ? null : groups.last;
+    final sameRuntimeNode =
+        nodeId.isNotEmpty &&
+        previous != null &&
+        previous.first.nodeId.trim() == nodeId &&
+        previous.first.stage == task.stage;
+    if (sameRuntimeNode) {
+      groups[groups.length - 1] = _ApprovalTaskGroup(
+        List.unmodifiable([...previous.tasks, task]),
+      );
+    } else {
+      groups.add(_ApprovalTaskGroup(List.unmodifiable([task])));
+    }
+  }
+  return List.unmodifiable(groups);
+}
+
+class _TimelineTaskGroup extends StatelessWidget {
+  const _TimelineTaskGroup({
+    required this.group,
+    required this.membersById,
+    required this.last,
+  });
+
+  final _ApprovalTaskGroup group;
+  final Map<String, ImMember> membersById;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) {
+    if (group.tasks.length == 1) {
+      final task = group.first;
+      return _TimelineItem(
+        task: task,
+        member: membersById[task.assigneeId],
+        last: last,
+      );
+    }
+    final tasks = group.tasks;
+    final active = tasks.any(
+      (task) => task.canOperate || task.status.toLowerCase() == 'pending',
+    );
+    final rejected = tasks.any(
+      (task) => task.status.toLowerCase() == 'rejected',
+    );
+    final completed = tasks.every((task) {
+      final status = task.status.toLowerCase();
+      return status == 'approved' ||
+          status == 'completed' ||
+          status == 'canceled' ||
+          status == 'cancelled';
+    });
+    final color = rejected
+        ? AppColors.error
+        : completed
+        ? AppColors.success
+        : active
+        ? AppColors.primary
+        : AppColors.weakText;
+    final completionLabel = _approvalCompletionModeLabel(
+      tasks
+          .map((task) => task.completionMode)
+          .firstWhere((value) => value.trim().isNotEmpty, orElse: () => ''),
+    );
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 24,
+            child: Column(
+              children: [
+                Icon(
+                  rejected
+                      ? Icons.cancel_rounded
+                      : completed
+                      ? Icons.check_circle_rounded
+                      : active
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.schedule_rounded,
+                  color: color,
+                  size: 18,
+                ),
+                if (!last)
+                  Expanded(child: Container(width: 1, color: AppColors.border)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          group.first.nodeName.isEmpty
+                              ? '审批节点'
+                              : group.first.nodeName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAF2FF),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          completionLabel,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  ...tasks.map((task) {
+                    final member = membersById[task.assigneeId];
+                    final actorDetails = _approvalTaskActorDetails(
+                      task,
+                      member,
+                    );
+                    final taskColor = _approvalTaskStatusColor(task);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          InitialAvatar(
+                            name: actorDetails.isEmpty
+                                ? task.nodeName
+                                : actorDetails.first,
+                            radius: 14,
+                            avatarKey: member?.avatarKey ?? '',
+                            avatarDataUrl: member?.avatarDataUrl ?? '',
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              actorDetails.join(' · '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.secondaryText,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                key: ValueKey<String>(
+                                  'approval-task-status-${task.id}',
+                                ),
+                                _taskStatusLabel(task),
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: taskColor,
+                                ),
+                              ),
+                              if (task.completedAt != null)
+                                Text(
+                                  key: ValueKey<String>(
+                                    'approval-task-completed-at-${task.id}',
+                                  ),
+                                  DateFormat('MM-dd HH:mm')
+                                      .format(task.completedAt!),
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    color: AppColors.secondaryText,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _approvalCompletionModeLabel(String value) {
+  return switch (value.trim().toLowerCase()) {
+    'all' || 'all_approve' || 'countersign' => '会签',
+    'any' || 'any_approve' || 'or_sign' => '或签',
+    'sequential' || 'serial' => '依次审批',
+    'single' => '单人审批',
+    _ => '多人审批',
+  };
+}
+
+Color _approvalTaskStatusColor(OaApprovalTask task) {
+  final status = task.status.toLowerCase();
+  if (status == 'rejected') return AppColors.error;
+  if (status == 'approved' || status == 'completed') {
+    return AppColors.success;
+  }
+  if (task.canOperate || status == 'pending') return AppColors.primary;
+  return AppColors.weakText;
 }
 
 class _ActionRow extends StatelessWidget {
@@ -1542,7 +2097,7 @@ Future<ImMember?> _showMemberPicker(
   String title,
   List<ImMember> members,
 ) async {
-  final searchController = TextEditingController();
+  final searchController = MobileSearchTextController(searchLabel: '搜索姓名或部门');
   var query = '';
   final result = await showModalBottomSheet<ImMember>(
     context: context,
@@ -1611,7 +2166,7 @@ Future<ImMember?> _showMemberPicker(
                     key: const Key('approval-member-search'),
                     controller: searchController,
                     autofocus: false,
-                    hintText: '搜索姓名、账号或部门',
+                    hintText: '搜索姓名或部门',
                     onChanged: (value) =>
                         setSheetState(() => query = value.trim()),
                   ),
@@ -1661,9 +2216,7 @@ Future<ImMember?> _showMemberPicker(
                                   ),
                                 ),
                                 subtitle: Text(
-                                  [member.username, member.departmentName]
-                                      .where((value) => value.isNotEmpty)
-                                      .join(' · '),
+                                  member.departmentName,
                                   style: const TextStyle(fontSize: 11),
                                 ),
                                 onTap: () => Navigator.pop(context, member),
@@ -1844,6 +2397,7 @@ List<_FieldValue> _formRows(OaApprovalRequest request) {
           ?.toString()
           .trim();
       if (key == null || key.isEmpty || !data.containsKey(key)) continue;
+      if (_isHiddenFormField(request, field, key)) continue;
       final type = field['type']?.toString().toLowerCase();
       if (type == 'attachment' || type == 'file') continue;
       final label = (field['label'] ?? field['title'] ?? key).toString();
@@ -1884,6 +2438,23 @@ List<_FieldValue> _formRows(OaApprovalRequest request) {
         ),
       )
       .toList();
+}
+
+bool _isHiddenFormField(
+  OaApprovalRequest request,
+  Map<String, Object?> field,
+  String key,
+) {
+  if (field['hidden'] == true || field['visible'] == false) return true;
+  final applicationKey = request.applicationKey.trim().toLowerCase();
+  final normalizedKey = key
+      .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+      .toLowerCase();
+  // Attendance correction stores the selected exception as an internal UUID.
+  // The desktop submission flow hides this technical reference as well; the
+  // user-facing correction time and reason remain in the request snapshot.
+  return applicationKey == 'attendance.punch_correction' &&
+      const {'exceptionid', 'attendanceexceptionid'}.contains(normalizedKey);
 }
 
 bool _isSchemaConfigurationValue(Object? value, Map<String, Object?> field) {
@@ -2080,7 +2651,6 @@ List<String> _approvalTaskActorDetails(OaApprovalTask task, ImMember? member) {
       : task.assigneeName.trim();
   return <String>[
     if (name.isNotEmpty) name,
-    if (member?.username.trim().isNotEmpty == true) member!.username.trim(),
     if (member?.departmentName.trim().isNotEmpty == true)
       member!.departmentName.trim(),
   ];

@@ -1,0 +1,78 @@
+{
+  "stamp": "20260906-031723",
+  "senders": [
+    {
+      "serial": "emulator-5554",
+      "startedAt": "2026-09-05T19:17:24.0255033Z",
+      "finishedAt": "2026-09-05T19:17:30.5637471Z",
+      "PSComputerName": "localhost",
+      "RunspaceId": "44ac2ba8-ae00-48ac-95be-33f56715de66",
+      "PSShowComputerName": false
+    },
+    {
+      "serial": "emulator-5556",
+      "startedAt": "2026-09-05T19:17:24.5847018Z",
+      "finishedAt": "2026-09-05T19:17:32.7334239Z",
+      "PSComputerName": "localhost",
+      "RunspaceId": "9db477b9-5f1a-4507-b5ac-27fa7df8d094",
+      "PSShowComputerName": false
+    }
+  ],
+  "samples": [
+    {
+      "index": 1,
+      "capturedAt": "2026-09-05T19:17:25.5187632Z",
+      "newRows": 0
+    },
+    {
+      "index": 2,
+      "capturedAt": "2026-09-05T19:17:26.7419584Z",
+      "newRows": 1
+    },
+    {
+      "index": 3,
+      "capturedAt": "2026-09-05T19:17:27.9084091Z",
+      "newRows": 1
+    },
+    {
+      "index": 4,
+      "capturedAt": "2026-09-05T19:17:29.0663996Z",
+      "newRows": 3
+    },
+    {
+      "index": 5,
+      "capturedAt": "2026-09-05T19:17:30.1871133Z",
+      "newRows": 6
+    },
+    {
+      "index": 6,
+      "capturedAt": "2026-09-05T19:17:31.2584959Z",
+      "newRows": 7
+    },
+    {
+      "index": 7,
+      "capturedAt": "2026-09-05T19:17:32.3023043Z",
+      "newRows": 7
+    },
+    {
+      "index": 8,
+      "capturedAt": "2026-09-05T19:17:33.3298315Z",
+      "newRows": 9
+    },
+    {
+      "index": 9,
+      "capturedAt": "2026-09-05T19:17:34.3038738Z",
+      "newRows": 9
+    },
+    {
+      "index": 10,
+      "capturedAt": "2026-09-05T19:17:35.3094604Z",
+      "newRows": 9
+    },
+    {
+      "index": 11,
+      "capturedAt": "2026-09-05T19:17:36.2888674Z",
+      "newRows": 10
+    }
+  ]
+}

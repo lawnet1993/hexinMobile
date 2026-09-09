@@ -1,0 +1,63 @@
+{
+  "apkSha256": "1DB548D88E0979009D3F94ABAB119F0AED7846EAD85DC61BFAD6F7A320BBA4B9",
+  "group": [
+    {
+      "serial": "emulator-5554",
+      "complete": true,
+      "received": 324,
+      "range": "1..324",
+      "uniqueIds": 324,
+      "uniqueClientKeys": 324,
+      "outbox": 0,
+      "integrity": "ok",
+      "acked": 5429,
+      "applied": 5429
+    },
+    {
+      "serial": "emulator-5556",
+      "complete": true,
+      "received": 324,
+      "range": "1..324",
+      "uniqueIds": 324,
+      "uniqueClientKeys": 324,
+      "outbox": 0,
+      "integrity": "ok",
+      "acked": 5430,
+      "applied": 5430
+    },
+    {
+      "serial": "emulator-5558",
+      "complete": true,
+      "received": 324,
+      "range": "1..324",
+      "uniqueIds": 324,
+      "uniqueClientKeys": 324,
+      "outbox": 0,
+      "integrity": "ok",
+      "acked": 5428,
+      "applied": 5428
+    }
+  ],
+  "shell": [
+    {
+      "serial": "emulator-5554",
+      "hasShellTabs": true,
+      "hasLoginFields": false
+    },
+    {
+      "serial": "emulator-5556",
+      "hasShellTabs": false,
+      "hasLoginFields": false
+    },
+    {
+      "serial": "emulator-5558",
+      "hasShellTabs": true,
+      "hasLoginFields": false
+    },
+    {
+      "serial": "emulator-5560",
+      "hasShellTabs": true,
+      "hasLoginFields": false
+    }
+  ]
+}

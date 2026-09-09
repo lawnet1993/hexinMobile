@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../attendance/presentation/inspection_response_sheet.dart';
 import '../../../core/theme/tdesign_icons.dart';
+import '../../../core/diagnostics/mobile_startup_diagnostics.dart';
 import '../../../core/notifications/mobile_push_registration.dart';
 import '../../../core/updates/client_update_repository.dart';
 import '../../../core/updates/client_update_sheet.dart';
@@ -44,10 +45,12 @@ class _MobileShellState extends ConsumerState<MobileShell>
   late final MobilePushRegistration _pushRegistration;
   late final ManagedTerminalCommandCoordinator _terminalCommandCoordinator;
   bool _sessionRuntimeStopped = false;
+  bool _notificationPermissionChecked = false;
 
   @override
   void initState() {
     super.initState();
+    MobileStartupDiagnostics.markCurrent(MobileStartupStage.shellCreated);
     _presenceCoordinator = ref.read(mobilePresenceCoordinatorProvider);
     _imSyncCoordinator = ref.read(imSyncCoordinatorProvider);
     _oaSyncCoordinator = ref.read(oaCatalogSyncCoordinatorProvider);
@@ -72,9 +75,13 @@ class _MobileShellState extends ConsumerState<MobileShell>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      MobileStartupDiagnostics.markCurrent(MobileStartupStage.shellFirstFrame);
       ref
           .read(imRealtimeAvailabilityControllerProvider.notifier)
           .markConnecting();
+      MobileStartupDiagnostics.markCurrent(
+        MobileStartupStage.collaborationSyncRequested,
+      );
       _synchronizeCollaboration();
       _checkClientUpdate();
       _checkActiveInspection();
@@ -100,6 +107,23 @@ class _MobileShellState extends ConsumerState<MobileShell>
       await _pushRegistration.start(onOpenRoute: _openPushRoute);
     } catch (_) {
       // Push registration must not block local cache and foreground sync.
+    }
+    if (!mounted || _sessionRuntimeStopped) return;
+    await _requestNotificationPermissionIfNeeded();
+  }
+
+  Future<void> _requestNotificationPermissionIfNeeded() async {
+    if (_notificationPermissionChecked) return;
+    _notificationPermissionChecked = true;
+    try {
+      await requestMobileNotificationPermissionIfNeeded(
+        ref.read(mobileNotificationPermissionSourceProvider),
+      );
+      if (mounted) {
+        ref.invalidate(mobileNotificationPermissionStateProvider);
+      }
+    } catch (_) {
+      // A denied or unavailable system permission must not block IM/OA startup.
     }
   }
 

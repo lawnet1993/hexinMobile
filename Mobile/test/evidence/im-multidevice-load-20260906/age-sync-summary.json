@@ -1,0 +1,25 @@
+{
+  "batches": 17,
+  "events": 20.0,
+  "eventSequenceRange": "3726..3764",
+  "eventAgeMs": {
+    "max": 1844.0,
+    "p95": 1844,
+    "median": 244,
+    "clockSkewSamples": 1
+  },
+  "bootstrapMs": {
+    "average": 48.29,
+    "max": 71.0
+  },
+  "commitMs": {
+    "average": 182.41,
+    "max": 344.0
+  },
+  "ackMs": {
+    "average": 331.65,
+    "p95": 1595,
+    "max": 1595.0
+  },
+  "zeroWaitBatches": 1
+}

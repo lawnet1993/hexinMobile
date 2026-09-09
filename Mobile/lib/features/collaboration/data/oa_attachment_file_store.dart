@@ -147,6 +147,9 @@ final class OaAttachmentFileStore {
     Iterable<OaStoredAttachment> files,
   ) => _delegate.deleteAll(accountId, files.map((file) => file._delegate));
 
+  Future<void> deleteIncompleteWrites(String accountId) =>
+      _delegate.deleteIncompleteWrites(accountId);
+
   static String _owner(String ownerId) {
     if (ownerId.trim().isEmpty) {
       throw ArgumentError('OA attachment owner is required.');

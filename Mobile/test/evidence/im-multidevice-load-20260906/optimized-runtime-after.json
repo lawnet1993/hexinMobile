@@ -1,0 +1,23 @@
+[
+  {
+    "serial": "dd00d66d",
+    "totalPssKiB": 226180,
+    "totalRssKiB": 340900,
+    "totalFrames": 0,
+    "jankyFrames": 0
+  },
+  {
+    "serial": "emulator-5554",
+    "totalPssKiB": 213615,
+    "totalRssKiB": 276000,
+    "totalFrames": 20,
+    "jankyFrames": 9
+  },
+  {
+    "serial": "emulator-5556",
+    "totalPssKiB": 207162,
+    "totalRssKiB": 260824,
+    "totalFrames": 19,
+    "jankyFrames": 10
+  }
+]

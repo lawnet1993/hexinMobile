@@ -10,12 +10,22 @@ import 'package:hexing_terminal_mobile/features/contacts/presentation/contacts_p
 import 'package:hexing_terminal_mobile/features/messages/presentation/messages_page.dart';
 import 'package:hexing_terminal_mobile/features/notifications/presentation/notifications_page.dart';
 import 'package:hexing_terminal_mobile/features/todos/presentation/todos_page.dart';
+import 'package:hexing_terminal_mobile/features/workbench/presentation/workbench_page.dart';
 
 void main() {
   testWidgets('primary modules announce their own loading state', (
     tester,
   ) async {
     final scenarios = <({Widget page, List<Override> overrides, String label})>[
+      (
+        page: const WorkbenchPage(),
+        overrides: [
+          oaBootstrapProvider.overrideWith(
+            (ref) => Completer<OaBootstrap>().future,
+          ),
+        ],
+        label: '正在加载工作台',
+      ),
       (
         page: const MessagesPage(),
         overrides: [

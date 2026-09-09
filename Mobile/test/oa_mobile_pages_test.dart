@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hexing_terminal_mobile/core/demo/preview_data.dart';
+import 'package:hexing_terminal_mobile/core/theme/app_colors.dart';
 import 'package:hexing_terminal_mobile/core/notifications/mobile_push_registration.dart';
 import 'package:hexing_terminal_mobile/core/updates/client_update_repository.dart';
 import 'package:hexing_terminal_mobile/features/attendance/presentation/attendance_page.dart';
@@ -27,175 +28,291 @@ import 'package:intl/intl.dart';
 void main() {
   for (final unit in ['days', 'hours']) {
     for (final boundary in ['before', 'equal', 'valid']) {
-      testWidgets('configured $unit duration gives precise $boundary range feedback', (tester) async {
-        final template = OaApprovalTemplate(
-          id: 'range-template', name: '时段申请', category: '测试',
-          iconKey: 'leave', workflowKey: 'attendance.leave', version: 1,
-          formSchemaJson: jsonEncode({'fields': [
-            {'id': 'opened', 'label': '出发时刻', 'type': 'datetime', 'required': true},
-            {'id': 'closed', 'label': '返程时刻', 'type': 'datetime', 'required': true},
-            {'id': 'span', 'label': '时长', 'type': 'number', 'required': true,
-              'durationStartFieldId': 'opened', 'durationEndFieldId': 'closed', 'durationUnit': unit},
-          ]}),
-        );
-        final bootstrap = OaBootstrap(
-          currentMemberId: PreviewData.oaBootstrap.currentMemberId,
-          displayName: PreviewData.oaBootstrap.displayName,
-          todos: PreviewData.oaBootstrap.todos,
-          announcements: PreviewData.oaBootstrap.announcements,
-          templates: [template],
-        );
-        await _pump(tester, ApprovalRequestPage(
-          applicationKey: 'attendance.leave', templateId: template.id,
-          initialFormData: {
-            'opened': '2026-09-06T09:00:00',
-            'closed': switch (boundary) {
-              'before' => '2026-09-05T09:00:00',
-              'equal' => '2026-09-06T09:00:00',
-              _ => '2026-09-06T10:30:00',
-            },
-            'span': 99,
-          },
-        ), overrides: [
-          oaBootstrapProvider.overrideWith((ref) async => bootstrap),
-          oaApplicationCatalogProvider.overrideWith((ref) async => PreviewData.oaCatalog),
-          imBootstrapProvider.overrideWith((ref) async => PreviewData.imBootstrap),
-          oaWorkflowPreviewLoaderProvider.overrideWithValue(({
-            required applicationKey, required template, required formData,
-          }) async => PreviewData.workflowPreview(template)),
-        ]);
-        await tester.pumpAndSettle();
-        final duration = tester.widget<TextField>(find.descendant(
-          of: find.byWidgetPredicate((widget) => widget.key is ValueKey<String> &&
-            (widget.key! as ValueKey<String>).value.startsWith('schema-span-')),
-          matching: find.byType(TextField)));
-        if (boundary == 'valid') {
-          expect(duration.controller!.text, unit == 'days' ? '1' : '1.5');
-          expect(find.text('“返程时刻”必须晚于“出发时刻”'), findsNothing);
-        } else {
-          expect(duration.controller!.text, isEmpty);
-          await tester.tap(find.byKey(const Key('approval-submit-button')));
+      testWidgets(
+        'configured $unit duration gives precise $boundary range feedback',
+        (tester) async {
+          final template = OaApprovalTemplate(
+            id: 'range-template',
+            name: '时段申请',
+            category: '测试',
+            iconKey: 'leave',
+            workflowKey: 'attendance.leave',
+            version: 1,
+            formSchemaJson: jsonEncode({
+              'fields': [
+                {
+                  'id': 'opened',
+                  'label': '出发时刻',
+                  'type': 'datetime',
+                  'required': true,
+                },
+                {
+                  'id': 'closed',
+                  'label': '返程时刻',
+                  'type': 'datetime',
+                  'required': true,
+                },
+                {
+                  'id': 'span',
+                  'label': '时长',
+                  'type': 'number',
+                  'required': true,
+                  'durationStartFieldId': 'opened',
+                  'durationEndFieldId': 'closed',
+                  'durationUnit': unit,
+                },
+              ],
+            }),
+          );
+          final bootstrap = OaBootstrap(
+            currentMemberId: PreviewData.oaBootstrap.currentMemberId,
+            displayName: PreviewData.oaBootstrap.displayName,
+            todos: PreviewData.oaBootstrap.todos,
+            announcements: PreviewData.oaBootstrap.announcements,
+            templates: [template],
+          );
+          await _pump(
+            tester,
+            ApprovalRequestPage(
+              applicationKey: 'attendance.leave',
+              templateId: template.id,
+              initialFormData: {
+                'opened': '2026-09-06T09:00:00',
+                'closed': switch (boundary) {
+                  'before' => '2026-09-05T09:00:00',
+                  'equal' => '2026-09-06T09:00:00',
+                  _ => '2026-09-06T10:30:00',
+                },
+                'span': 99,
+              },
+            ),
+            overrides: [
+              oaBootstrapProvider.overrideWith((ref) async => bootstrap),
+              oaApplicationCatalogProvider.overrideWith(
+                (ref) async => PreviewData.oaCatalog,
+              ),
+              imBootstrapProvider.overrideWith(
+                (ref) async => PreviewData.imBootstrap,
+              ),
+              oaWorkflowPreviewLoaderProvider.overrideWithValue(
+                ({
+                  required applicationKey,
+                  required template,
+                  required formData,
+                }) async => PreviewData.workflowPreview(template),
+              ),
+            ],
+          );
           await tester.pumpAndSettle();
-          expect(find.text('“返程时刻”必须晚于“出发时刻”'), findsOneWidget);
-          expect(find.text('时长尚未计算，请检查关联字段'), findsNothing);
-          expect(find.descendant(
-            of: find.byKey(const ValueKey('schema-closed-date')),
-            matching: find.text('“返程时刻”必须晚于“出发时刻”')), findsOneWidget);
-          final invalidDuration = tester.widget<TextField>(find.descendant(
-            of: find.byKey(const ValueKey('schema-span-')), matching: find.byType(TextField)));
-          expect(invalidDuration.decoration!.errorText, isNull);
-          await tester.tap(find.byKey(const ValueKey('schema-closed-date')));
-          await tester.pumpAndSettle();
-          tester.widget<CalendarDatePicker>(find.byType(CalendarDatePicker))
-              .onDateChanged(DateTime(2026, 9, 7));
-          await tester.tap(find.text('确定'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('确定'));
-          await tester.pumpAndSettle();
-          expect(find.text('“返程时刻”必须晚于“出发时刻”'), findsNothing);
-          final corrected = tester.widget<TextField>(find.descendant(
-            of: find.byWidgetPredicate((widget) => widget.key is ValueKey<String> &&
-              (widget.key! as ValueKey<String>).value.startsWith('schema-span-')),
-            matching: find.byType(TextField)));
-          expect(num.parse(corrected.controller!.text), unit == 'days' ? 2 : 24);
-        }
-        expect(tester.takeException(), isNull);
-      });
+          final duration = tester.widget<TextField>(
+            find.descendant(
+              of: find.byWidgetPredicate(
+                (widget) =>
+                    widget.key is ValueKey<String> &&
+                    (widget.key! as ValueKey<String>).value.startsWith(
+                      'schema-span-',
+                    ),
+              ),
+              matching: find.byType(TextField),
+            ),
+          );
+          if (boundary == 'valid') {
+            expect(duration.controller!.text, unit == 'days' ? '1' : '1.5');
+            expect(find.text('“返程时刻”必须晚于“出发时刻”'), findsNothing);
+          } else {
+            expect(duration.controller!.text, isEmpty);
+            await tester.tap(find.byKey(const Key('approval-submit-button')));
+            await tester.pumpAndSettle();
+            expect(find.text('“返程时刻”必须晚于“出发时刻”'), findsOneWidget);
+            expect(find.text('时长尚未计算，请检查关联字段'), findsNothing);
+            expect(
+              find.descendant(
+                of: find.byKey(const ValueKey('schema-closed-date')),
+                matching: find.text('“返程时刻”必须晚于“出发时刻”'),
+              ),
+              findsOneWidget,
+            );
+            final invalidDuration = tester.widget<TextField>(
+              find.descendant(
+                of: find.byKey(const ValueKey('schema-span-')),
+                matching: find.byType(TextField),
+              ),
+            );
+            expect(invalidDuration.decoration!.errorText, isNull);
+            await tester.tap(find.byKey(const ValueKey('schema-closed-date')));
+            await tester.pumpAndSettle();
+            tester
+                .widget<CalendarDatePicker>(find.byType(CalendarDatePicker))
+                .onDateChanged(DateTime(2026, 9, 7));
+            await tester.tap(find.text('确定'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('确定'));
+            await tester.pumpAndSettle();
+            expect(find.text('“返程时刻”必须晚于“出发时刻”'), findsNothing);
+            final corrected = tester.widget<TextField>(
+              find.descendant(
+                of: find.byWidgetPredicate(
+                  (widget) =>
+                      widget.key is ValueKey<String> &&
+                      (widget.key! as ValueKey<String>).value.startsWith(
+                        'schema-span-',
+                      ),
+                ),
+                matching: find.byType(TextField),
+              ),
+            );
+            expect(
+              num.parse(corrected.controller!.text),
+              unit == 'days' ? 2 : 24,
+            );
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
   }
 
   for (final requiredField in [true, false]) {
-    testWidgets('readonly schema required=$requiredField never asks for input', (
-      tester,
-    ) async {
-      await _pumpNumericApproval(tester, type: 'number', initialValue: '1',
-        extraFields: [
-          {'id': 'configured', 'label': '后台只读字段', 'type': 'text',
-            'required': requiredField, 'readOnly': true},
-        ]);
+    testWidgets(
+      'readonly schema required=$requiredField never asks for input',
+      (tester) async {
+        await _pumpNumericApproval(
+          tester,
+          type: 'number',
+          initialValue: '1',
+          extraFields: [
+            {
+              'id': 'configured',
+              'label': '后台只读字段',
+              'type': 'text',
+              'required': requiredField,
+              'readOnly': true,
+            },
+          ],
+        );
+        await tester.tap(find.byKey(const Key('approval-submit-button')));
+        await tester.pumpAndSettle();
+        expect(find.text('请填写后台只读字段'), findsNothing);
+        expect(
+          find.text('后台只读字段暂无值，请检查表单配置'),
+          requiredField ? findsOneWidget : findsNothing,
+        );
+        if (requiredField) {
+          expect(find.text('请检查：后台只读字段暂无值，请检查表单配置'), findsOneWidget);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  testWidgets(
+    'choice and date corrections clear errors without another submit',
+    (tester) async {
+      await _pumpNumericApproval(
+        tester,
+        type: 'amount',
+        initialValue: '100.25',
+        extraFields: const [
+          {
+            'id': 'kind',
+            'label': '请款类型',
+            'type': 'select',
+            'required': true,
+            'options': ['其他'],
+          },
+          {'id': 'payDate', 'label': '付款日期', 'type': 'date', 'required': true},
+        ],
+      );
       await tester.tap(find.byKey(const Key('approval-submit-button')));
       await tester.pumpAndSettle();
-      expect(find.text('请填写后台只读字段'), findsNothing);
-      expect(find.text('后台只读字段暂无值，请检查表单配置'),
-        requiredField ? findsOneWidget : findsNothing);
-      if (requiredField) {
-        expect(find.text('请检查：后台只读字段暂无值，请检查表单配置'),
-          findsOneWidget);
-      }
+      expect(find.text('请选择请款类型'), findsOneWidget);
+      expect(find.text('请选择付款日期'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('schema-kind-select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('其他'));
+      await tester.pumpAndSettle();
+      expect(find.text('请选择请款类型'), findsNothing);
+      expect(find.text('请选择付款日期'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('schema-payDate-date')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+      expect(find.text('请选择付款日期'), findsNothing);
       expect(tester.takeException(), isNull);
-    });
-  }
-  testWidgets('choice and date corrections clear errors without another submit', (
-    tester,
-  ) async {
-    await _pumpNumericApproval(tester, type: 'amount', initialValue: '100.25',
-      extraFields: const [
-        {'id': 'kind', 'label': '请款类型', 'type': 'select', 'required': true,
-          'options': ['其他']},
-        {'id': 'payDate', 'label': '付款日期', 'type': 'date', 'required': true},
-      ]);
-    await tester.tap(find.byKey(const Key('approval-submit-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('请选择请款类型'), findsOneWidget);
-    expect(find.text('请选择付款日期'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('schema-kind-select')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('其他'));
-    await tester.pumpAndSettle();
-    expect(find.text('请选择请款类型'), findsNothing);
-    expect(find.text('请选择付款日期'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('schema-payDate-date')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('确定'));
-    await tester.pumpAndSettle();
-    expect(find.text('请选择付款日期'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+    },
+  );
   testWidgets('derived field error clears when a dependency is corrected', (
     tester,
   ) async {
-    await _pumpNumericApproval(tester, type: 'number', initialValue: '0',
+    await _pumpNumericApproval(
+      tester,
+      type: 'number',
+      initialValue: '0',
       extraFields: const [
-        {'id': 'calculated', 'label': '计算金额', 'type': 'amount', 'required': true,
-          'calculation': {'expression': '100 / value', 'scale': 2,
-            'roundingMode': 'half_up'}},
-      ]);
+        {
+          'id': 'calculated',
+          'label': '计算金额',
+          'type': 'amount',
+          'required': true,
+          'calculation': {
+            'expression': '100 / value',
+            'scale': 2,
+            'roundingMode': 'half_up',
+          },
+        },
+      ],
+    );
     await tester.tap(find.byKey(const Key('approval-submit-button')));
     await tester.pumpAndSettle();
     expect(find.text('不能除以零'), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('schema-value')), '4');
     await tester.pumpAndSettle();
     expect(find.text('不能除以零'), findsNothing);
-    expect(find.byKey(const ValueKey('schema-calculated-25.00')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('schema-calculated-25.00')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
   for (final type in ['amount', 'number']) {
-    testWidgets('$type updates validation after correction without resubmitting', (
-      tester,
-    ) async {
-      await _pumpNumericApproval(tester, type: type);
-      expect(find.text('请填写测试说明'), findsNothing);
-      await tester.enterText(find.byKey(const ValueKey('schema-value')), 'NaN');
-      await tester.pumpAndSettle();
-      expect(find.text('请输入有效数字'), findsNothing);
-      FocusManager.instance.primaryFocus?.unfocus();
-      await tester.tap(find.byKey(const Key('approval-submit-button')));
-      await tester.pumpAndSettle();
-      expect(find.text('请输入有效数字'), findsOneWidget);
-      await tester.enterText(find.byKey(const ValueKey('schema-value')), '100.25');
-      await tester.pumpAndSettle();
-      expect(find.text('请输入有效数字'), findsNothing);
-      await tester.enterText(find.byKey(const ValueKey('schema-value')), 'Infinity');
-      await tester.pumpAndSettle();
-      expect(find.text('请输入有效数字'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      '$type updates validation after correction without resubmitting',
+      (tester) async {
+        await _pumpNumericApproval(tester, type: type);
+        expect(find.text('请填写测试说明'), findsNothing);
+        await tester.enterText(
+          find.byKey(const ValueKey('schema-value')),
+          'NaN',
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('请输入有效数字'), findsNothing);
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.tap(find.byKey(const Key('approval-submit-button')));
+        await tester.pumpAndSettle();
+        expect(find.text('请输入有效数字'), findsOneWidget);
+        await tester.enterText(
+          find.byKey(const ValueKey('schema-value')),
+          '100.25',
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('请输入有效数字'), findsNothing);
+        await tester.enterText(
+          find.byKey(const ValueKey('schema-value')),
+          'Infinity',
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('请输入有效数字'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
     for (final invalid in ['NaN', 'Infinity', '-Infinity', '1e309', '-1e309']) {
       testWidgets('$type rejects non-finite input $invalid before submission', (
         tester,
       ) async {
         await _pumpNumericApproval(tester, type: type);
-        await tester.enterText(find.byKey(const ValueKey('schema-value')), invalid);
+        await tester.enterText(
+          find.byKey(const ValueKey('schema-value')),
+          invalid,
+        );
         FocusManager.instance.primaryFocus?.unfocus();
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('approval-submit-button')));
@@ -206,9 +323,15 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     }
-    testWidgets('$type rejects non-finite restored optional field', (tester) async {
+    testWidgets('$type rejects non-finite restored optional field', (
+      tester,
+    ) async {
       await _pumpNumericApproval(
-        tester, type: type, requiredValue: false, initialValue: 'NaN');
+        tester,
+        type: type,
+        requiredValue: false,
+        initialValue: 'NaN',
+      );
       await tester.tap(find.byKey(const Key('approval-submit-button')));
       await tester.pumpAndSettle();
       expect(find.text('请输入有效数字'), findsOneWidget);
@@ -218,9 +341,13 @@ void main() {
     testWidgets('$type still accepts finite numeric input', (tester) async {
       await _pumpNumericApproval(tester, type: type);
       final values = type == 'amount'
-          ? ['0.01', '12.34', '1e3'] : ['0', '-1.25', '12.34', '1e3'];
+          ? ['0.01', '12.34', '1e3']
+          : ['0', '-1.25', '12.34', '1e3'];
       for (final value in values) {
-        await tester.enterText(find.byKey(const ValueKey('schema-value')), value);
+        await tester.enterText(
+          find.byKey(const ValueKey('schema-value')),
+          value,
+        );
         FocusManager.instance.primaryFocus?.unfocus();
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('approval-submit-button')));
@@ -490,6 +617,7 @@ void main() {
     expect(find.text('数据导出申请'), findsOneWidget);
     expect(find.textContaining('OA-20260813-1'), findsOneWidget);
     expect(find.byTooltip('新建'), findsOneWidget);
+    expect(tester.getSize(find.byTooltip('新建')), const Size.square(44));
     expect(find.text('统一处理任务与审批'), findsNothing);
     expect(find.text('待我处理'), findsOneWidget);
     expect(find.text('抄送我的'), findsOneWidget);
@@ -512,8 +640,12 @@ void main() {
       find.byKey(const ValueKey('todo-tab-indicator-待我处理')),
     );
     expect(
+      tester.getSize(find.byKey(const ValueKey('todo-tab-target-待我处理'))).height,
+      40,
+    );
+    expect(
       activeTabIndicator.top - activeTabLabel.bottom,
-      inInclusiveRange(4, 6),
+      inInclusiveRange(8, 12),
     );
     expect(find.text('搜索事项或申请编号'), findsOneWidget);
     expect(
@@ -1122,12 +1254,19 @@ void main() {
     expect(find.byKey(const Key('approval-resubmit')), findsOneWidget);
     expect(
       tester.getSize(find.widgetWithText(FilledButton, '再次发起')).height,
-      48,
+      34,
     );
-    expect(tester.getSize(find.descendant(
-      of: find.byKey(const Key('approval-resubmit')),
-      matching: find.byType(Material),
-    )).height, 34);
+    expect(
+      tester
+          .getSize(
+            find.descendant(
+              of: find.byKey(const Key('approval-resubmit')),
+              matching: find.byType(Material),
+            ),
+          )
+          .height,
+      34,
+    );
 
     await tester.tap(find.byKey(const Key('approval-resubmit')));
     await tester.pumpAndSettle();
@@ -1139,10 +1278,10 @@ void main() {
     expect(find.text('0 / 1'), findsOneWidget);
     expect(find.text('请款凭证.pdf'), findsNothing);
     final amount = tester.widget<TextFormField>(
-      find.byType(TextFormField).at(0),
+      find.byKey(const ValueKey('schema-amount')),
     );
     final reason = tester.widget<TextFormField>(
-      find.byType(TextFormField).at(1),
+      find.byKey(const ValueKey('schema-reason')),
     );
     expect(amount.initialValue, '4999');
     expect(reason.initialValue, '测试环境请款');
@@ -1279,6 +1418,89 @@ void main() {
     expect(find.text('后续服务已完成'), findsOneWidget);
     expect(find.text('service_queued'), findsNothing);
     expect(find.text('service_succeeded'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('approval detail groups actors in the same runtime node', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+    });
+    final source = PreviewData.oaBootstrap.approvalRequests.first;
+    OaApprovalTask task(String id, String name, String status) =>
+        OaApprovalTask(
+          id: id,
+          nodeId: 'department-manager',
+          stage: 1,
+          completionMode: 'all',
+          nodeType: 'approval',
+          nodeName: '部门负责人审批',
+          assigneeId: id,
+          assigneeName: name,
+          status: status,
+          version: 1,
+          decision: status == 'approved' ? 'approved' : '',
+          comment: '',
+          canOperate: id == 'actor-a',
+          createdAt: DateTime(2026, 9, 8, 18, 27),
+          completedAt: status == 'approved'
+              ? DateTime(2026, 9, 8, 18, 43)
+              : null,
+        );
+    final request = _copyApproval(
+      source,
+      id: 'multi-actor-detail',
+      title: '多人审批节点',
+      allowedActions: const ['approve', 'reject'],
+      tasks: [
+        task('actor-a', '测试审批人一', 'pending'),
+        task('actor-b', '测试审批人二', 'pending'),
+        task('actor-c', '测试审批人三', 'approved'),
+      ],
+    );
+
+    await _pump(
+      tester,
+      ApprovalDetailPage(approvalId: request.id),
+      overrides: [
+        oaSyncAvailabilityProvider.overrideWithValue(
+          OaSyncAvailability.available,
+        ),
+        oaApprovalRequestProvider(request.id)
+            .overrideWith((ref) async => request),
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+      ],
+    );
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -360));
+    await tester.pumpAndSettle();
+
+    expect(find.text('部门负责人审批'), findsOneWidget);
+    expect(find.text('会签'), findsOneWidget);
+    expect(find.textContaining('测试审批人一'), findsOneWidget);
+    expect(find.textContaining('测试审批人二'), findsOneWidget);
+    expect(find.textContaining('测试审批人三'), findsOneWidget);
+    expect(find.text('待你处理'), findsOneWidget);
+    expect(find.text('已同意'), findsOneWidget);
+    final approvedStatus = tester.widget<Text>(
+      find.byKey(const Key('approval-task-status-actor-c')),
+    );
+    expect(approvedStatus.style?.color, AppColors.success);
+    expect(
+      find.byKey(const Key('approval-task-completed-at-actor-c')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -1425,6 +1647,140 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'attendance correction detail hides the internal exception reference',
+    (tester) async {
+      final source = PreviewData.oaBootstrap.approvalRequests.first;
+      final request = OaApprovalRequest(
+        id: 'attendance-correction-detail',
+        requesterId: source.requesterId,
+        title: '缺上班卡补卡',
+        applicationKey: 'attendance.punch_correction',
+        formDataJson: jsonEncode({
+          'exceptionId': '3dc39c83-288a-449d-baff-000262140b38',
+          'correctionAt': '2026-09-08T09:00:00.000Z',
+          'reason': '忘记打卡',
+        }),
+        formSchemaSnapshotJson: jsonEncode({
+          'fields': [
+            {'id': 'exceptionId', 'label': '考勤异常', 'type': 'text'},
+            {'id': 'correctionAt', 'label': '补卡时间', 'type': 'datetime'},
+            {'id': 'reason', 'label': '补卡原因', 'type': 'text'},
+          ],
+        }),
+        status: source.status,
+        createdAt: source.createdAt,
+        updatedAt: source.updatedAt,
+        requesterName: source.requesterName,
+        requesterDepartmentName: source.requesterDepartmentName,
+        templateName: source.templateName,
+        templateCategory: source.templateCategory,
+        allowedActions: const [],
+        tasks: const [],
+        actions: const [],
+        attachments: const [],
+      );
+      await _pump(
+        tester,
+        ApprovalDetailPage(approvalId: request.id),
+        overrides: [
+          oaSyncAvailabilityProvider.overrideWithValue(
+            OaSyncAvailability.available,
+          ),
+          oaApprovalRequestProvider(request.id)
+              .overrideWith((ref) async => request),
+          oaBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.oaBootstrap,
+          ),
+          oaApplicationCatalogProvider.overrideWith(
+            (ref) async => PreviewData.oaCatalog,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.imBootstrap,
+          ),
+        ],
+      );
+
+      expect(find.text('考勤异常'), findsNothing);
+      expect(find.text('3dc39c83-288a-449d-baff-000262140b38'), findsNothing);
+      expect(find.text('补卡时间'), findsOneWidget);
+      expect(find.text('补卡原因'), findsOneWidget);
+      expect(find.text('忘记打卡'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('approval progress hides login accounts from actor summaries', (
+    tester,
+  ) async {
+    final source = PreviewData.oaBootstrap.approvalRequests.first;
+    final member = PreviewData.imBootstrap.contacts.firstWhere(
+      (item) =>
+          item.username.isNotEmpty &&
+          item.displayName.isNotEmpty &&
+          item.departmentName.isNotEmpty,
+    );
+    final request = OaApprovalRequest(
+      id: 'actor-summary-without-account',
+      requesterId: source.requesterId,
+      title: '请款审批',
+      formDataJson: '{}',
+      formSchemaSnapshotJson: '{"fields":[]}',
+      status: 'submitted',
+      createdAt: source.createdAt,
+      updatedAt: source.updatedAt,
+      requesterName: source.requesterName,
+      requesterDepartmentName: source.requesterDepartmentName,
+      templateName: source.templateName,
+      templateCategory: source.templateCategory,
+      allowedActions: const [],
+      tasks: [
+        OaApprovalTask(
+          id: 'actor-summary-task',
+          nodeName: '部门负责人审批',
+          assigneeId: member.id,
+          assigneeName: member.displayName,
+          status: 'pending',
+          version: 1,
+          decision: '',
+          comment: '',
+          canOperate: false,
+          createdAt: source.createdAt,
+          completedAt: null,
+        ),
+      ],
+      actions: const [],
+      attachments: const [],
+    );
+    await _pump(
+      tester,
+      ApprovalDetailPage(approvalId: request.id),
+      overrides: [
+        oaSyncAvailabilityProvider.overrideWithValue(
+          OaSyncAvailability.available,
+        ),
+        oaApprovalRequestProvider(request.id)
+            .overrideWith((ref) async => request),
+        oaBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.oaBootstrap,
+        ),
+        oaApplicationCatalogProvider.overrideWith(
+          (ref) async => PreviewData.oaCatalog,
+        ),
+        imBootstrapProvider.overrideWith(
+          (ref) async => PreviewData.imBootstrap,
+        ),
+      ],
+    );
+
+    expect(
+      find.text('${member.displayName} · ${member.departmentName}'),
+      findsOneWidget,
+    );
+    expect(find.textContaining(member.username), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('approval list keeps number, delegation and terminal status', (
     tester,
@@ -1578,7 +1934,8 @@ void main() {
     expect(find.text('林晨'), findsOneWidget);
     expect(find.text('上海运营部'), findsOneWidget);
     expect(find.text('v1'), findsOneWidget);
-    expect(find.text('申请标题'), findsNothing);
+    expect(find.byKey(const Key('approval-title-field')), findsOneWidget);
+    expect(find.text('申请标题'), findsOneWidget);
     expect(find.text('请假类型 *'), findsOneWidget);
     expect(find.text('开始时间 *'), findsOneWidget);
     expect(find.text('结束时间 *'), findsOneWidget);
@@ -1595,7 +1952,7 @@ void main() {
     );
     expect(
       tester.getSize(find.byKey(const Key('approval-draft-button'))).height,
-      48,
+      34,
     );
     expect(
       tester.getSize(find.byKey(const Key('approval-draft-button'))).width,
@@ -1603,16 +1960,24 @@ void main() {
     );
     expect(
       tester.getSize(find.byKey(const Key('approval-submit-button'))).height,
-      48,
+      34,
     );
     expect(
       tester.getSize(find.byKey(const Key('approval-submit-button'))).width,
       104,
     );
     for (final key in ['approval-draft-button', 'approval-submit-button']) {
-      expect(tester.getSize(find.descendant(
-        of: find.byKey(Key(key)), matching: find.byType(Material),
-      )).height, 34);
+      expect(
+        tester
+            .getSize(
+              find.descendant(
+                of: find.byKey(Key(key)),
+                matching: find.byType(Material),
+              ),
+            )
+            .height,
+        34,
+      );
     }
 
     final reasonField = find.byKey(const ValueKey('schema-reason'));
@@ -2216,9 +2581,10 @@ void main() {
         findsNothing,
       );
     }
-    await tester.tap(find.widgetWithText(OutlinedButton, '添加文件'));
-    await tester.pumpAndSettle();
-    expect(find.text('证明附件最多添加 3 个附件'), findsOneWidget);
+    final addAttachment = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '添加文件'),
+    );
+    expect(addAttachment.onPressed, isNull);
 
     await tester.tap(find.byKey(const Key('approval-submit-button')));
     await tester.pumpAndSettle();
@@ -2285,7 +2651,7 @@ void main() {
       overrides: const [],
     );
 
-    expect(find.text('网络不可用，表单与草稿已保留'), findsOneWidget);
+    expect(find.text('审批流程暂时无法同步，表单与草稿已保留'), findsOneWidget);
     expect(find.textContaining('/api/oa/workflow/preview'), findsNothing);
     await tester.tap(find.byTooltip('重新解析审批流程'));
     expect(retried, isTrue);
@@ -2307,7 +2673,7 @@ void main() {
       overrides: const [],
     );
 
-    expect(find.text('网络不可用，表单与草稿已保留'), findsOneWidget);
+    expect(find.text('审批流程暂时无法同步，表单与草稿已保留'), findsOneWidget);
     expect(find.byTooltip('重新解析审批流程'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -2402,7 +2768,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('正在解析审批人…'), findsNothing);
-    expect(find.text('网络不可用，表单与草稿已保留'), findsOneWidget);
+    expect(find.text('审批流程暂时无法同步，表单与草稿已保留'), findsOneWidget);
     expect(find.byTooltip('重新解析审批流程'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -2486,8 +2852,8 @@ void main() {
 
     expect(find.text('已恢复上次草稿'), findsOneWidget);
     expect(find.byTooltip('08-31 16:55'), findsOneWidget);
-    expect(find.text('申请标题'), findsNothing);
-    expect(find.text('AI-UAT-草稿恢复'), findsNothing);
+    expect(find.byKey(const Key('approval-title-field')), findsOneWidget);
+    expect(find.text('AI-UAT-草稿恢复'), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const Key('approval-draft-status'))).height,
       lessThanOrEqualTo(18),
@@ -2569,7 +2935,7 @@ void main() {
       ],
     );
 
-    final reasonField = find.byType(TextFormField);
+    final reasonField = find.byKey(const ValueKey('schema-reason'));
     expect(reasonField, findsOneWidget);
     await tester.enterText(reasonField, 'AI-UAT-快速返回草稿');
     await tester.pump(const Duration(milliseconds: 50));
@@ -2859,7 +3225,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('account language exposes the desktop-aligned choices', (
+  testWidgets('content language exposes the desktop-aligned choices', (
     tester,
   ) async {
     await _pump(
@@ -2875,6 +3241,8 @@ void main() {
       ],
     );
 
+    expect(find.text('内容语言'), findsOneWidget);
+    expect(find.text('账号语言'), findsNothing);
     expect(find.text('浅色'), findsOneWidget);
     await tester.tap(find.text('浅色'));
     await tester.pumpAndSettle();
@@ -2931,6 +3299,9 @@ void main() {
       tester,
       const NotificationSettingsPage(),
       overrides: [
+        imRealtimeAvailabilityProvider.overrideWithValue(
+          ImRealtimeAvailability.available,
+        ),
         imPushDeviceProvider.overrideWith((ref) async => device),
         mobilePushRuntimeTokenProvider.overrideWith(
           (ref) => Stream.value(
@@ -2950,6 +3321,8 @@ void main() {
     expect(find.text('应用内通知'), findsOneWidget);
     expect(find.text('系统推送'), findsOneWidget);
     expect(find.text('消息、审批与公告'), findsOneWidget);
+    expect(find.text('应用内实时同步'), findsOneWidget);
+    expect(find.text('实时同步'), findsNothing);
     expect(find.text('已启用'), findsOneWidget);
     expect(find.text('android · fcm'), findsOneWidget);
     await tester.tap(find.text('锁屏内容'));
@@ -2992,11 +3365,11 @@ void main() {
 
     expect(find.text('厂商推送通道'), findsOneWidget);
     expect(find.text('待接入'), findsOneWidget);
-    expect(find.text('服务端注册接口'), findsOneWidget);
+    expect(find.text('服务端推送注册'), findsOneWidget);
     expect(find.text('已接入'), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const Key('push-channel-pending'))).height,
-      lessThanOrEqualTo(64),
+      lessThanOrEqualTo(97),
     );
     expect(find.bySemanticsLabel('服务端推送能力已接入，厂商推送通道待接入'), findsOneWidget);
     expect(find.text('已启用'), findsNothing);
@@ -3035,15 +3408,50 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('notification settings keeps push capability separate from realtime sync', (
+  testWidgets(
+    'notification settings keeps push capability separate from realtime sync',
+    (tester) async {
+      await _pump(
+        tester,
+        const NotificationSettingsPage(),
+        overrides: [
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.unavailable,
+          ),
+          imPushDeviceProvider.overrideWith((ref) async => null),
+          mobilePushRuntimeTokenProvider.overrideWith(
+            (ref) => Stream<MobilePushToken?>.value(null),
+          ),
+        ],
+      );
+
+      final state = find.byKey(const Key('push-channel-pending'));
+      expect(state, findsOneWidget);
+      expect(tester.getSize(state).height, lessThanOrEqualTo(97));
+      expect(find.text('厂商推送通道'), findsOneWidget);
+      expect(find.text('服务端推送注册'), findsOneWidget);
+      expect(find.text('连接恢复后同步'), findsOneWidget);
+      expect(find.text('消息、审批与公告'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('notification settings requests system permission separately', (
     tester,
   ) async {
+    final permission = _TestNotificationPermissionSource(
+      MobileNotificationPermissionState.notDetermined,
+    );
     await _pump(
       tester,
       const NotificationSettingsPage(),
       overrides: [
-        imRealtimeAvailabilityProvider.overrideWithValue(
-          ImRealtimeAvailability.unavailable,
+        mobileNotificationPermissionSourceProvider.overrideWithValue(
+          permission,
+        ),
+        mobileNotificationPermissionStateProvider.overrideWith(
+          (ref) => permission.currentState(),
         ),
         imPushDeviceProvider.overrideWith((ref) async => null),
         mobilePushRuntimeTokenProvider.overrideWith(
@@ -3052,14 +3460,55 @@ void main() {
       ],
     );
 
-    final state = find.byKey(const Key('push-channel-pending'));
-    expect(state, findsOneWidget);
-    expect(tester.getSize(state).height, lessThanOrEqualTo(64));
-    expect(find.text('厂商推送通道'), findsOneWidget);
-    expect(find.text('服务端注册接口'), findsOneWidget);
-    expect(find.text('连接恢复后同步'), findsOneWidget);
-    expect(find.text('消息、审批与公告'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('系统通知权限'), findsOneWidget);
+    expect(find.text('未开启'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('system-notification-permission-action')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(permission.requests, 1);
+    expect(find.text('已开启'), findsOneWidget);
+    expect(
+      tester
+          .getSize(find.byKey(const Key('system-notification-permission')))
+          .height,
+      lessThanOrEqualTo(52),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('denied system notification permission opens system settings', (
+    tester,
+  ) async {
+    final permission = _TestNotificationPermissionSource(
+      MobileNotificationPermissionState.denied,
+    );
+    await _pump(
+      tester,
+      const NotificationSettingsPage(),
+      overrides: [
+        mobileNotificationPermissionSourceProvider.overrideWithValue(
+          permission,
+        ),
+        mobileNotificationPermissionStateProvider.overrideWith(
+          (ref) => permission.currentState(),
+        ),
+        imPushDeviceProvider.overrideWith((ref) async => null),
+        mobilePushRuntimeTokenProvider.overrideWith(
+          (ref) => Stream<MobilePushToken?>.value(null),
+        ),
+      ],
+    );
+
+    expect(find.text('已关闭'), findsOneWidget);
+    expect(find.text('去设置'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('system-notification-permission-action')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(permission.settingsOpens, 1);
     expect(tester.takeException(), isNull);
   });
 
@@ -3313,34 +3762,64 @@ void main() {
         title: 'AI-UAT-picker',
         allowedActions: const ['transfer'],
       );
-      await _pump(tester, ApprovalDetailPage(approvalId: request.id), overrides: [
-        oaSyncAvailabilityProvider.overrideWithValue(OaSyncAvailability.available),
-        oaApprovalRequestProvider(request.id).overrideWith((ref) async => request),
-        oaBootstrapProvider.overrideWith((ref) async => PreviewData.oaBootstrap),
-        imBootstrapProvider.overrideWith((ref) async => scenario.name == 'no-candidates'
-            ? ImBootstrap(currentMember: PreviewData.imBootstrap.currentMember,
-                conversations: const [], contacts: const [])
-            : PreviewData.imBootstrap),
-      ]);
+      await _pump(
+        tester,
+        ApprovalDetailPage(approvalId: request.id),
+        overrides: [
+          oaSyncAvailabilityProvider.overrideWithValue(
+            OaSyncAvailability.available,
+          ),
+          oaApprovalRequestProvider(request.id)
+              .overrideWith((ref) async => request),
+          oaBootstrapProvider.overrideWith(
+            (ref) async => PreviewData.oaBootstrap,
+          ),
+          imBootstrapProvider.overrideWith(
+            (ref) async => scenario.name == 'no-candidates'
+                ? ImBootstrap(
+                    currentMember: PreviewData.imBootstrap.currentMember,
+                    conversations: const [],
+                    contacts: const [],
+                  )
+                : PreviewData.imBootstrap,
+          ),
+        ],
+      );
       await tester.tap(find.byTooltip('更多操作'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('转交'));
       await tester.pumpAndSettle();
       tester.view.viewInsets = FakeViewPadding(bottom: scenario.keyboard);
       if (scenario.name != 'no-candidates') {
-        await tester.enterText(find.byKey(const Key('approval-member-search')), 'AI-UAT-NOMATCH');
+        await tester.enterText(
+          find.byKey(const Key('approval-member-search')),
+          'AI-UAT-NOMATCH',
+        );
       }
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      final empty = find.text(scenario.name == 'no-candidates' ? '暂无可选成员' : '未找到匹配成员');
+      final empty = find.text(
+        scenario.name == 'no-candidates' ? '暂无可选成员' : '未找到匹配成员',
+      );
       expect(empty, findsOneWidget);
-      expect(tester.getRect(empty).bottom,
-          lessThanOrEqualTo(scenario.size.height - scenario.keyboard));
-      expect(tester.getSize(find.byKey(const Key('approval-member-search'))).height, 34);
+      expect(
+        tester.getRect(empty).bottom,
+        lessThanOrEqualTo(scenario.size.height - scenario.keyboard),
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('approval-member-search'))).height,
+        34,
+      );
       if (scenario.name != 'no-candidates') {
-        await tester.enterText(find.byKey(const Key('approval-member-search')), '');
+        await tester.enterText(
+          find.byKey(const Key('approval-member-search')),
+          '',
+        );
         await tester.pumpAndSettle();
-        expect(find.text(PreviewData.imBootstrap.contacts.first.displayName), findsOneWidget);
+        expect(
+          find.text(PreviewData.imBootstrap.contacts.first.displayName),
+          findsOneWidget,
+        );
       }
       await tester.tap(find.byTooltip('关闭'));
       await tester.pumpAndSettle();
@@ -3406,9 +3885,11 @@ void main() {
     expect(find.textContaining('OA-20260813-1'), findsOneWidget);
     expect(find.text('提交申请'), findsWidgets);
     expect(find.textContaining('截止 08-14 18:00'), findsOneWidget);
-    expect(find.text('冯逸 · term.sz02 · 深圳运营部'), findsOneWidget);
+    expect(find.text('冯逸 · 深圳运营部'), findsOneWidget);
+    expect(find.textContaining('term.sz02'), findsNothing);
     expect(find.text('已同意'), findsOneWidget);
-    expect(find.text('林晨 · term.sh01 · 上海运营部'), findsNWidgets(2));
+    expect(find.text('林晨 · 上海运营部'), findsNWidgets(2));
+    expect(find.textContaining('term.sh01'), findsNothing);
     expect(find.text('待你处理'), findsOneWidget);
     expect(find.text('财务复核'), findsOneWidget);
     expect(find.text('等待中'), findsOneWidget);
@@ -3418,12 +3899,12 @@ void main() {
     expect(find.text('江敏 · 未读'), findsOneWidget);
     expect(
       tester.getSize(find.widgetWithText(OutlinedButton, '驳回')).height,
-      48,
+      34,
     );
-    expect(tester.getSize(find.widgetWithText(FilledButton, '同意')).height, 48);
+    expect(tester.getSize(find.widgetWithText(FilledButton, '同意')).height, 34);
     expect(
       tester.getSize(find.byKey(const Key('approval-more-actions'))),
-      const Size(80, 48),
+      const Size(80, 34),
     );
     expect(find.widgetWithText(OutlinedButton, '更多'), findsOneWidget);
 
@@ -3448,7 +3929,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('选择转交人'), findsOneWidget);
     expect(find.byKey(const Key('approval-member-picker')), findsOneWidget);
-    expect(find.text('搜索姓名、账号或部门'), findsOneWidget);
+    expect(find.text('搜索姓名或部门'), findsOneWidget);
+    expect(
+      find.textContaining(PreviewData.imBootstrap.contacts.first.username),
+      findsNothing,
+    );
     expect(
       tester.getSize(find.byKey(const Key('approval-member-search'))).height,
       34,
@@ -3493,11 +3978,18 @@ void main() {
       final compactSubmitSize = tester.getSize(
         find.byKey(const Key('mobile-text-input-submit')),
       );
-      expect(compactSubmitSize.height, 48);
-      expect(tester.getSize(find.descendant(
-        of: find.byKey(const Key('mobile-text-input-submit')),
-        matching: find.byType(Material),
-      )).height, 34);
+      expect(compactSubmitSize.height, 34);
+      expect(
+        tester
+            .getSize(
+              find.descendant(
+                of: find.byKey(const Key('mobile-text-input-submit')),
+                matching: find.byType(Material),
+              ),
+            )
+            .height,
+        34,
+      );
       expect(compactSubmitSize.width, lessThan(120));
       await tester.tap(find.widgetWithText(TextButton, '取消'));
       await tester.pumpAndSettle();
@@ -3819,6 +4311,31 @@ final class _TestPushTokenSource implements MobilePushTokenSource {
   Stream<MobilePushToken> get tokenChanges => const Stream.empty();
 }
 
+final class _TestNotificationPermissionSource
+    implements MobileNotificationPermissionSource {
+  _TestNotificationPermissionSource(this.state);
+
+  MobileNotificationPermissionState state;
+  int requests = 0;
+  int settingsOpens = 0;
+
+  @override
+  Future<MobileNotificationPermissionState> currentState() async => state;
+
+  @override
+  Future<MobileNotificationPermissionState> request() async {
+    requests += 1;
+    state = MobileNotificationPermissionState.granted;
+    return state;
+  }
+
+  @override
+  Future<bool> openSettings() async {
+    settingsOpens += 1;
+    return true;
+  }
+}
+
 Future<void> _pumpNumericApproval(
   WidgetTester tester, {
   required String type,
@@ -3827,31 +4344,53 @@ Future<void> _pumpNumericApproval(
   List<Map<String, Object?>> extraFields = const [],
 }) async {
   final template = OaApprovalTemplate(
-    id: 'numeric-validation', name: 'AI-UAT 数值校验', category: '财务',
-    iconKey: 'payment', workflowKey: 'numeric-validation', version: 1,
-    formSchemaJson: jsonEncode({'fields': [
-      {'id': 'value', 'label': '数值', 'type': type, 'required': requiredValue},
-      ...extraFields,
-      // Always empty: valid-number controls cannot accidentally submit a request.
-      {'id': 'reason', 'label': '测试说明', 'type': 'text', 'required': true},
-    ]}),
+    id: 'numeric-validation',
+    name: 'AI-UAT 数值校验',
+    category: '财务',
+    iconKey: 'payment',
+    workflowKey: 'numeric-validation',
+    version: 1,
+    formSchemaJson: jsonEncode({
+      'fields': [
+        {'id': 'value', 'label': '数值', 'type': type, 'required': requiredValue},
+        ...extraFields,
+        // Always empty: valid-number controls cannot accidentally submit a request.
+        {'id': 'reason', 'label': '测试说明', 'type': 'text', 'required': true},
+      ],
+    }),
   );
-  await _pump(tester, ApprovalRequestPage(
-    applicationKey: template.workflowKey, templateId: template.id,
-    initialFormData: initialValue == null ? const {} : {'value': initialValue},
-  ), overrides: [
-    oaBootstrapProvider.overrideWith((ref) async => OaBootstrap(
-      currentMemberId: PreviewData.oaBootstrap.currentMemberId,
-      displayName: PreviewData.oaBootstrap.displayName, templates: [template],
-      todos: const [], announcements: const [],
-    )),
-    oaApplicationCatalogProvider.overrideWith((ref) async => PreviewData.oaCatalog),
-    imBootstrapProvider.overrideWith((ref) async => PreviewData.imBootstrap),
-    oaWorkflowPreviewLoaderProvider.overrideWithValue(({
-      required String applicationKey, required OaApprovalTemplate template,
-      required Map<String, Object?> formData,
-    }) async => PreviewData.workflowPreview(template)),
-  ]);
+  await _pump(
+    tester,
+    ApprovalRequestPage(
+      applicationKey: template.workflowKey,
+      templateId: template.id,
+      initialFormData: initialValue == null
+          ? const {}
+          : {'value': initialValue},
+    ),
+    overrides: [
+      oaBootstrapProvider.overrideWith(
+        (ref) async => OaBootstrap(
+          currentMemberId: PreviewData.oaBootstrap.currentMemberId,
+          displayName: PreviewData.oaBootstrap.displayName,
+          templates: [template],
+          todos: const [],
+          announcements: const [],
+        ),
+      ),
+      oaApplicationCatalogProvider.overrideWith(
+        (ref) async => PreviewData.oaCatalog,
+      ),
+      imBootstrapProvider.overrideWith((ref) async => PreviewData.imBootstrap),
+      oaWorkflowPreviewLoaderProvider.overrideWithValue(
+        ({
+          required String applicationKey,
+          required OaApprovalTemplate template,
+          required Map<String, Object?> formData,
+        }) async => PreviewData.workflowPreview(template),
+      ),
+    ],
+  );
 }
 
 Future<void> _pump(

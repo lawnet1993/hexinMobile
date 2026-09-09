@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-09-06T18:21:39.1919293+08:00",
+  "desktopProcessRunning": true,
+  "desktopSessionAccount": "test01",
+  "desktopFileVersionMetadata": "1.0.87",
+  "imBootstrapStatus": 200,
+  "oaBootstrapStatus": 200,
+  "databaseIntegrity": "ok",
+  "messageBaselineCount": 255,
+  "messageFinalCount": 256,
+  "messageBaselineSequence": 255,
+  "messageFinalSequence": 256,
+  "serverMarkerCount": 1,
+  "mobileToDesktopMessageCacheMs": 737.187,
+  "imEventCursor": 5435,
+  "conversationProjection": {
+    "type": "direct",
+    "position": 1,
+    "lastMessageSequence": 256,
+    "lastReadSequence": 99,
+    "unreadCount": 157,
+    "updatedAtUtc": "2026-09-06T10:18:52.183823Z",
+    "mobileTapToProjectionUpdateMs": 2623.157,
+    "previewLength": 40
+  },
+  "uiVerified": false,
+  "uiBlocker": "cloud desktop tab connection timed out after reset and one retry"
+}

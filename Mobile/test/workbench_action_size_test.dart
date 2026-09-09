@@ -46,6 +46,7 @@ void main() {
       tester.getSize(find.byKey(const Key('workbench-brand-header'))).height,
       greaterThanOrEqualTo(44),
     );
+    expect(tester.getSize(find.byTooltip('通知中心')), const Size.square(44));
     expect(tester.takeException(), isNull);
   });
 

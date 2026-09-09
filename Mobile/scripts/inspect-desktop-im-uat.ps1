@@ -4,7 +4,8 @@ param(
   [switch]$InspectGateway,
   [switch]$InspectConversationIndex,
   [switch]$ListTestDirects,
-  [ValidateSet('test03','test04')][string]$InspectTestMember
+  [ValidateSet('test03','test04')][string]$InspectTestMember,
+  [ValidateRange(0, 9223372036854775807)][long]$AfterSequence = 0
 )
 
 # Read-only verification using the desktop app's existing authorized test session.
@@ -99,7 +100,7 @@ try {
     $summary | ConvertTo-Json -Depth 4
     return
   }
-  $events = ReadEndpoint '/api/im/sync/events?afterSequence=0&waitSeconds=0&take=500'
+  $events = ReadEndpoint ('/api/im/sync/events?afterSequence=' + $AfterSequence + '&waitSeconds=0&take=500')
   $summary.sync = [ordered]@{ status = $events.Status; allow = $events.Allow; requestId = $events.RequestId; fields = @($events.Data.PSObject.Properties.Name); latestSequence = $events.Data.latestSequence; eventCount = @($events.Data.events).Count; events = @($events.Data.events | ForEach-Object {
     $event = $_
     $payload = $null

@@ -1,5 +1,7 @@
 param(
   [string]$Marker = 'AI-UAT-20260902-165500-LEAVE',
+  [ValidateSet('all', 'pending', 'initiated', 'cc', 'completed', 'draft')]
+  [string]$View = 'initiated',
   [switch]$IncludeEvents,
   [switch]$VerifyCancellationText,
   [switch]$InspectFormSchemas,
@@ -73,7 +75,7 @@ try {
     $summary | ConvertTo-Json -Depth 6
     return
   }
-  $page = ReadEndpoint '/api/oa/approval-requests/page?view=initiated&take=100'
+  $page = ReadEndpoint ('/api/oa/approval-requests/page?view=' + [Uri]::EscapeDataString($View) + '&take=100')
   $summary.pageStatus = $page.status
   $summary.pageRequestId = $page.requestId
   $summary.hasMore = $page.data.hasMore
@@ -98,7 +100,7 @@ try {
       createdAt=$r.createdAt; updatedAt=$r.updatedAt; allowedActions=$r.allowedActions
       templateVersion=$r.templateVersion; requestVersion=$r.version; workflowKey=$r.workflowKey; clientRequestId=$r.clientRequestId; completedAt=$r.completedAt; fields=@($r.PSObject.Properties.Name)
       tasks=@($r.tasks | Select-Object id,nodeName,assigneeId,assigneeName,assigneeDepartmentName,status,version,canOperate,completedAt)
-      actions=@($r.actions | Select-Object id,action,actorName,occurredAt)
+      actions=@($r.actions | Select-Object id,action,actorName,comment,occurredAt)
       attachments=@($r.attachments | Select-Object id,fileName,size,contentType,formFieldId)
       notifications=@($bootstrap.data.notifications | Where-Object {$_.requestId -eq $r.id} | Select-Object id,type,isRead,readAt,createdAt)
     }

@@ -1,0 +1,72 @@
+{
+  "recordedAt": "2026-09-06T09:50:00+08:00",
+  "device": {
+    "serial": "dd00d66d",
+    "model": "realme RMX3366",
+    "keyguard": "locked",
+    "wakefulnessBeforeStart": "Dozing"
+  },
+  "start": {
+    "trigger": "adb_activity_start_while_locked",
+    "processWasRunningBeforeStart": false,
+    "processWasRunningAfterStart": true,
+    "heartbeatStatus": 204,
+    "fatalOrAnrObserved": false
+  },
+  "initialHealth": {
+    "imMode": "http_long_poll",
+    "imAppliedSequence": 4062,
+    "imAcknowledgedSequence": 4062,
+    "imPendingAckCount": 0,
+    "imCursorHealth": "healthy",
+    "oaMode": "http_long_poll",
+    "oaAppliedSequence": 820,
+    "oaState": "healthy"
+  },
+  "catchup": {
+    "eventCount": 1,
+    "firstEventSequence": 4101,
+    "lastEventSequence": 4101,
+    "oldestEventAgeMs": 1988292,
+    "requestMs": 235,
+    "bootstrapMs": 35,
+    "commitMs": 97,
+    "ackMs": 1292,
+    "totalMs": 1746
+  },
+  "durableStateAfterCatchup": {
+    "imEventRows": 669,
+    "imMaxSequence": 4101,
+    "imEmptyEventIds": 0,
+    "imEventCursor": 4101,
+    "imAckCursor": 4101,
+    "oaEventRows": 214,
+    "oaMaxSequence": 820,
+    "oaEmptyEventIds": 0,
+    "oaEventCursor": 820
+  },
+  "lockedDeliveryProbe": {
+    "senderDevice": "emulator-5554",
+    "receiverDevice": "dd00d66d",
+    "receiverStayedLocked": true,
+    "sentAt": "2026-09-06T09:24:46.869+08:00",
+    "senderConfirmedRows": 1,
+    "backgroundObservationSeconds": 45,
+    "receivedBeforeExplicitRestart": false,
+    "cursorBeforeExplicitRestart": 4101,
+    "explicitLauncherRestartRequired": true,
+    "recoveredEventSequence": 4120,
+    "recoveredConversationSequence": 253,
+    "catchupTotalMs": 924,
+    "receiverSameServerIdRows": 1,
+    "cursorAfterCatchup": 4120,
+    "ackAfterCatchup": 4120,
+    "readReceiptAfterCatchup": "unread"
+  },
+  "verdict": "partial_pass",
+  "limits": [
+    "The app was started through ADB while the keyguard remained locked; this does not prove vendor push cold-start delivery.",
+    "No real-device UI interaction, keyboard, gesture, or accessibility acceptance was possible while locked.",
+    "A single recovered event proves durable catch-up order for this sample, not long-duration Android background survival."
+  ]
+}

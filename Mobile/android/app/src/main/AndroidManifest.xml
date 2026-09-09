@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Files are copied from the system picker into app-private storage.
          Remove broad media permissions contributed by open_filex. -->
     <uses-permission

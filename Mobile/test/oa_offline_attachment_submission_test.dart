@@ -26,6 +26,7 @@ void main() {
     String uploadedBody = '';
     Map<String, Object?>? approvalBody;
     var attachmentAttempts = 0;
+    final uploadProgress = <(int, int, int, int)>[];
 
     server.listen((request) async {
       if (request.method == 'POST' &&
@@ -127,6 +128,15 @@ void main() {
             ),
           ],
           allowOfflineQueue: true,
+          onAttachmentUploadProgress:
+              (attachmentIndex, attachmentCount, sent, total) {
+                uploadProgress.add((
+                  attachmentIndex,
+                  attachmentCount,
+                  sent,
+                  total,
+                ));
+              },
         ),
         throwsA(isA<OaSubmissionQueuedException>()),
       );
@@ -135,6 +145,10 @@ void main() {
       expect(queued.lastError, '附件上传暂未完成（HTTP 503），将自动重试');
       expect(queued.lastError, isNot(contains('synthetic-secret')));
       expect(calls, ['attachment:1']);
+      expect(uploadProgress, isNotEmpty);
+      expect(uploadProgress.last.$1, 0);
+      expect(uploadProgress.last.$2, 1);
+      expect(uploadProgress.last.$3, uploadProgress.last.$4);
       expect(queued.payload['attachmentIds'], isEmpty);
       expect(queued.payload['pendingAttachments'], hasLength(1));
       final queuedJson = jsonEncode(queued.payload);

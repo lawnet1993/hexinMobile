@@ -1,0 +1,52 @@
+{
+  "serial": "emulator-5558",
+  "expectedHeader": "AI-UAT-MULTIVM-20260906-1100",
+  "prefix": "AI-UAT-MULTIVM4-CONCURRENT-20260906-1435-M3-",
+  "requested": 10,
+  "startedAtUtc": "2026-09-06T06:31:54.3276615+00:00",
+  "completedAtUtc": "2026-09-06T06:32:13.4001354+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T06:31:55.3739030+00:00"
+    },
+    {
+      "index": 2,
+      "tappedAtUtc": "2026-09-06T06:31:56.7133698+00:00"
+    },
+    {
+      "index": 3,
+      "tappedAtUtc": "2026-09-06T06:31:58.0934614+00:00"
+    },
+    {
+      "index": 4,
+      "tappedAtUtc": "2026-09-06T06:31:59.8673877+00:00"
+    },
+    {
+      "index": 5,
+      "tappedAtUtc": "2026-09-06T06:32:01.2739387+00:00"
+    },
+    {
+      "index": 6,
+      "tappedAtUtc": "2026-09-06T06:32:03.0446297+00:00"
+    },
+    {
+      "index": 7,
+      "tappedAtUtc": "2026-09-06T06:32:04.8804169+00:00"
+    },
+    {
+      "index": 8,
+      "tappedAtUtc": "2026-09-06T06:32:06.4730244+00:00"
+    },
+    {
+      "index": 9,
+      "tappedAtUtc": "2026-09-06T06:32:08.2592544+00:00"
+    },
+    {
+      "index": 10,
+      "tappedAtUtc": "2026-09-06T06:32:10.0532942+00:00"
+    }
+  ]
+}

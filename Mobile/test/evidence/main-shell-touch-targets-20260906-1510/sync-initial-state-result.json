@@ -1,0 +1,81 @@
+{
+  "capturedAt": "2026-09-06T12:37:00+08:00",
+  "change": {
+    "previousInitialImRealtimeState": "available",
+    "currentInitialImRealtimeState": "connecting",
+    "availableOnlyAfterTransportHealth": true
+  },
+  "tests": {
+    "targeted": {
+      "passed": 37,
+      "failed": 0
+    },
+    "presenceFixtureRegression": {
+      "passed": 40,
+      "failed": 0
+    },
+    "fullSuite": {
+      "passed": 1405,
+      "failed": 0
+    }
+  },
+  "profileApk": {
+    "bytes": 111236918,
+    "sha256": "86F896B5964F498BA479628FBACE7F124E22BDE246A3997DF2E5885C71656FB7"
+  },
+  "androidRuntime": [
+    {
+      "serial": "emulator-5556",
+      "install": "success",
+      "launchState": "COLD",
+      "activityTotalTimeMs": 3266,
+      "sessionRetained": true,
+      "heartbeatStatus": 204,
+      "im": {
+        "mode": "http_long_poll",
+        "appliedSequence": 4616,
+        "acknowledgedSequence": 4616,
+        "pendingAckCount": 0,
+        "cursorHealth": "healthy"
+      },
+      "oa": {
+        "mode": "http_long_poll",
+        "appliedSequence": 743,
+        "pendingCommandCount": 0,
+        "pendingNotificationReadCount": 0,
+        "state": "healthy"
+      }
+    },
+    {
+      "serial": "emulator-5558",
+      "install": "success",
+      "launchState": "COLD",
+      "activityTotalTimeMs": 2846,
+      "sessionRetained": true,
+      "heartbeatStatus": 204,
+      "im": {
+        "mode": "http_long_poll",
+        "appliedSequence": 4628,
+        "acknowledgedSequence": 4628,
+        "pendingAckCount": 0,
+        "cursorHealth": "healthy"
+      },
+      "oa": {
+        "mode": "http_long_poll",
+        "appliedSequence": 821,
+        "pendingCommandCount": 0,
+        "pendingNotificationReadCount": 0,
+        "state": "healthy"
+      }
+    }
+  ],
+  "physicalDeviceBoundary": {
+    "connected": true,
+    "processAlive": true,
+    "wakefulness": "Dozing",
+    "keyguardShowing": true,
+    "deepIdleState": "ACTIVE",
+    "newBackgroundHeartbeatObserved": false,
+    "verdict": "not_passed"
+  }
+}

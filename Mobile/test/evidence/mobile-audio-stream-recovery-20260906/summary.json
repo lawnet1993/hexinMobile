@@ -1,0 +1,57 @@
+{
+  "date": "2026-09-06",
+  "sender": "test02-emulator",
+  "receiver": "test01-physical",
+  "fileName": "AI-UAT-AUDIO-STREAM-20260906.wav",
+  "bytes": 14400078,
+  "durationSeconds": 150,
+  "sha256": "27cfb4d7b24aff55e1f86f6eac05dc70d60e625db077441c247bccd2d1ed9040",
+  "upload": {
+    "transport": "multipart-stream",
+    "outboxPendingObserved": true,
+    "serverConfirmationObserved": true
+  },
+  "download": {
+    "cacheMissObserved": true,
+    "progressSamplesPercent": [0, 1, 9],
+    "playbackObserved": true,
+    "interruptedWithMobileDataDisabled": true,
+    "partialFileRemainingAfterFailure": false,
+    "retrySucceeded": true,
+    "downloadedSha256Matched": true,
+    "previewServerRangeStatus": 206,
+    "previewManagerIntegrated": true,
+    "backgroundCompletionObserved": true,
+    "forceStoppedPartBytes": 4194304,
+    "resumeStartedPercent": 29,
+    "resumePartBytes": [4194304, 8388608, 12582912, 14400078],
+    "resumeFinalSha256Matched": true
+  },
+  "legacyVideo": {
+    "previewCreateStatus": 404,
+    "authenticatedFallbackUsed": true,
+    "inAppPlaybackObserved": true,
+    "durationSeconds": 3
+  },
+  "conversationPreview": {
+    "beforeFix": "",
+    "afterFix": "[语音]"
+  },
+  "profileRegression": {
+    "networkTunnelEntryHidden": true,
+    "accountStatus": "已登录",
+    "sessionPreservedAfterInstall": true
+  },
+  "verification": {
+    "targetedTestsPassed": 30,
+    "fullSuitePassed": 1396,
+    "fullSuiteFailed": 0,
+    "analyzeIssues": 0
+  },
+  "build": {
+    "mode": "profile",
+    "target": "android-arm64",
+    "apkBytes": 69497080,
+    "apkSha256": "D2AB202ED0CE9BE100032C1D0C5A3CE86B181850CF5C50A887DD0A88F98EC0E0"
+  }
+}

@@ -1,12 +1,13 @@
 param(
-  [ValidateSet('emulator-5556','emulator-5558')][string]$Serial = 'emulator-5558',
-  [ValidateSet('test03','test04')][string]$Username = 'test04',
+  [ValidateSet('dd00d66d','emulator-5556','emulator-5558','emulator-5560')][string]$Serial = 'emulator-5558',
+  [ValidateSet('test01','test03','test04','test05')][string]$Username = 'test04',
   [switch]$ReplaceSavedFields
 )
 
 # Authorized test01-test10 share the supplied test password. Read the installed
 # desktop's DPAPI-protected saved credential in memory, never write a plaintext
-# config. Only an M3/M4 login screen can be operated; never logs out an account.
+# config. Only an explicitly allowlisted UAT device login screen can be
+# operated; never logs out an account.
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Security
 $appDir = 'C:\Users\86137\AppData\Roaming\com.jiucyun.hexingzhilian'

@@ -172,7 +172,7 @@ void main() {
           0,
           reason: 'Already applied replay must not republish',
         );
-        expect(requests, ['ack', 'events', 'bootstrap', 'ack']);
+        expect(requests, ['ack', 'events', 'ack']);
         expect(acks, List.filled(mode == 'ack-500' ? 3 : 2, 1));
         expect(await store.lastAckedEventSequence('account', 'device'), 1);
         expect(await store.lastEventSequence('account', 'another-device'), 0);

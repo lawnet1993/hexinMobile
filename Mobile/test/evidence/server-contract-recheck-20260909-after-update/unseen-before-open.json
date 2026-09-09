@@ -1,0 +1,78 @@
+{
+  "serial": "dd00d66d",
+  "account": "test01",
+  "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+  "conversationProjection": {
+    "lastMessageSequence": 281,
+    "maxStoredMessageSequence": 281,
+    "unreadCount": 1,
+    "lastReadSequence": 280
+  },
+  "tailMessages": [
+    {
+      "sequence": 281,
+      "createdAtUtc": "2026-09-09T13:50:05.958950+00:00",
+      "kind": "text",
+      "senderAccount": "test03"
+    },
+    {
+      "sequence": 280,
+      "createdAtUtc": "2026-09-09T10:48:36.073996+00:00",
+      "kind": "text",
+      "senderAccount": "test01"
+    },
+    {
+      "sequence": 279,
+      "createdAtUtc": "2026-09-09T10:48:19.310270+00:00",
+      "kind": "text",
+      "senderAccount": "test01"
+    },
+    {
+      "sequence": 278,
+      "createdAtUtc": "2026-09-09T10:48:13.506078+00:00",
+      "kind": "text",
+      "senderAccount": "test01"
+    },
+    {
+      "sequence": 277,
+      "createdAtUtc": "2026-09-09T09:29:36.615745+00:00",
+      "kind": "text",
+      "senderAccount": "test03"
+    }
+  ],
+  "prefix": "AI-UAT-SERVERUPDATE-UNSEEN-20260909-2152-",
+  "expected": 1,
+  "received": 1,
+  "complete": true,
+  "uniqueMessageIds": 1,
+  "uniqueSenderClientMessageKeys": 1,
+  "sequenceRange": "281..281",
+  "sequenceContiguous": true,
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "eventCursors": {
+    "acked": 6587,
+    "applied": 6587
+  },
+  "createdAtUtcRange": [
+    "2026-09-09T13:50:05.958950+00:00",
+    "2026-09-09T13:50:05.958950+00:00"
+  ],
+  "localUpdatedAtUtcRange": [
+    "2026-09-09T13:50:05.563542+00:00",
+    "2026-09-09T13:50:05.563542+00:00"
+  ],
+  "createdToLocalUpdateAgeMs": {
+    "samples": 1,
+    "negativeSamples": 1,
+    "clockSkewWarning": true,
+    "min": -395.408,
+    "average": -395.408,
+    "p50": -395.408,
+    "p90": -395.408,
+    "p95": -395.408,
+    "max": -395.408
+  },
+  "timingNote": "createdToLocalUpdateAgeMs is not delivery latency because later reconciliation can rewrite updated_at; use profile sync event-age diagnostics for live-delivery timing"
+}

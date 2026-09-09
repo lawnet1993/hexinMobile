@@ -10,7 +10,6 @@ import '../../../core/network/api_client.dart';
 import '../../../core/security/managed_security_repository.dart';
 import '../../../core/storage/secure_session_store.dart';
 import '../../auth/application/auth_controller.dart';
-import '../../network/application/tunnel_controller.dart';
 import '../data/collaboration_repositories.dart';
 
 enum MobileImCursorHealth { healthy, ackPending, invalid, unavailable }
@@ -63,8 +62,9 @@ final class MobileImSyncHealth {
   };
 }
 
-typedef MobileImSyncHealthLoader =
-    Future<MobileImSyncHealth> Function(MobileSession session);
+typedef MobileImSyncHealthLoader = Future<MobileImSyncHealth> Function(
+  MobileSession session,
+);
 
 final mobileImSyncHealthLoaderProvider = Provider<MobileImSyncHealthLoader>((
   ref,
@@ -127,8 +127,9 @@ final class MobileOaSyncHealth {
   };
 }
 
-typedef MobileOaSyncHealthLoader =
-    Future<MobileOaSyncHealth> Function(MobileSession session);
+typedef MobileOaSyncHealthLoader = Future<MobileOaSyncHealth> Function(
+  MobileSession session,
+);
 
 final mobileOaSyncHealthLoaderProvider = Provider<MobileOaSyncHealthLoader>((
   ref,
@@ -224,9 +225,6 @@ final class MobilePresenceCoordinator {
       }
       final policyVersion =
           _ref.read(managedPolicyStatusProvider).value?.policyVersion ?? '';
-      final tunnelConnected =
-          _ref.read(tunnelControllerProvider).value?.status.isConnected ??
-          false;
       final imSyncHealth = await _readImSyncHealth(latest);
       final oaSyncHealth = await _readOaSyncHealth(latest);
       if (!_isCurrent(epoch)) return;
@@ -245,7 +243,8 @@ final class MobilePresenceCoordinator {
               'clientVersion': identity.clientVersion,
               'policyVersion': policyVersion,
               'systemProxyEnabled': false,
-              'tunEnabled': tunnelConnected,
+              // IM/OA mobile sessions never rely on the desktop site tunnel.
+              'tunEnabled': false,
               'sentAt': DateTime.now().toUtc().toIso8601String(),
               'imSync': imSyncHealth.toJson(),
               'oaSync': oaSyncHealth.toJson(),

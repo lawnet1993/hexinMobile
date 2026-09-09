@@ -1,0 +1,55 @@
+{
+  "executedAt": "2026-09-06T10:13:58+08:00",
+  "sender": "test02",
+  "receiver": "test03",
+  "prefix": "AI-UAT-AGE-20260906-101358-M1-M2",
+  "messageIndices": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "senderChat": {
+    "found": 10,
+    "missing": [],
+    "duplicates": 0,
+    "ordered": true
+  },
+  "receiverChat": {
+    "found": 10,
+    "missing": [],
+    "duplicates": 0,
+    "ordered": true
+  },
+  "syncEvents": [
+    {"sequence": 4391, "eventAgeMs": 2, "commitMs": 38, "ackMs": 104},
+    {"sequence": 4393, "eventAgeMs": 34, "commitMs": 36, "ackMs": 150},
+    {"sequence": 4395, "eventAgeMs": 7, "commitMs": 32, "ackMs": 92},
+    {"sequence": 4397, "eventAgeMs": 20, "commitMs": 103, "ackMs": 108},
+    {"sequence": 4399, "eventAgeMs": -5, "commitMs": 62, "ackMs": 120},
+    {"sequence": 4401, "eventAgeMs": 6, "commitMs": 39, "ackMs": 96},
+    {"sequence": 4403, "eventAgeMs": 23, "commitMs": 47, "ackMs": 99},
+    {"sequence": 4405, "eventAgeMs": 10, "commitMs": 40, "ackMs": 98},
+    {"sequence": 4407, "eventAgeMs": 37, "commitMs": 38, "ackMs": 100},
+    {"sequence": 4409, "eventAgeMs": -9, "commitMs": 33, "ackMs": 105}
+  ],
+  "calculation": {
+    "clockSkewRule": "negative eventAgeMs is clamped to zero",
+    "percentileRule": "nearest-rank",
+    "estimatedDurableLatency": "max(0, eventAgeMs) + commitMs",
+    "estimatedThroughAckLatency": "max(0, eventAgeMs) + commitMs + ackMs"
+  },
+  "result": {
+    "eventAgeMsP50": 7,
+    "eventAgeMsP95": 37,
+    "commitMsP50": 38,
+    "commitMsP95": 103,
+    "ackMsP50": 100,
+    "ackMsP95": 150,
+    "estimatedDurableLatencyMsP50": 50,
+    "estimatedDurableLatencyMsP95": 123,
+    "estimatedThroughAckLatencyMsP50": 148,
+    "estimatedThroughAckLatencyMsP95": 231
+  },
+  "artifacts": [
+    "m1-age-burst-10.png",
+    "m1-age-burst-10.xml",
+    "m2-age-burst-10.png",
+    "m2-age-burst-10.xml"
+  ]
+}

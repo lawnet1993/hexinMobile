@@ -30,6 +30,21 @@ class _MemberTestScope extends Notifier<String> {
 }
 
 void main() {
+  testWidgets('chat header keeps compact actions and title typography', (
+    tester,
+  ) async {
+    await _pumpChat(tester, 'ops');
+
+    for (final tooltip in ['我的收藏', '搜索聊天记录', '群聊详情']) {
+      expect(tester.getSize(find.byTooltip(tooltip)), const Size.square(44));
+    }
+    final title = tester.widget<Text>(
+      find.byKey(const Key('chat-conversation-title')),
+    );
+    expect(title.style?.fontSize, 16);
+    expect(title.style?.fontWeight, FontWeight.w600);
+  });
+
   testWidgets(
     'composer reply captured before send does not leak into next draft',
     (tester) async {
@@ -123,8 +138,8 @@ void main() {
     );
   }
 
-  for (final nextText in ['first draft', '', '新消息😊']) {
-    testWidgets('composer preserves next input exactly: $nextText', (
+  for (final nextText in ['', '新消息😊']) {
+    testWidgets('composer queues a real next input exactly: $nextText', (
       tester,
     ) async {
       final fixture = (await tester.runAsync(ChatComposerFixture.create))!;
@@ -142,13 +157,20 @@ void main() {
       send();
       await _waitForComposerWrite(tester, fixture);
       await tester.enterText(input, nextText);
-      send(); // stale button callback / duplicate tap must not enqueue again.
+      send(); // Empty duplicate is ignored; a real next message is queued.
       fixture.cipher.release();
       await _finishComposer(tester);
-      expect(tester.widget<TextField>(input).controller!.text, nextText);
+      for (var i = 0; i < 40; i++) {
+        final due = (await tester.runAsync(
+          () => fixture.store.dueOutbox('me'),
+        ))!;
+        if (due.length == (nextText.isEmpty ? 1 : 2)) break;
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(tester.widget<TextField>(input).controller!.text, isEmpty);
       expect(
         (await tester.runAsync(() => fixture.store.dueOutbox('me')))!.length,
-        1,
+        nextText.isEmpty ? 1 : 2,
       );
       await tester.pumpWidget(const SizedBox());
     });
@@ -193,6 +215,30 @@ void main() {
         [original.id],
         [next.id],
       ]);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'composer drops mention metadata after its visible token is edited',
+    (tester) async {
+      final fixture = (await tester.runAsync(ChatComposerFixture.create))!;
+      addTearDown(fixture.store.close);
+      addTearDown(fixture.cipher.release);
+      await _pumpChat(tester, 'ops', repository: fixture.repository);
+      final input = find.byKey(const Key('chat-message-input'));
+      final member = PreviewData.conversationMembers('ops').first;
+      await tester.tap(find.byTooltip('提及成员'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key('mention-picker-member-${member.id}')));
+      await tester.pumpAndSettle();
+      await tester.enterText(input, '普通正文，不再包含提及标签');
+      await tester.tap(find.byTooltip('发送'));
+      await _finishComposer(tester);
+      final queued = (await tester.runAsync(
+        () => fixture.store.dueOutbox('me'),
+      ))!;
+      expect(queued.single.mentionedMemberIds, isEmpty);
       await tester.pumpWidget(const SizedBox());
     },
   );
@@ -906,6 +952,7 @@ void main() {
       tester.getSize(find.byKey(const Key('mention-picker-member-me'))).height,
       50,
     );
+    expect(find.textContaining('term.me'), findsNothing);
     expect(tester.testTextInput.isVisible, isFalse);
     await tester.tap(find.byTooltip('关闭').last);
     await tester.pumpAndSettle();
@@ -956,6 +1003,8 @@ void main() {
           .height,
       34,
     );
+    expect(find.text('搜索成员'), findsOneWidget);
+    expect(find.textContaining('账号'), findsNothing);
     expect(
       tester
           .getSize(find.byKey(const Key('group-member-directory-member-me')))
@@ -964,6 +1013,7 @@ void main() {
     );
     expect(find.byType(Divider), findsNothing);
     expect(find.text('在线'), findsNWidgets(3));
+    expect(find.textContaining('term.'), findsNothing);
 
     await tester.tap(find.byKey(const Key('group-member-directory-member-3')));
     await tester.pumpAndSettle();
@@ -1440,6 +1490,47 @@ void main() {
     );
   });
 
+  testWidgets(
+    'direct chat merges legacy remote sender ids into one visual avatar group',
+    (tester) async {
+      final messages = [
+        ImMessage(
+          id: 'legacy-remote-first',
+          conversationId: 'tang',
+          sequence: 20,
+          senderId: 'remote-device-a',
+          content: '桌面端发出的第一条消息',
+          kind: 'text',
+          createdAt: DateTime.utc(2026, 9, 1, 4),
+        ),
+        ImMessage(
+          id: 'legacy-remote-second',
+          conversationId: 'tang',
+          sequence: 21,
+          senderId: 'remote-device-b',
+          content: '同一账号另一终端的连续消息',
+          kind: 'text',
+          createdAt: DateTime.utc(2026, 9, 1, 4, 2),
+        ),
+      ];
+
+      await _pumpChat(tester, 'tang', messages: messages);
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('message-avatar-legacy-remote-first'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>('message-avatar-legacy-remote-second'),
+        ),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('outgoing messages keep the current member avatar key', (
     tester,
   ) async {
@@ -1762,6 +1853,13 @@ void main() {
       tester.getSize(find.byKey(const Key('create-group-member-1'))).height,
       50,
     );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('create-group-sheet')),
+        matching: find.textContaining('term.'),
+      ),
+      findsNothing,
+    );
     await tester.tap(find.byTooltip('关闭').last);
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView).last, const Offset(0, -420));
@@ -1961,8 +2059,17 @@ void main() {
 
       await tester.tap(find.text('图片/视频 2'));
       await tester.pumpAndSettle();
-      expect(find.text('接口流程图.png'), findsOneWidget);
-      expect(find.text('终端绑定演示.mp4'), findsOneWidget);
+      expect(find.byKey(const Key('conversation-media-grid')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('conversation-media-direct-image-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('conversation-media-direct-video-1')),
+        findsOneWidget,
+      );
+      expect(find.text('接口流程图.png'), findsNothing);
+      expect(find.text('终端绑定演示.mp4'), findsNothing);
 
       await tester.tap(find.text('链接 1'));
       await tester.pumpAndSettle();
@@ -3008,8 +3115,9 @@ void main() {
             (_, {required take, required beforeSequence}) async {
               if (beforeSequence == 121) {
                 calls++;
-                if (calls == 1)
+                if (calls == 1) {
                   throw StateError('synthetic network interruption');
+                }
                 return page.future;
               }
               return _sliceMessages(all, take, beforeSequence);
@@ -3640,14 +3748,16 @@ Future<void> _finishComposer(WidgetTester tester) async {
       () => Future<void>.delayed(const Duration(milliseconds: 10)),
     );
     await tester.pump(const Duration(milliseconds: 10));
-    if (tester
-            .widget<IconButton>(
-              find.byWidgetPredicate(
-                (widget) => widget is IconButton && widget.tooltip == '发送',
-              ),
-            )
-            .onPressed !=
-        null) {
+    final sendButton = find.byWidgetPredicate(
+      (widget) => widget is IconButton && widget.tooltip == '发送',
+    );
+    if (find
+        .descendant(
+          of: sendButton,
+          matching: find.byType(CircularProgressIndicator),
+        )
+        .evaluate()
+        .isEmpty) {
       await tester.pump(const Duration(milliseconds: 150));
       return;
     }

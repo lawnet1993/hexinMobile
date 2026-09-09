@@ -10,10 +10,10 @@ const inspectOnly = process.argv.includes('--inspect-only')
 const replaceSavedFields = process.argv.includes('--replace-saved-fields')
 delete process.env.MOBILE_UAT_PASSWORD
 delete process.env.MOBILE_UAT_USERNAME
-if (!['emulator-5556', 'emulator-5558'].includes(serial)) {
-  throw new Error('Only independent M3/M4 devices are supported.')
+if (!['dd00d66d', 'emulator-5556', 'emulator-5558', 'emulator-5560'].includes(serial)) {
+  throw new Error('Only allowlisted UAT devices are supported.')
 }
-if (!inspectOnly && (!/^test(03|04)$/.test(username) || !password)) {
+if (!inspectOnly && (!/^test(01|03|04|05)$/.test(username) || !password)) {
   throw new Error('Supply the authorized independent test account via environment.')
 }
 const adb = path.join(process.env.LOCALAPPDATA, 'Android', 'Sdk', 'platform-tools', 'adb.exe')
@@ -69,7 +69,9 @@ if (inspectOnly) {
     fieldsEmpty: inputFields.every(node => !node.text?.trim()),
     passwordFieldEmpty: inputFields.length === 2 && !inputFields[1].text?.trim(),
     usernameIsTest03: inputFields[0]?.text === 'test03',
+    usernameIsTest01: inputFields[0]?.text === 'test01',
     usernameIsTest04: inputFields[0]?.text === 'test04',
+    usernameIsTest05: inputFields[0]?.text === 'test05',
     sessionReplacedNotice: descriptions.includes('当前移动端已在另一台设备登录，请重新登录'),
     sessionExpiredNotice: descriptions.includes('登录已失效或已到期，请重新登录'),
   }))

@@ -1,0 +1,43 @@
+{
+  "topology": "three Android AVDs running",
+  "cycles": [
+    {
+      "cycle": 1,
+      "status": "ready",
+      "elapsedMs": 4060,
+      "polls": 1
+    },
+    {
+      "cycle": 2,
+      "status": "ready",
+      "elapsedMs": 3947,
+      "polls": 1
+    },
+    {
+      "cycle": 3,
+      "status": "ready",
+      "elapsedMs": 3670,
+      "polls": 1
+    },
+    {
+      "cycle": 4,
+      "status": "ready",
+      "elapsedMs": 3593,
+      "polls": 1
+    },
+    {
+      "cycle": 5,
+      "status": "ready",
+      "elapsedMs": 3606,
+      "polls": 1
+    },
+    {
+      "cycle": 6,
+      "status": "ready",
+      "elapsedMs": 3654,
+      "polls": 1
+    }
+  ],
+  "allReady": true,
+  "maxElapsedMs": 4060.0
+}

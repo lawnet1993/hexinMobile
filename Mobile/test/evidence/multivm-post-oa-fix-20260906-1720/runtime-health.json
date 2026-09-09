@@ -1,0 +1,34 @@
+[
+  {
+    "serial": "emulator-5554",
+    "processAlive": true,
+    "pid": "7273",
+    "totalPssKb": 210719,
+    "totalPssMiB": 205.8,
+    "crashMatches": 0
+  },
+  {
+    "serial": "emulator-5556",
+    "processAlive": true,
+    "pid": "30668",
+    "totalPssKb": 218969,
+    "totalPssMiB": 213.8,
+    "crashMatches": 0
+  },
+  {
+    "serial": "emulator-5558",
+    "processAlive": true,
+    "pid": "5342",
+    "totalPssKb": 215941,
+    "totalPssMiB": 210.9,
+    "crashMatches": 0
+  },
+  {
+    "serial": "emulator-5560",
+    "processAlive": true,
+    "pid": "16208",
+    "totalPssKb": 193705,
+    "totalPssMiB": 189.2,
+    "crashMatches": 0
+  }
+]

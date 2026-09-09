@@ -97,6 +97,7 @@ final class ImSyncCoordinator {
       },
     );
     availabilityController.markConnecting();
+    var bootstrapFailed = false;
     try {
       await _repository.refreshBootstrap();
       if (!_isCurrent(generation)) return;
@@ -106,10 +107,18 @@ final class ImSyncCoordinator {
       onChanged(const ImSyncInvalidation());
     } catch (_) {
       if (!_isCurrent(generation)) return;
+      bootstrapFailed = true;
       availabilityController.markUnavailable();
       // Cached projections remain usable while the network is unavailable.
     }
-    if (_isCurrent(generation)) _loop = _run(generation);
+    if (_isCurrent(generation)) {
+      // A failed bootstrap is followed immediately by the event loop. Do not
+      // leave the UI saying "interrupted" during that active retry/long poll.
+      if (bootstrapFailed) {
+        availabilityController.markConnecting();
+      }
+      _loop = _run(generation);
+    }
   }
 
   void synchronizeNow({bool reconcileConversations = false}) {
@@ -253,11 +262,17 @@ final class ImSyncCoordinator {
         } else if (!CancelToken.isCancel(error)) {
           availabilityController.markUnavailable();
           await Future<void>.delayed(const Duration(seconds: 3));
+          if (_isCurrent(generation)) {
+            availabilityController.markConnecting();
+          }
         }
       } catch (_) {
         if (_isCurrent(generation)) {
           availabilityController.markUnavailable();
           await Future<void>.delayed(const Duration(seconds: 3));
+          if (_isCurrent(generation)) {
+            availabilityController.markConnecting();
+          }
         }
       } finally {
         if (_isCurrent(generation)) {

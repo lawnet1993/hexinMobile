@@ -1,0 +1,39 @@
+{
+  "serial": "emulator-5556",
+  "account": "test03",
+  "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+  "prefix": "AI-UAT-MULTI-20260906-0545-T03-",
+  "expected": 30,
+  "received": 30,
+  "complete": true,
+  "uniqueMessageIds": 30,
+  "uniqueSenderClientMessageKeys": 30,
+  "sequenceRange": "150..179",
+  "sequenceContiguous": true,
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "eventCursors": {
+    "acked": 3561,
+    "applied": 3561
+  },
+  "createdAtUtcRange": [
+    "2026-09-05T21:42:13.579961+00:00",
+    "2026-09-05T21:43:05.890166+00:00"
+  ],
+  "persistedAtUtcRange": [
+    "2026-09-05T21:42:47.682168+00:00",
+    "2026-09-05T21:43:05.272742+00:00"
+  ],
+  "latencyMs": {
+    "samples": 30,
+    "negativeSamples": 11,
+    "clockSkewWarning": true,
+    "min": -617.424,
+    "average": 10779.871,
+    "p50": 6703.066,
+    "p90": 28683.615,
+    "p95": 31477.189,
+    "max": 34102.207
+  }
+}

@@ -18,6 +18,33 @@ class ImPresenceDiagnostics {
   final bool enabled;
   final void Function(String)? write;
 
+  void memberResponse(
+    Iterable<ImMember> members, {
+    required String source,
+    required int? status,
+  }) {
+    if (!enabled || kReleaseMode) return;
+    var received = 0;
+    var known = 0;
+    var online = 0;
+    var withLastSeen = 0;
+    for (final member in members) {
+      received++;
+      if (member.presenceKnown) known++;
+      if (member.presenceKnown && member.isOnline) online++;
+      if (member.lastSeenAt != null) withLastSeen++;
+    }
+    _emit({
+      'kind': 'member_response',
+      'source': source,
+      'httpStatus': status,
+      'received': received,
+      'presenceKnown': known,
+      'online': online,
+      'withLastSeen': withLastSeen,
+    });
+  }
+
   void response(
     ImConversationPresence value, {
     required int? status,

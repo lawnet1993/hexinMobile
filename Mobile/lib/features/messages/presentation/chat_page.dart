@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/media/mobile_image_compressor.dart';
+import '../../../core/media/mobile_file_content_type.dart';
 import '../../../core/media/mobile_upload_policy.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/diagnostics/chat_open_diagnostics.dart';
@@ -33,8 +35,11 @@ import '../../../shared/widgets/visible_refresh_scheduler.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/data/im_presence_projection.dart';
 import '../../collaboration/data/im_member_presence.dart';
+import '../../collaboration/data/im_outbox_file_store.dart';
 import '../../collaboration/data/im_video_thumbnail.dart';
+import '../../collaboration/domain/attachment_preview.dart';
 import '../../collaboration/domain/collaboration_models.dart';
+import '../../collaboration/application/attachment_preview_manager.dart';
 import '../../collaboration/application/im_sync_coordinator.dart';
 import 'conversation_detail_page.dart';
 import 'chat_composer_drafts.dart';
@@ -159,18 +164,21 @@ class _ChatPageState extends ConsumerState<ChatPage>
     with WidgetsBindingObserver {
   Future<void> Function()? _leavePresence;
   final _controller = TextEditingController();
+  Future<void> _sendQueue = Future<void>.value();
   final _messageScrollController = ScrollController();
   final _messageViewportKey = GlobalKey();
   final Map<String, GlobalKey> _messageItemKeys = <String, GlobalKey>{};
   List<ImMessage> _renderedMessages = const <ImMessage>[];
   bool _visibleReadCheckScheduled = false;
   bool _sending = false;
+  int _pendingSendCount = 0;
   bool _sendingAttachment = false;
   bool _loadingReadReceipt = false;
   int _lastReadSequence = 0;
   bool _searching = false;
   String _query = '';
   final Set<String> _mentionedMemberIds = <String>{};
+  final Map<String, String> _mentionLabelsByMemberId = <String, String>{};
   bool _mentionAll = false;
   ImMessage? _replyTo;
   VisibleRefreshScheduler? _presenceRefreshScheduler;
@@ -197,6 +205,12 @@ class _ChatPageState extends ConsumerState<ChatPage>
   String? _openingMediaAttachmentId;
   double? _mediaDownloadProgress;
   int _lastMediaDownloadPercent = -1;
+  CancelToken? _legacyMediaCancelToken;
+  String? _openingFileMessageId;
+  double? _fileDownloadProgress;
+  int _lastFileDownloadPercent = -1;
+  CancelToken? _fileDownloadCancelToken;
+  AttachmentPreviewManager? _attachmentPreviewManager;
   ChatOpenDiagnostics? _openTrace;
   bool _initialWindowCached = false;
   bool _traceWindowResolved = false;
@@ -271,6 +285,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
   @override
   void initState() {
     super.initState();
+    _attachmentPreviewManager = ref.read(attachmentPreviewManagerProvider);
     WidgetsBinding.instance.addObserver(this);
     _foreground =
         WidgetsBinding.instance.lifecycleState == null ||
@@ -379,6 +394,9 @@ class _ChatPageState extends ConsumerState<ChatPage>
     _audioStateSubscription?.cancel();
     _audioPositionSubscription?.cancel();
     _audioDurationSubscription?.cancel();
+    _legacyMediaCancelToken?.cancel('chat-closed');
+    _fileDownloadCancelToken?.cancel('chat-closed');
+    _attachmentPreviewManager?.cancelAll();
     _audioPlayer?.dispose();
     _leavePresence?.call().ignore();
     _messageScrollController.dispose();
@@ -725,12 +743,16 @@ class _ChatPageState extends ConsumerState<ChatPage>
 
   Future<void> _send() async {
     final value = _controller.text.trim();
-    if (value.isEmpty || _sending) return;
+    if (value.isEmpty) return;
     final replyTo = _replyTo;
+    final validMentionedMemberIds = _mentionedMemberIds.where((id) {
+      final label = _mentionLabelsByMemberId[id];
+      return label != null && label.isNotEmpty && value.contains(label);
+    }).toList();
     final draft = UnstoredChatDraft(
       content: value,
-      mentionedMemberIds: _mentionedMemberIds.toList(),
-      mentionAll: _mentionAll,
+      mentionedMemberIds: validMentionedMemberIds,
+      mentionAll: _mentionAll && value.contains('@全体'),
       replyTo: replyTo == null
           ? null
           : ImMessageReply(
@@ -746,13 +768,34 @@ class _ChatPageState extends ConsumerState<ChatPage>
     // clear text, mentions or replies entered for the next message.
     _controller.clear();
     _mentionedMemberIds.clear();
+    _mentionLabelsByMemberId.clear();
     _mentionAll = false;
     _replyTo = null;
-    await _sendDraft(draft);
+    await _enqueueDraft(draft);
+  }
+
+  Future<void> _enqueueDraft(UnstoredChatDraft draft) async {
+    if (!mounted) return;
+    setState(() {
+      _pendingSendCount += 1;
+      _sending = true;
+    });
+    final queued = _sendQueue.then((_) => _sendDraft(draft));
+    _sendQueue = queued.catchError((Object _) {});
+    try {
+      await queued;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _pendingSendCount -= 1;
+          _sending = _pendingSendCount > 0;
+        });
+      }
+    }
   }
 
   Future<void> _sendDraft(UnstoredChatDraft draft) async {
-    if (_sending) return;
+    if (!mounted) return;
     final drafts = ref.read(unstoredChatDraftsProvider.notifier);
     final generation = drafts.generation;
     final account = ref.read(collaborationAccountScopeProvider);
@@ -763,7 +806,6 @@ class _ChatPageState extends ConsumerState<ChatPage>
         drafts.isCurrent(generation) &&
         ref.read(collaborationAccountScopeProvider) == account &&
         widget.conversationId == conversationId;
-    setState(() => _sending = true);
     try {
       final message = await repository.send(
         conversationId,
@@ -791,8 +833,6 @@ class _ChatPageState extends ConsumerState<ChatPage>
           SnackBar(content: Text(mobileActionErrorText('发送失败', error))),
         );
       }
-    } finally {
-      if (ownsComposer()) setState(() => _sending = false);
     }
   }
 
@@ -1032,7 +1072,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
             length: length,
             openRead: () =>
                 withMobileFileStreamAccess(selected.readAsByteStream()),
-            contentType: _contentType(
+            contentType: mobileFileContentType(
               path.extension(selected.name).replaceFirst('.', ''),
             ),
             coverBytes: thumbnail?.bytes,
@@ -1052,6 +1092,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
         );
       }
     } finally {
+      await _clearPickedFileCache();
       if (mounted && sending) setState(() => _sendingAttachment = false);
     }
   }
@@ -1070,33 +1111,60 @@ class _ChatPageState extends ConsumerState<ChatPage>
       }
       setState(() => _sendingAttachment = true);
       sending = true;
-      final files =
-          <({String fileName, Uint8List bytes, String contentType})>[];
-      for (final item in selected) {
-        final length = await withMobileFileAccess(item.length);
-        validateMobileUploadSourceLength(MobileUploadKind.chatImage, length);
-        final bytes = await withMobileFileAccess(item.readAsBytes);
-        if (bytes.isEmpty) throw const MobileUploadAccessException();
-        final contentType = _contentType(
-          path.extension(item.name).replaceFirst('.', ''),
-        );
-        final prepared = await ref
-            .read(mobileImageCompressorProvider)
-            .prepare(
-              fileName: item.name,
-              bytes: bytes,
-              contentType: contentType,
-              purpose: MobileImagePurpose.message,
-            );
-        files.add((
-          fileName: prepared.fileName,
-          bytes: prepared.bytes,
-          contentType: prepared.contentType,
-        ));
-      }
       await ref
           .read(imRepositoryProvider)
-          .sendImages(conversationId: widget.conversationId, files: files);
+          .sendPreparedImageStreams(
+            conversationId: widget.conversationId,
+            count: selected.length,
+            prepare: (index) async {
+              final item = selected[index];
+              final length = await withMobileFileAccess(item.length);
+              validateMobileUploadSourceLength(
+                MobileUploadKind.chatImage,
+                length,
+              );
+              final contentType = await resolveMobileFileContentType(
+                fileName: item.name,
+                openRead: () =>
+                    withMobileFileStreamAccess(item.readAsByteStream()),
+              );
+              final compressLocally = isMobileLocallyCompressibleImageType(
+                contentType,
+              );
+              if (!compressLocally) {
+                validateMobileUploadSourceLength(
+                  MobileUploadKind.chatOriginalImage,
+                  length,
+                );
+                return (
+                  fileName: item.name,
+                  length: length,
+                  contentType: contentType,
+                  openRead: () =>
+                      withMobileFileStreamAccess(item.readAsByteStream()),
+                );
+              }
+              final prepared = await ref
+                  .read(mobileImageCompressorProvider)
+                  .prepareStream(
+                    fileName: item.name,
+                    sourceLength: length,
+                    openRead: () =>
+                        withMobileFileStreamAccess(item.readAsByteStream()),
+                    contentType: contentType,
+                    purpose: MobileImagePurpose.message,
+                  );
+              if (prepared.bytes.isEmpty) {
+                throw const MobileUploadAccessException();
+              }
+              return (
+                fileName: prepared.fileName,
+                length: prepared.bytes.length,
+                contentType: prepared.contentType,
+                openRead: () => Stream<List<int>>.value(prepared.bytes),
+              );
+            },
+          );
       _refreshConversationState(scrollToBottom: true);
       _wakeImSync();
     } catch (error) {
@@ -1106,6 +1174,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
         );
       }
     } finally {
+      await _clearPickedFileCache();
       if (mounted && sending) setState(() => _sendingAttachment = false);
     }
   }
@@ -1128,7 +1197,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
             length: length,
             openRead: () =>
                 withMobileFileStreamAccess(selected.readAsByteStream()),
-            contentType: _contentType(
+            contentType: mobileFileContentType(
               path.extension(selected.name).replaceFirst('.', ''),
             ),
           );
@@ -1141,7 +1210,18 @@ class _ChatPageState extends ConsumerState<ChatPage>
         );
       }
     } finally {
+      await _clearPickedFileCache();
       if (mounted && sending) setState(() => _sendingAttachment = false);
+    }
+  }
+
+  Future<void> _clearPickedFileCache() async {
+    try {
+      await FilePicker.clearTemporaryFiles();
+    } catch (_) {
+      // The encrypted Outbox copy is authoritative. Some platform pickers do
+      // not expose a temporary-cache cleanup operation, so cleanup is best
+      // effort and must not turn a completed send into an error.
     }
   }
 
@@ -1174,27 +1254,90 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Future<void> _openAttachment(ImMessage message) async {
+    if (_openingFileMessageId == message.id) {
+      _cancelFileDownload(message.id);
+      return;
+    }
+    if (_openingFileMessageId != null) return;
+    final cancelToken = CancelToken();
+    _fileDownloadCancelToken = cancelToken;
+    setState(() {
+      _openingFileMessageId = message.id;
+      _fileDownloadProgress = 0;
+      _lastFileDownloadPercent = 0;
+    });
     try {
+      final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
+      final sourceExtension = path
+          .extension(message.attachmentName)
+          .toLowerCase();
+      final safeExtension =
+          RegExp(r'^\.[a-z0-9]{1,10}$').hasMatch(sourceExtension)
+          ? sourceExtension
+          : '';
+      final scope = sha256
+          .convert(
+            utf8.encode(
+              '${AppEnvironment.storageNamespace}\n$accountId\n${message.id}\n${message.attachmentSize ?? 0}',
+            ),
+          )
+          .toString();
+      final directory = Directory(
+        path.join(
+          (await getTemporaryDirectory()).path,
+          AppEnvironment.storageDirectoryName('im-file-attachments'),
+        ),
+      );
+      final target = File(path.join(directory.path, '$scope$safeExtension'));
       final attachment = await ref
           .read(imRepositoryProvider)
-          .downloadAttachment(message);
-      final directory = await getTemporaryDirectory();
-      final target = File(
-        path.join(directory.path, path.basename(attachment.fileName)),
-      );
-      await target.writeAsBytes(attachment.bytes, flush: true);
-      final result = await OpenFilex.open(target.path);
+          .downloadAttachmentToFile(
+            message,
+            target.path,
+            cancelToken: cancelToken,
+            onReceiveProgress: (received, total) =>
+                _updateFileDownloadProgress(message.id, received, total),
+          );
+      if (!mounted) return;
+      final result = await OpenFilex.open(attachment.path);
       if (result.type != ResultType.done && mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(result.message)));
       }
     } catch (error) {
-      if (mounted) {
+      final cancelled =
+          error is DioException && error.type == DioExceptionType.cancel;
+      if (mounted && !cancelled) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(mobileActionErrorText('附件打开失败', error))),
         );
       }
+    } finally {
+      if (identical(_fileDownloadCancelToken, cancelToken)) {
+        _fileDownloadCancelToken = null;
+      }
+      if (mounted && _openingFileMessageId == message.id) {
+        setState(() {
+          _openingFileMessageId = null;
+          _fileDownloadProgress = null;
+          _lastFileDownloadPercent = -1;
+        });
+      }
     }
+  }
+
+  void _updateFileDownloadProgress(String messageId, int received, int total) {
+    if (!mounted || _openingFileMessageId != messageId) return;
+    final progress = total <= 0 ? null : (received / total).clamp(0.0, 1.0);
+    final percent = progress == null ? -1 : (progress * 100).floor();
+    if (percent == _lastFileDownloadPercent) return;
+    _lastFileDownloadPercent = percent;
+    setState(() => _fileDownloadProgress = progress);
+  }
+
+  void _cancelFileDownload(String messageId) {
+    if (_openingFileMessageId != messageId) return;
+    _fileDownloadCancelToken?.cancel('attachment-download-cancelled');
   }
 
   Future<void> _openMediaAttachment(ImMessageAttachment attachment) async {
@@ -1234,6 +1377,9 @@ class _ChatPageState extends ConsumerState<ChatPage>
               .showSnackBar(SnackBar(content: Text(result.message)));
         }
       }
+    } on AttachmentPreviewCancelled {
+      // The user intentionally stopped this download. Complete chunks remain
+      // available for the next tap, so cancellation is not a playback error.
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1255,6 +1401,47 @@ class _ChatPageState extends ConsumerState<ChatPage>
     ImMessageAttachment attachment, {
     void Function(int received, int total)? onProgress,
   }) async {
+    final expectedDigest = attachment.sha256.trim().toLowerCase();
+    final hasVerifiedRemoteSource =
+        parseImOutboxSyntheticFileId(attachment.id) == null &&
+        attachment.size > 0 &&
+        RegExp(r'^[0-9a-f]{64}$').hasMatch(expectedDigest);
+    if (hasVerifiedRemoteSource) {
+      try {
+        final prepared = await ref
+            .read(attachmentPreviewManagerProvider)
+            .prepareImMedia(
+              attachmentId: attachment.id,
+              fileName: attachment.fileName,
+              expectedSize: attachment.size,
+              expectedSha256: expectedDigest,
+              onProgress: onProgress,
+            );
+        return File(prepared.path);
+      } on AttachmentPreviewSessionExpired catch (error) {
+        if (error.statusCode != 404) rethrow;
+        // Attachments created before preview sessions were introduced can
+        // remain readable from the original authenticated media endpoint even
+        // when the preview-session lookup has no matching record. Keep those
+        // historical messages usable without weakening integrity checks.
+      }
+    }
+
+    return _prepareLegacyMediaPlaybackFile(
+      attachment,
+      expectedDigest: expectedDigest,
+      onProgress: onProgress,
+    );
+  }
+
+  Future<File> _prepareLegacyMediaPlaybackFile(
+    ImMessageAttachment attachment, {
+    required String expectedDigest,
+    void Function(int received, int total)? onProgress,
+  }) async {
+    // A local Outbox attachment is not visible to the preview-session API yet.
+    // Historical server attachments can also use this authenticated direct
+    // path when their preview-session record is absent (404).
     final accountId = await ref.read(imMediaCacheAccountLoaderProvider)();
     final scope = sha256
         .convert(
@@ -1285,21 +1472,42 @@ class _ChatPageState extends ConsumerState<ChatPage>
       await target.delete();
     }
 
-    final bytes = await ref
-        .read(imRepositoryProvider)
-        .downloadMediaAttachment(attachment.id, onReceiveProgress: onProgress);
-    if (attachment.size > 0 && bytes.length != attachment.size) {
-      throw StateError('媒体文件不完整');
-    }
-    final expectedDigest = attachment.sha256.trim().toLowerCase();
-    if (expectedDigest.isNotEmpty &&
-        sha256.convert(bytes).toString().toLowerCase() != expectedDigest) {
-      throw StateError('媒体文件校验失败');
-    }
     final part = File('${target.path}.part');
-    await part.writeAsBytes(bytes, flush: true);
-    if (await target.exists()) await target.delete();
-    return part.rename(target.path);
+    if (await part.exists()) await part.delete();
+    final cancelToken = CancelToken();
+    _legacyMediaCancelToken = cancelToken;
+    try {
+      await ref
+          .read(imRepositoryProvider)
+          .downloadMediaAttachmentToFile(
+            attachment.id,
+            part.path,
+            onReceiveProgress: onProgress,
+            cancelToken: cancelToken,
+          );
+      final length = await part.length();
+      if (attachment.size > 0 && length != attachment.size) {
+        throw StateError('媒体文件不完整');
+      }
+      if (expectedDigest.isNotEmpty) {
+        final actualDigest = await sha256.bind(part.openRead()).first;
+        if (actualDigest.toString().toLowerCase() != expectedDigest) {
+          throw StateError('媒体文件校验失败');
+        }
+      }
+      if (await target.exists()) await target.delete();
+      return await part.rename(target.path);
+    } catch (error) {
+      if (await part.exists()) await part.delete();
+      if (error is DioException && error.type == DioExceptionType.cancel) {
+        throw const AttachmentPreviewCancelled();
+      }
+      rethrow;
+    } finally {
+      if (identical(_legacyMediaCancelToken, cancelToken)) {
+        _legacyMediaCancelToken = null;
+      }
+    }
   }
 
   void _updateMediaDownloadProgress(
@@ -1313,6 +1521,12 @@ class _ChatPageState extends ConsumerState<ChatPage>
     if (percent == _lastMediaDownloadPercent) return;
     _lastMediaDownloadPercent = percent;
     setState(() => _mediaDownloadProgress = progress);
+  }
+
+  void _cancelMediaDownload(String attachmentId) {
+    if (_openingMediaAttachmentId != attachmentId) return;
+    _legacyMediaCancelToken?.cancel('attachment-preview-cancelled');
+    ref.read(attachmentPreviewManagerProvider).cancelAll();
   }
 
   Future<void> _toggleAudioAttachment(ImMessageAttachment attachment) async {
@@ -1353,6 +1567,13 @@ class _ChatPageState extends ConsumerState<ChatPage>
             _updateMediaDownloadProgress(attachment.id, received, total),
       );
       await _playPreparedAudio(attachment, target);
+    } on AttachmentPreviewCancelled {
+      if (!mounted) return;
+      setState(() {
+        _activeAudioAttachmentId = null;
+        _audioLoading = false;
+        _audioPlaying = false;
+      });
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -1504,8 +1725,10 @@ class _ChatPageState extends ConsumerState<ChatPage>
     final member = choice.member;
     if (member == null) return;
     setState(() {
+      final label = '@${member.displayName}';
       _mentionedMemberIds.add(member.id);
-      _controller.text += '@${member.displayName} ';
+      _mentionLabelsByMemberId[member.id] = label;
+      _controller.text += '$label ';
       _controller.selection = TextSelection.collapsed(
         offset: _controller.text.length,
       );
@@ -2014,6 +2237,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
       setState(() {
         _controller.clear();
         _mentionedMemberIds.clear();
+        _mentionLabelsByMemberId.clear();
         _mentionAll = false;
         _replyTo = null;
         _sending = false;
@@ -2233,8 +2457,13 @@ class _ChatPageState extends ConsumerState<ChatPage>
                 children: [
                   Text(
                     directTitle,
+                    key: const Key('chat-conversation-title'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   if (conversationStatusLabel.isNotEmpty)
                     Text(
@@ -2254,28 +2483,31 @@ class _ChatPageState extends ConsumerState<ChatPage>
         actions: [
           IconButton(
             tooltip: '我的收藏',
+            style: compactHeaderIconButtonStyle,
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const MessageFavoritesPage(),
               ),
             ),
-            icon: const Icon(Icons.bookmark_border_rounded),
+            icon: const Icon(Icons.bookmark_border_rounded, size: 20),
           ),
           IconButton(
             tooltip: '搜索聊天记录',
+            style: compactHeaderIconButtonStyle,
             onPressed: () => setState(() {
               _resourceTab = 0;
               _searching = !_searching;
               if (!_searching) _query = '';
             }),
-            icon: const Icon(Icons.search_rounded),
+            icon: const Icon(Icons.search_rounded, size: 20),
           ),
           IconButton(
             tooltip: conversation?.isGroup == true ? '群聊详情' : '个人资料',
+            style: compactHeaderIconButtonStyle,
             onPressed: conversation == null || currentMember == null
                 ? null
                 : () => _openConversationDetail(conversation, currentMember),
-            icon: const Icon(Icons.more_horiz_rounded),
+            icon: const Icon(Icons.more_horiz_rounded, size: 20),
           ),
         ],
       ),
@@ -2391,6 +2623,14 @@ class _ChatPageState extends ConsumerState<ChatPage>
                         onOpenImage: _openConversationImage,
                         onOpenMedia: _openMediaAttachment,
                         onOpenLink: _openConversationLink,
+                        openingFileMessageId: _openingFileMessageId,
+                        openingMediaAttachmentId: _openingMediaAttachmentId,
+                        fileDownloadProgress: _fileDownloadProgress,
+                        mediaDownloadProgress: _mediaDownloadProgress,
+                        activeAudioAttachmentId: _activeAudioAttachmentId,
+                        audioPlaying: _audioPlaying,
+                        onCancelFile: _cancelFileDownload,
+                        onCancelMedia: _cancelMediaDownload,
                       );
                     }
                     if (_resourceTab == 2 && conversation?.isDirect == true) {
@@ -2469,9 +2709,20 @@ class _ChatPageState extends ConsumerState<ChatPage>
                                       !_messagesShareCompactCluster(
                                         previous,
                                         item,
+                                        currentMemberId:
+                                            bootstrap?.currentMember.id,
+                                        directConversation:
+                                            conversation?.isGroup == false,
                                       );
                                   final compactWithNext =
-                                      _messagesShareCompactCluster(item, next);
+                                      _messagesShareCompactCluster(
+                                        item,
+                                        next,
+                                        currentMemberId:
+                                            bootstrap?.currentMember.id,
+                                        directConversation:
+                                            conversation?.isGroup == false,
+                                      );
                                   final showDateDivider =
                                       index == 0 ||
                                       !_messagesShareCalendarDay(
@@ -2612,15 +2863,33 @@ class _ChatPageState extends ConsumerState<ChatPage>
                                               item.attachments.first.id ==
                                                   _activeAudioAttachmentId &&
                                               _audioPlaying,
-                                          mediaOpening:
-                                              item.attachments.isNotEmpty &&
-                                              item.attachments.first.id ==
-                                                  _openingMediaAttachmentId,
+                                          mediaOpening: item.kind == 'file'
+                                              ? item.id == _openingFileMessageId
+                                              : item.attachments.isNotEmpty &&
+                                                    item.attachments.first.id ==
+                                                        _openingMediaAttachmentId,
                                           mediaDownloadProgress:
-                                              item.attachments.isNotEmpty &&
-                                                  item.attachments.first.id ==
-                                                      _openingMediaAttachmentId
+                                              item.kind == 'file' &&
+                                                  item.id ==
+                                                      _openingFileMessageId
+                                              ? _fileDownloadProgress
+                                              : item.attachments.isNotEmpty &&
+                                                    item.attachments.first.id ==
+                                                        _openingMediaAttachmentId
                                               ? _mediaDownloadProgress
+                                              : null,
+                                          onCancelMedia:
+                                              item.kind == 'file' &&
+                                                  item.id ==
+                                                      _openingFileMessageId
+                                              ? () =>
+                                                    _cancelFileDownload(item.id)
+                                              : item.attachments.isNotEmpty &&
+                                                    item.attachments.first.id ==
+                                                        _openingMediaAttachmentId
+                                              ? () => _cancelMediaDownload(
+                                                  item.attachments.first.id,
+                                                )
                                               : null,
                                           audioPosition: _audioPosition,
                                           audioDuration: _audioDuration,
@@ -2739,7 +3008,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                           tooltip: '重试未入库消息',
                           onPressed: _sending || !composerEnabled
                               ? null
-                              : () => _sendDraft(draft),
+                              : () => _enqueueDraft(draft),
                           icon: const Icon(Icons.refresh_rounded, size: 20),
                         ),
                       ],
@@ -2868,7 +3137,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                         tooltip: '发送',
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        onPressed: !composerEnabled || _sending ? null : _send,
+                        onPressed: !composerEnabled ? null : _send,
                         icon: _sending
                             ? const SizedBox.square(
                                 dimension: 17,
@@ -3087,6 +3356,14 @@ class _ConversationFilesView extends StatefulWidget {
     required this.onOpenImage,
     required this.onOpenMedia,
     required this.onOpenLink,
+    required this.openingFileMessageId,
+    required this.openingMediaAttachmentId,
+    required this.fileDownloadProgress,
+    required this.mediaDownloadProgress,
+    required this.activeAudioAttachmentId,
+    required this.audioPlaying,
+    required this.onCancelFile,
+    required this.onCancelMedia,
   });
 
   final List<ImMessage> messages;
@@ -3094,6 +3371,14 @@ class _ConversationFilesView extends StatefulWidget {
   final ValueChanged<ImMessage> onOpenImage;
   final ValueChanged<ImMessageAttachment> onOpenMedia;
   final ValueChanged<Uri> onOpenLink;
+  final String? openingFileMessageId;
+  final String? openingMediaAttachmentId;
+  final double? fileDownloadProgress;
+  final double? mediaDownloadProgress;
+  final String? activeAudioAttachmentId;
+  final bool audioPlaying;
+  final ValueChanged<String> onCancelFile;
+  final ValueChanged<String> onCancelMedia;
 
   @override
   State<_ConversationFilesView> createState() => _ConversationFilesViewState();
@@ -3155,17 +3440,43 @@ class _ConversationFilesViewState extends State<_ConversationFilesView> {
                   : Icons.description_outlined,
               nameOf: _conversationFileName,
               trailing: Icons.download_outlined,
-              onTap: widget.onOpenFile,
+              trailingOf: (item) {
+                if (item.kind != 'audio' || item.attachments.isEmpty) {
+                  return Icons.download_outlined;
+                }
+                final active =
+                    item.attachments.first.id == widget.activeAudioAttachmentId;
+                return active && widget.audioPlaying
+                    ? Icons.pause_circle_outline_rounded
+                    : Icons.play_circle_outline_rounded;
+              },
+              onTap: (item) {
+                if (item.kind == 'audio' && item.attachments.isNotEmpty) {
+                  widget.onOpenMedia(item.attachments.first);
+                } else {
+                  widget.onOpenFile(item);
+                }
+              },
+              openingOf: (item) =>
+                  item.kind == 'audio' && item.attachments.isNotEmpty
+                  ? item.attachments.first.id == widget.openingMediaAttachmentId
+                  : item.id == widget.openingFileMessageId,
+              progressOf: (item) => item.kind == 'audio'
+                  ? widget.mediaDownloadProgress
+                  : widget.fileDownloadProgress,
+              onCancel: (item) {
+                if (item.kind == 'audio' && item.attachments.isNotEmpty) {
+                  widget.onCancelMedia(item.attachments.first.id);
+                } else {
+                  widget.onCancelFile(item.id);
+                }
+              },
             ),
-            _ConversationResourceType.media => _ConversationResourceList(
+            _ConversationResourceType.media => _ConversationMediaGrid(
               items: media,
-              emptyIcon: Icons.photo_library_outlined,
-              emptyText: '暂无图片或视频',
-              iconOf: (item) => item.kind == 'video'
-                  ? Icons.videocam_outlined
-                  : Icons.photo_outlined,
-              nameOf: _conversationMediaName,
-              trailing: Icons.open_in_new_rounded,
+              openingAttachmentId: widget.openingMediaAttachmentId,
+              downloadProgress: widget.mediaDownloadProgress,
+              onCancel: widget.onCancelMedia,
               onTap: (item) {
                 if (item.kind == 'image') {
                   widget.onOpenImage(item);
@@ -3274,7 +3585,11 @@ class _ConversationResourceList extends StatelessWidget {
     required this.iconOf,
     required this.nameOf,
     required this.trailing,
+    this.trailingOf,
     required this.onTap,
+    this.openingOf,
+    this.progressOf,
+    this.onCancel,
   });
 
   final List<ImMessage> items;
@@ -3283,7 +3598,11 @@ class _ConversationResourceList extends StatelessWidget {
   final IconData Function(ImMessage) iconOf;
   final String Function(ImMessage) nameOf;
   final IconData trailing;
+  final IconData Function(ImMessage)? trailingOf;
   final ValueChanged<ImMessage> onTap;
+  final bool Function(ImMessage)? openingOf;
+  final double? Function(ImMessage)? progressOf;
+  final ValueChanged<ImMessage>? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -3294,6 +3613,7 @@ class _ConversationResourceList extends StatelessWidget {
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final item = items[index];
+        final opening = openingOf?.call(item) ?? false;
         return ListTile(
           dense: true,
           minTileHeight: 54,
@@ -3309,8 +3629,179 @@ class _ConversationResourceList extends StatelessWidget {
             _resourceTime(item),
             style: const TextStyle(fontSize: 10.5),
           ),
-          trailing: Icon(trailing, size: 19),
-          onTap: () => onTap(item),
+          trailing: opening
+              ? IconButton(
+                  key: ValueKey('conversation-file-cancel-${item.id}'),
+                  tooltip: '取消下载',
+                  onPressed: onCancel == null ? null : () => onCancel!(item),
+                  icon: _MediaDownloadProgress(
+                    value: progressOf?.call(item),
+                    size: 24,
+                    textColor: AppColors.primary,
+                  ),
+                )
+              : Icon(trailingOf?.call(item) ?? trailing, size: 19),
+          onTap: opening ? null : () => onTap(item),
+        );
+      },
+    );
+  }
+}
+
+class _ConversationMediaGrid extends ConsumerWidget {
+  const _ConversationMediaGrid({
+    required this.items,
+    required this.onTap,
+    required this.openingAttachmentId,
+    required this.downloadProgress,
+    required this.onCancel,
+  });
+
+  final List<ImMessage> items;
+  final ValueChanged<ImMessage> onTap;
+  final String? openingAttachmentId;
+  final double? downloadProgress;
+  final ValueChanged<String> onCancel;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (items.isEmpty) {
+      return const EmptyState(
+        icon: Icons.photo_library_outlined,
+        title: '暂无图片或视频',
+      );
+    }
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final cacheWidth = (120 * pixelRatio).round().clamp(1, 720);
+    return GridView.builder(
+      key: const Key('conversation-media-grid'),
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
+        childAspectRatio: 1,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final isVideo = item.kind == 'video';
+        final attachmentId = item.attachments.firstOrNull?.id;
+        final opening =
+            attachmentId != null && attachmentId == openingAttachmentId;
+        final AsyncValue<Uint8List>? bytes = isVideo
+            ? item.attachments.isEmpty
+                  ? null
+                  : ref.watch(
+                      imMediaAttachmentProvider((
+                        attachmentId: item.attachments.first.id,
+                        cover: true,
+                      )),
+                    )
+            : item.images.isEmpty
+            ? null
+            : ref.watch(
+                imMessageImageProvider((
+                  messageId: item.id,
+                  imageId: item.images.first.id,
+                  sha256: item.images.first.sha256,
+                )),
+              );
+        return Semantics(
+          button: true,
+          label: '${isVideo ? '视频' : '图片'}，${_conversationMediaName(item)}',
+          child: InkWell(
+            key: ValueKey('conversation-media-${item.id}'),
+            onTap: opening ? () => onCancel(attachmentId) : () => onTap(item),
+            borderRadius: BorderRadius.circular(6),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: const Color(0xFFE9EDF3),
+                    child: bytes == null
+                        ? Icon(
+                            isVideo
+                                ? Icons.videocam_outlined
+                                : Icons.photo_outlined,
+                            color: AppColors.secondaryText,
+                          )
+                        : bytes.when(
+                            loading: () => const Center(
+                              child: SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.8,
+                                ),
+                              ),
+                            ),
+                            error: (_, _) => Icon(
+                              isVideo
+                                  ? Icons.videocam_outlined
+                                  : Icons.broken_image_outlined,
+                              color: AppColors.secondaryText,
+                            ),
+                            data: (data) => Image.memory(
+                              data,
+                              fit: BoxFit.cover,
+                              cacheWidth: cacheWidth,
+                              filterQuality: FilterQuality.low,
+                            ),
+                          ),
+                  ),
+                  if (isVideo)
+                    const Center(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(0x99000000),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(7),
+                          child: Icon(
+                            Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (opening)
+                    ColoredBox(
+                      color: const Color(0x99000000),
+                      child: Center(
+                        child: _MediaDownloadProgress(
+                          key: ValueKey(
+                            'conversation-media-progress-${item.id}',
+                          ),
+                          value: downloadProgress,
+                          size: 42,
+                          textColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    left: 5,
+                    right: 5,
+                    bottom: 4,
+                    child: Text(
+                      _resourceTime(item).split(' ').last,
+                      maxLines: 1,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        shadows: [Shadow(color: Colors.black87, blurRadius: 3)],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );
@@ -3692,17 +4183,25 @@ bool _messagesShareCalendarDay(ImMessage? first, ImMessage? second) {
       firstAt.day == secondAt.day;
 }
 
-bool _messagesShareIdentityGroup(ImMessage? first, ImMessage? second) {
-  if (first == null || second == null || first.senderId != second.senderId) {
+bool _messagesShareCompactCluster(
+  ImMessage? first,
+  ImMessage? second, {
+  String? currentMemberId,
+  bool directConversation = false,
+}) {
+  if (first == null || second == null) return false;
+  final sharesIdentity = directConversation && currentMemberId != null
+      // A direct conversation has exactly two visual identities. Legacy or
+      // cross-device records may carry different sender ids for the same
+      // account; grouping by side avoids repeating the same person's avatar.
+      ? (first.senderId == currentMemberId) ==
+            (second.senderId == currentMemberId)
+      : first.senderId == second.senderId;
+  if (!sharesIdentity || !_messagesShareCalendarDay(first, second)) {
     return false;
   }
-  return _messagesShareCalendarDay(first, second);
-}
-
-bool _messagesShareCompactCluster(ImMessage? first, ImMessage? second) {
-  if (!_messagesShareIdentityGroup(first, second)) return false;
-  final firstAt = first!.createdAt!;
-  final secondAt = second!.createdAt!;
+  final firstAt = first.createdAt!;
+  final secondAt = second.createdAt!;
   return secondAt.difference(firstAt).abs() <= const Duration(minutes: 5);
 }
 
@@ -3742,6 +4241,7 @@ class _MessageBubble extends StatelessWidget {
     required this.audioPlaying,
     required this.mediaOpening,
     required this.mediaDownloadProgress,
+    required this.onCancelMedia,
     required this.audioPosition,
     required this.audioDuration,
     required this.onRetry,
@@ -3766,6 +4266,7 @@ class _MessageBubble extends StatelessWidget {
   final bool audioPlaying;
   final bool mediaOpening;
   final double? mediaDownloadProgress;
+  final VoidCallback? onCancelMedia;
   final Duration audioPosition;
   final Duration? audioDuration;
   final VoidCallback? onRetry;
@@ -3820,7 +4321,7 @@ class _MessageBubble extends StatelessWidget {
                   : CrossAxisAlignment.start,
               children: [
                 InkWell(
-                  onTap: onOpenAttachment,
+                  onTap: mediaOpening ? onCancelMedia : onOpenAttachment,
                   onLongPress: onLongPress,
                   borderRadius: bubbleRadius,
                   child: Container(
@@ -3910,7 +4411,11 @@ class _MessageBubble extends StatelessWidget {
                             )
                           else ...[
                             if (item.kind == 'file')
-                              _AttachmentContent(item: item)
+                              _AttachmentContent(
+                                item: item,
+                                loading: mediaOpening,
+                                progress: mediaDownloadProgress,
+                              )
                             else if (const {
                                   'video',
                                   'audio',
@@ -3925,6 +4430,7 @@ class _MessageBubble extends StatelessWidget {
                                 audioDuration: audioDuration,
                                 mediaOpening: mediaOpening,
                                 mediaDownloadProgress: mediaDownloadProgress,
+                                onCancel: onCancelMedia,
                               )
                             else if (item.kind == 'image' &&
                                 item.images.isNotEmpty)
@@ -4327,6 +4833,7 @@ class _MediaMessageContent extends ConsumerWidget {
     required this.audioDuration,
     required this.mediaOpening,
     required this.mediaDownloadProgress,
+    required this.onCancel,
   });
 
   final ImMessage message;
@@ -4337,6 +4844,7 @@ class _MediaMessageContent extends ConsumerWidget {
   final Duration? audioDuration;
   final bool mediaOpening;
   final double? mediaDownloadProgress;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -4383,6 +4891,7 @@ class _MediaMessageContent extends ConsumerWidget {
                       durationSeconds: attachment.durationSeconds,
                       loading: mediaOpening,
                       progress: mediaDownloadProgress,
+                      onCancel: onCancel,
                     ),
             ),
           if (!video)
@@ -4390,7 +4899,7 @@ class _MediaMessageContent extends ConsumerWidget {
               key: ValueKey<String>('message-audio-player-${attachment.id}'),
               button: true,
               label: audioLoading
-                  ? '正在加载音频 ${attachment.fileName}'
+                  ? '正在下载音频 ${attachment.fileName}，点击取消'
                   : audioPlaying
                   ? '暂停音频 ${attachment.fileName}'
                   : '播放音频 ${attachment.fileName}',
@@ -4533,6 +5042,7 @@ class _VideoPreview extends StatelessWidget {
     required this.durationSeconds,
     required this.loading,
     required this.progress,
+    required this.onCancel,
   });
 
   final ImVideoPreviewSource source;
@@ -4540,11 +5050,14 @@ class _VideoPreview extends StatelessWidget {
   final double? durationSeconds;
   final bool loading;
   final double? progress;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: '视频预览，$fileName',
+    label: loading ? '正在下载视频 $fileName，点击取消' : '视频预览，$fileName',
     image: true,
+    button: loading,
+    onTap: loading ? onCancel : null,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: SizedBox(
@@ -4868,40 +5381,68 @@ class _VideoPlaybackPageState extends State<_VideoPlaybackPage> {
 }
 
 class _AttachmentContent extends StatelessWidget {
-  const _AttachmentContent({required this.item});
+  const _AttachmentContent({
+    required this.item,
+    required this.loading,
+    required this.progress,
+  });
 
   final ImMessage item;
+  final bool loading;
+  final double? progress;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(Icons.insert_drive_file_rounded, color: AppColors.primary),
-      const SizedBox(width: 10),
-      Flexible(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              item.attachmentName.isEmpty ? item.content : item.attachmentName,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.text,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (item.attachmentSize != null)
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: loading
+        ? '正在下载附件 ${item.attachmentName}，点击取消'
+        : '下载并打开附件 ${item.attachmentName}',
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.insert_drive_file_rounded, color: AppColors.primary),
+        const SizedBox(width: 10),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                _fileSize(item.attachmentSize!),
-                style: TextStyle(fontSize: 11, color: AppColors.secondaryText),
+                item.attachmentName.isEmpty
+                    ? item.content
+                    : item.attachmentName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.text,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-          ],
+              if (item.attachmentSize != null)
+                Text(
+                  _fileSize(item.attachmentSize!),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
-      const SizedBox(width: 8),
-      Icon(Icons.download_rounded, size: 18, color: AppColors.secondaryText),
-    ],
+        const SizedBox(width: 8),
+        loading
+            ? _MediaDownloadProgress(
+                key: ValueKey<String>('message-file-download-${item.id}'),
+                value: progress,
+                size: 20,
+                textColor: AppColors.primary,
+              )
+            : const Icon(
+                Icons.download_rounded,
+                size: 18,
+                color: AppColors.secondaryText,
+              ),
+      ],
+    ),
   );
 }
 
@@ -4934,15 +5475,13 @@ class _ContactCardContent extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Text(
-              [
+            if (card.departmentName.isNotEmpty)
+              Text(
                 card.departmentName,
-                card.username,
-              ].where((value) => value.isNotEmpty).join(' · '),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11, color: AppColors.secondaryText),
-            ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: AppColors.secondaryText),
+              ),
           ],
         ),
       ),
@@ -5066,7 +5605,7 @@ class _MentionPickerSheetState extends ConsumerState<_MentionPickerSheet> {
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
               child: MobileSearchField(
                 key: const Key('mention-picker-search'),
-                hintText: '搜索姓名、部门或账号',
+                hintText: '搜索姓名或部门',
                 autofocus: false,
                 onChanged: _updateQuery,
               ),
@@ -5125,7 +5664,7 @@ class _MentionPickerSheetState extends ConsumerState<_MentionPickerSheet> {
                             height: 40,
                             child: Center(
                               child: Text(
-                                '仅显示前 50 位，请输入姓名或账号继续查找',
+                                '仅显示前 50 位，请输入姓名或部门继续查找',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: AppColors.secondaryText,
@@ -5171,18 +5710,17 @@ class _MentionPickerSheetState extends ConsumerState<_MentionPickerSheet> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            subtitle: Text(
-                              [
-                                member.departmentName,
-                                member.username,
-                              ].where((item) => item.isNotEmpty).join(' · '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.secondaryText,
-                              ),
-                            ),
+                            subtitle: member.departmentName.isEmpty
+                                ? null
+                                : Text(
+                                    member.departmentName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.secondaryText,
+                                    ),
+                                  ),
                             onTap: () => Navigator.pop(
                               context,
                               _MentionChoice.member(member),
@@ -5311,10 +5849,7 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                         ),
                       ),
                       subtitle: Text(
-                        [
-                          member.departmentName,
-                          member.username,
-                        ].where((value) => value.isNotEmpty).join(' · '),
+                        member.departmentName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -5334,33 +5869,6 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
     );
   }
 }
-
-String _contentType(String? extension) => switch (extension?.toLowerCase()) {
-  'jpg' || 'jpeg' => 'image/jpeg',
-  'png' => 'image/png',
-  'gif' => 'image/gif',
-  'webp' => 'image/webp',
-  'heic' || 'heif' => 'image/heic',
-  'bmp' => 'image/bmp',
-  'mp4' || 'm4v' => 'video/mp4',
-  'webm' => 'video/webm',
-  'mov' => 'video/quicktime',
-  'mkv' => 'video/x-matroska',
-  'mp3' => 'audio/mpeg',
-  'm4a' => 'audio/mp4',
-  'wav' => 'audio/wav',
-  'ogg' || 'oga' => 'audio/ogg',
-  'flac' => 'audio/flac',
-  'pdf' => 'application/pdf',
-  'doc' => 'application/msword',
-  'docx' =>
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'xls' => 'application/vnd.ms-excel',
-  'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'zip' => 'application/zip',
-  'txt' => 'text/plain',
-  _ => 'application/octet-stream',
-};
 
 String _fileSize(int bytes) {
   if (bytes < 1024) return '$bytes B';

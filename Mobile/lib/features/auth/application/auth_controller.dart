@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_environment.dart';
+import '../../../core/diagnostics/mobile_startup_diagnostics.dart';
 import '../../../core/device/mobile_device_identity.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/collaboration_client.dart';
@@ -66,22 +67,28 @@ class AuthController extends AsyncNotifier<MobileSession?> {
   DateTime? _refreshDueAt;
 
   @override
-  Future<MobileSession?> build() {
+  Future<MobileSession?> build() async {
     if (AppEnvironment.demoAutoLogin) {
-      return Future.value(
-        const MobileSession(
-          accessToken: 'demo-token',
-          deviceId: '00000000-0000-0000-0000-000000000001',
-          userId: '00000000-0000-0000-0000-000000000002',
-          displayName: '林晨',
-          username: 'term.sh01',
-          policySignatureKey: '',
-          imApiUrl: '',
-          oaApiUrl: '',
-        ),
+      const session = MobileSession(
+        accessToken: 'demo-token',
+        deviceId: '00000000-0000-0000-0000-000000000001',
+        userId: '00000000-0000-0000-0000-000000000002',
+        displayName: '林晨',
+        username: 'term.sh01',
+        policySignatureKey: '',
+        imApiUrl: '',
+        oaApiUrl: '',
       );
+      MobileStartupDiagnostics.markCurrent(
+        MobileStartupStage.secureSessionHydrated,
+      );
+      return session;
     }
-    return ref.read(secureSessionStoreProvider).readSession();
+    final session = await ref.read(secureSessionStoreProvider).readSession();
+    MobileStartupDiagnostics.markCurrent(
+      MobileStartupStage.secureSessionHydrated,
+    );
+    return session;
   }
 
   Future<void> login({

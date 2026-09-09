@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-09-06T00:11:07Z",
+  "sender": "emulator-5558/test04",
+  "receiver": "emulator-5556/test03",
+  "requested": 30,
+  "senderCount": 694,
+  "senderMaxSequence": 694,
+  "senderOutbox": 0,
+  "receiverOfflineMaxSequence": 664,
+  "receiverCaughtUp": true,
+  "catchupDurationMs": 7255.3,
+  "receiverCount": 694,
+  "receiverMaxSequence": 694,
+  "receiverDuplicateIds": 0,
+  "receiverDuplicateClientMessageIds": 0,
+  "sequenceGapCount": 0,
+  "receiverOutbox": 0,
+  "receiverApplied": 4099,
+  "receiverAcked": 4099,
+  "networkRestored": true,
+  "integrity": "ok"
+}

@@ -1,0 +1,29 @@
+{
+  "serial": "dd00d66d",
+  "account": "test01",
+  "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+  "prefix": "AI-UAT-MV4-20260906-042800-T02-",
+  "expected": 20,
+  "received": 0,
+  "complete": false,
+  "uniqueMessageIds": 0,
+  "uniqueSenderClientMessageKeys": 0,
+  "sequenceRange": null,
+  "sequenceContiguous": true,
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "eventCursors": {
+    "acked": 3137,
+    "applied": 3137
+  },
+  "latencyMs": {
+    "samples": 0,
+    "min": null,
+    "average": null,
+    "p50": null,
+    "p90": null,
+    "p95": null,
+    "max": null
+  }
+}

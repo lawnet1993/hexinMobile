@@ -10,8 +10,8 @@ import '../../features/network/application/tunnel_controller.dart';
 import 'avatar_memory_image.dart';
 import 'terminal_avatar_assets.dart';
 
-/// Compact painted control with a padded touch target. Use for action bars
-/// and sheet confirmations instead of stretching buttons across the page.
+/// Compact mobile action control. Use for action bars and sheet confirmations
+/// instead of stretching buttons across the page.
 const compactMobileActionStyle = ButtonStyle(
   minimumSize: WidgetStatePropertyAll(Size(64, 34)),
   padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
@@ -21,7 +21,18 @@ const compactMobileActionStyle = ButtonStyle(
   shape: WidgetStatePropertyAll(
     RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(6))),
   ),
-  tapTargetSize: MaterialTapTargetSize.padded,
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  visualDensity: VisualDensity.standard,
+);
+
+/// Header actions keep a small 18-20 dp glyph while exposing a stable 44 dp
+/// touch target. This avoids visually oversized controls without making the
+/// most frequently used top-bar actions difficult to hit.
+const compactHeaderIconButtonStyle = ButtonStyle(
+  minimumSize: WidgetStatePropertyAll(Size(44, 44)),
+  maximumSize: WidgetStatePropertyAll(Size(44, 44)),
+  padding: WidgetStatePropertyAll(EdgeInsets.all(12)),
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
   visualDensity: VisualDensity.standard,
 );
 
@@ -191,7 +202,7 @@ class NetworkIndicator extends ConsumerWidget {
   }
 }
 
-class MobileSearchField extends StatelessWidget {
+class MobileSearchField extends StatefulWidget {
   const MobileSearchField({
     super.key,
     required this.hintText,
@@ -208,17 +219,49 @@ class MobileSearchField extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
 
   @override
+  State<MobileSearchField> createState() => _MobileSearchFieldState();
+}
+
+class _MobileSearchFieldState extends State<MobileSearchField> {
+  TextEditingController? _internalController;
+
+  TextEditingController get _controller =>
+      widget.controller ??
+      (_internalController ??= MobileSearchTextController(
+        searchLabel: widget.hintText,
+      ));
+
+  @override
+  void didUpdateWidget(covariant MobileSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller == null && oldWidget.hintText != widget.hintText) {
+      final previous = _internalController;
+      _internalController = MobileSearchTextController(
+        searchLabel: widget.hintText,
+      )
+        ..value = previous?.value ?? TextEditingValue.empty;
+      previous?.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    _internalController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => SizedBox(
     height: 34,
     child: TextField(
-      autofocus: autofocus,
-      controller: controller,
-      onChanged: onChanged,
-      onSubmitted: onSubmitted,
+      autofocus: widget.autofocus,
+      controller: _controller,
+      onChanged: widget.onChanged,
+      onSubmitted: widget.onSubmitted,
       textInputAction: TextInputAction.search,
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
-        hintText: hintText,
+        hintText: widget.hintText,
         hintStyle: const TextStyle(fontSize: 13.5),
         prefixIcon: const Icon(Icons.search_rounded, size: 18),
         prefixIconConstraints: const BoxConstraints(
@@ -243,6 +286,31 @@ class MobileSearchField extends StatelessWidget {
       ),
     ),
   );
+}
+
+final class MobileSearchTextController extends TextEditingController {
+  MobileSearchTextController({required this.searchLabel, super.text});
+
+  final String searchLabel;
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final span = super.buildTextSpan(
+      context: context,
+      style: style,
+      withComposing: withComposing,
+    );
+    return TextSpan(
+      style: span.style,
+      children: span.children,
+      text: span.text,
+      semanticsLabel: text.isEmpty ? searchLabel : '$searchLabel，$text',
+    );
+  }
 }
 
 class MobileSurface extends StatelessWidget {

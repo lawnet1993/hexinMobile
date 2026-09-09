@@ -1,0 +1,23 @@
+{
+  "stamp": "20260906-030738",
+  "startedAt": "2026-09-05T19:07:38.3602358Z",
+  "commandsFinishedAt": "2026-09-05T19:08:14.7326043Z",
+  "senders": [
+    {
+      "serial": "emulator-5554",
+      "prefix": "AI-UAT-MV2-20260906-030738-T02",
+      "finishedAt": "2026-09-05T19:08:08.3696939Z",
+      "PSComputerName": "localhost",
+      "RunspaceId": "3248764a-5af6-4f0f-bf5d-60f9910babe3",
+      "PSShowComputerName": false
+    },
+    {
+      "serial": "emulator-5556",
+      "prefix": "AI-UAT-MV2-20260906-030738-T03",
+      "finishedAt": "2026-09-05T19:08:14.7051053Z",
+      "PSComputerName": "localhost",
+      "RunspaceId": "7e97c8a2-3c5a-4311-a6ae-109c474af354",
+      "PSShowComputerName": false
+    }
+  ]
+}

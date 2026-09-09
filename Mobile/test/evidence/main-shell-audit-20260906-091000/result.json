@@ -1,0 +1,68 @@
+{
+  "recordedAt": "2026-09-06T09:10:00+08:00",
+  "device": {
+    "serial": "emulator-5554",
+    "android": 16,
+    "renderer": "host-gpu",
+    "physicalDensityDpi": 420
+  },
+  "account": "test02",
+  "screens": [
+    {
+      "id": "workbench",
+      "screenshot": "01-workbench.png",
+      "status": "healthy"
+    },
+    {
+      "id": "messages",
+      "screenshot": "02-messages.png",
+      "status": "healthy"
+    },
+    {
+      "id": "todos-before",
+      "screenshot": "03-todos.png",
+      "status": "fixed",
+      "tabTargetPhysicalPx": 69,
+      "tabTargetDp": 26
+    },
+    {
+      "id": "contacts-expanded",
+      "screenshot": "04-contacts.png",
+      "status": "healthy"
+    },
+    {
+      "id": "profile",
+      "screenshot": "05-profile.png",
+      "status": "healthy"
+    },
+    {
+      "id": "todos-after",
+      "screenshot": "06-todos-fixed.png",
+      "status": "healthy",
+      "tabTargetPhysicalPx": 105,
+      "tabTargetDp": 40
+    },
+    {
+      "id": "contacts-default",
+      "screenshot": "07-contacts-default-collapsed.png",
+      "status": "healthy",
+      "expandedDepartments": 0,
+      "collapsedDepartments": 2,
+      "visibleDirectContactActions": 0
+    }
+  ],
+  "verification": {
+    "targetedOaTests": "94/94",
+    "fullFlutterTests": "1405/1405",
+    "analyzeErrors": 0,
+    "analyzeWarnings": 0,
+    "existingAnalyzeInfos": 7,
+    "profileApkBytes": 111236918,
+    "profileApkSha256": "0BBC94F4D56FF1D86A8420909AA9CB46410BC6E325472E0738E51B4D404DA544"
+  },
+  "limits": [
+    "The physical realme device was locked, so this run does not claim real-device interaction or accessibility acceptance.",
+    "Empty OA list states do not prove populated list-row density or backend workflow behavior.",
+    "Several compact icon actions are about 40dp; visual density is accepted, but full 48dp accessibility-target compliance is not claimed."
+  ]
+}

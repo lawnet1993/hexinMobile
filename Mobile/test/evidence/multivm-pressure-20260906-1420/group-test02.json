@@ -1,0 +1,35 @@
+{
+  "serial": "emulator-5554",
+  "account": "test02",
+  "title": "AI-UAT-MULTIVM-20260906-1100",
+  "expectedPerSender": null,
+  "expectedSenderCounts": {
+    "test02": 68,
+    "test03": 41,
+    "test04": 70
+  },
+  "expectedTotal": 179,
+  "receivedTotal": 179,
+  "complete": true,
+  "senderCounts": {
+    "test02": 68,
+    "test03": 41,
+    "test04": 70
+  },
+  "uniqueMessageIds": 179,
+  "uniqueSenderClientMessageKeys": 179,
+  "sequenceStrictlyIncreasing": true,
+  "sequenceRange": "1..179",
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "conversationProjection": {
+    "lastMessageSequence": 179,
+    "lastReadSequence": 179,
+    "unreadCount": 0
+  },
+  "eventCursors": {
+    "acked": 4971,
+    "applied": 4971
+  }
+}

@@ -1,0 +1,443 @@
+[
+  {
+    "at": "2026-09-06T07:47:57.6618029+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 184204
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 165145
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 172048
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 146398
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:00.4745743+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 183236
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 176627
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 178826
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 158893
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:02.5151553+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 182594
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 171831
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 178817
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 155234
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:04.4078959+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 187076
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 175033
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 186878
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 159093
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:06.6265662+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 187986
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 179632
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 187089
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 159434
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:08.7507677+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 189033
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 180774
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 186867
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 159103
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:11.6938066+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 191793
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 180537
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 188810
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 158903
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:14.0162607+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 192416
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 180860
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 187261
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 159394
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:16.1478873+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 191594
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 182485
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 189334
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 158600
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:18.3842552+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 191883
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 181845
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 187592
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 158885
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:20.4626013+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 193029
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 181488
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 188143
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 159307
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:23.2673366+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 192898
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 181388
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 187186
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 159199
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:25.5330924+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 192265
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 181388
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 189257
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 158826
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:27.6808452+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 192551
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 181808
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 185918
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 159082
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:29.7632417+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 192582
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 181543
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 187179
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 159057
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:31.8115985+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 192999
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 183435
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 187193
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 159315
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:34.0487791+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 180141
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 182963
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 186904
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 159179
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:36.0535571+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 179796
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 182260
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 186912
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 157503
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:37.7408946+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 183622
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 182645
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 186909
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 157401
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:39.2253290+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 182615
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 179531
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 186883
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 156289
+      }
+    ]
+  },
+  {
+    "at": "2026-09-06T07:48:40.6010049+00:00",
+    "devices": [
+      {
+        "serial": "emulator-5554",
+        "pssKb": 182499
+      },
+      {
+        "serial": "emulator-5556",
+        "pssKb": 178427
+      },
+      {
+        "serial": "emulator-5558",
+        "pssKb": 187472
+      },
+      {
+        "serial": "emulator-5560",
+        "pssKb": 156251
+      }
+    ]
+  }
+]

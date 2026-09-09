@@ -1,0 +1,55 @@
+{
+  "addedRows": 20,
+  "removedRows": 0,
+  "uniqueMessageIds": 20,
+  "uniqueSenderClientIds": 20,
+  "latencyMsCreatedToReceiverCommitted": {
+    "count": 20,
+    "min": 670.347,
+    "p50": 4022.745,
+    "p90": 9944.511,
+    "p95": 11265.703,
+    "p99": 12368.909,
+    "max": 12368.909
+  },
+  "conversations": {
+    "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136": {
+      "senderIds": [
+        "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc"
+      ],
+      "sequenceMin": 90,
+      "sequenceMax": 99,
+      "sequenceContiguous": true,
+      "uniqueMessageIds": 10,
+      "uniqueSenderClientIds": 10,
+      "latencyMs": {
+        "count": 10,
+        "min": 670.347,
+        "p50": 2550.352,
+        "p90": 7172.826,
+        "p95": 8887.481,
+        "p99": 8887.481,
+        "max": 8887.481
+      }
+    },
+    "a164a0c0-4cad-44b0-9ece-e095371b2f91": {
+      "senderIds": [
+        "81207c9c-e824-42b6-b14d-0e6b743ecdc3"
+      ],
+      "sequenceMin": 39,
+      "sequenceMax": 48,
+      "sequenceContiguous": true,
+      "uniqueMessageIds": 10,
+      "uniqueSenderClientIds": 10,
+      "latencyMs": {
+        "count": 10,
+        "min": 1899.454,
+        "p50": 6322.343,
+        "p90": 11265.703,
+        "p95": 12368.909,
+        "p99": 12368.909,
+        "max": 12368.909
+      }
+    }
+  }
+}

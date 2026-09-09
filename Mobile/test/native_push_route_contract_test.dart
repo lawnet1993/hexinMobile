@@ -19,4 +19,18 @@ void main() {
       expect(source, contains('initialTargetRoute = route'));
     },
   );
+
+  test('Android declares and bridges the system notification permission', () {
+    final manifest = File('android/app/src/main/AndroidManifest.xml')
+        .readAsStringSync();
+    final source = File(
+      'android/app/src/main/kotlin/com/hexing/zhilian/'
+      'hexing_terminal_mobile/MainActivity.kt',
+    ).readAsStringSync();
+
+    expect(manifest, contains('android.permission.POST_NOTIFICATIONS'));
+    expect(source, contains('"getNotificationPermission"'));
+    expect(source, contains('"requestNotificationPermission"'));
+    expect(source, contains('Settings.ACTION_APP_NOTIFICATION_SETTINGS'));
+  });
 }

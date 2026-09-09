@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-06",
+  "topology": {
+    "senders": ["emulator-5554/test02", "emulator-5558/test04"],
+    "receiver": "emulator-5556/test03",
+    "newMessages": {"test02": 20, "test04": 10}
+  },
+  "database": {
+    "expectedTotal": 159,
+    "receivedTotalByDevice": [159, 159, 159],
+    "senderCounts": {"test02": 58, "test03": 41, "test04": 60},
+    "uniqueMessageIdsByDevice": [159, 159, 159],
+    "uniqueSenderClientMessageKeysByDevice": [159, 159, 159],
+    "sequenceRangeByDevice": ["1..159", "1..159", "1..159"],
+    "outboxByDevice": [0, 0, 0],
+    "integrityByDevice": ["ok", "ok", "ok"],
+    "appliedAckedByDevice": [[4861, 4861], [4860, 4860], [4862, 4862]],
+    "unreadByDevice": [0, 63, 0]
+  },
+  "profile": {
+    "emulator-5554": {"eventBatches": 21, "events": 33, "commitP95Ms": 193, "totalMaxMs": 2292, "oldestEventAgeMaxMs": 806, "pssMiB": 156.2},
+    "emulator-5556": {"eventBatches": 5, "events": 30, "commitP95Ms": 330, "totalMaxMs": 14831, "oldestEventAgeMaxMs": 13874, "pssMiB": 162.4},
+    "emulator-5558": {"eventBatches": 22, "events": 38, "commitP95Ms": 140, "totalMaxMs": 4919, "oldestEventAgeMaxMs": 3066, "pssMiB": 199.9}
+  },
+  "stability": {"fatal": 0, "anr": 0, "oom": 0},
+  "verdict": {"integrity": "pass", "groupRealtime": "fail", "overall": "partial"}
+}

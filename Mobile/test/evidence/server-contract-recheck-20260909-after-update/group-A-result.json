@@ -1,0 +1,26 @@
+{
+  "marker": "AI-UAT-SERVERUPDATE-GROUP-20260909-2144-A",
+  "sentAt": "2026-09-09T21:43:34.1178722+08:00",
+  "observations": [
+    {
+      "elapsedMs": 2994.0,
+      "visible": false
+    },
+    {
+      "elapsedMs": 5839.0,
+      "visible": false
+    },
+    {
+      "elapsedMs": 8642.0,
+      "visible": false
+    },
+    {
+      "elapsedMs": 11414.0,
+      "visible": false
+    },
+    {
+      "elapsedMs": 14198.0,
+      "visible": false
+    }
+  ]
+}

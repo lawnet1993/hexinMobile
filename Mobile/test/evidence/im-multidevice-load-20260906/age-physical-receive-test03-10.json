@@ -1,0 +1,40 @@
+{
+  "serial": "dd00d66d",
+  "account": "test01",
+  "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+  "prefix": "AI-UAT-AGE-20260906-T03-",
+  "expected": 10,
+  "received": 10,
+  "complete": true,
+  "uniqueMessageIds": 10,
+  "uniqueSenderClientMessageKeys": 10,
+  "sequenceRange": "220..229",
+  "sequenceContiguous": true,
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "eventCursors": {
+    "acked": 3764,
+    "applied": 3764
+  },
+  "createdAtUtcRange": [
+    "2026-09-05T22:03:58.768358+00:00",
+    "2026-09-05T22:04:12.755263+00:00"
+  ],
+  "localUpdatedAtUtcRange": [
+    "2026-09-05T22:03:59.967240+00:00",
+    "2026-09-05T22:04:14.169009+00:00"
+  ],
+  "createdToLocalUpdateAgeMs": {
+    "samples": 10,
+    "negativeSamples": 0,
+    "clockSkewWarning": false,
+    "min": 135.613,
+    "average": 725.123,
+    "p50": 466.164,
+    "p90": 1486.696,
+    "p95": 1814.97,
+    "max": 2143.244
+  },
+  "timingNote": "createdToLocalUpdateAgeMs is not delivery latency because later reconciliation can rewrite updated_at; use profile sync event-age diagnostics for live-delivery timing"
+}

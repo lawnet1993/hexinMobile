@@ -5,6 +5,38 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hexing_terminal_mobile/core/notifications/mobile_push_registration.dart';
 
 void main() {
+  test(
+    'notification permission is requested only while undetermined',
+    () async {
+      final undetermined = _FakeNotificationPermissionSource(
+        MobileNotificationPermissionState.notDetermined,
+      );
+      expect(
+        await requestMobileNotificationPermissionIfNeeded(undetermined),
+        MobileNotificationPermissionState.granted,
+      );
+      expect(undetermined.requests, 1);
+
+      final denied = _FakeNotificationPermissionSource(
+        MobileNotificationPermissionState.denied,
+      );
+      expect(
+        await requestMobileNotificationPermissionIfNeeded(denied),
+        MobileNotificationPermissionState.denied,
+      );
+      expect(denied.requests, 0);
+
+      final granted = _FakeNotificationPermissionSource(
+        MobileNotificationPermissionState.granted,
+      );
+      expect(
+        await requestMobileNotificationPermissionIfNeeded(granted),
+        MobileNotificationPermissionState.granted,
+      );
+      expect(granted.requests, 0);
+    },
+  );
+
   test('push target routes allow IM and OA destination surfaces', () {
     const conversationId = 'a03da586-7b21-40a9-b130-c3c09d955f74';
     const requestId = 'c28d99b6-8128-492c-ae5b-208974eae30c';
@@ -175,6 +207,27 @@ void main() {
 
     expect(values, [null, token]);
   });
+}
+
+final class _FakeNotificationPermissionSource
+    implements MobileNotificationPermissionSource {
+  _FakeNotificationPermissionSource(this.state);
+
+  MobileNotificationPermissionState state;
+  int requests = 0;
+
+  @override
+  Future<MobileNotificationPermissionState> currentState() async => state;
+
+  @override
+  Future<MobileNotificationPermissionState> request() async {
+    requests += 1;
+    state = MobileNotificationPermissionState.granted;
+    return state;
+  }
+
+  @override
+  Future<bool> openSettings() async => true;
 }
 
 final class _FakeMobilePushTokenSource implements MobilePushTokenSource {

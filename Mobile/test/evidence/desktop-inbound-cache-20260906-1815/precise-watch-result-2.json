@@ -1,0 +1,10 @@
+{
+  "startedAtUtc": "2026-09-06T10:18:42.3197379+00:00",
+  "baselineCount": 255,
+  "baselineMaxSequence": 255,
+  "reached": true,
+  "detectedAtUtc": "2026-09-06T10:18:50.2978534+00:00",
+  "detectedAfterMs": 7978,
+  "finalCount": 256,
+  "finalMaxSequence": 256
+}

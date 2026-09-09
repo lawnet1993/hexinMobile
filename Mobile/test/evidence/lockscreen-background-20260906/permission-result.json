@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-09-06T00:02:22Z",
+  "apkSha256": "AE698B1090BEC2BF0320916701361289F67B2BD1F2C21CA50D44D914E7C0FBFE",
+  "apkBytes": 111236918,
+  "emulatorFirstLaunchPrompt": true,
+  "emulatorAllowed": true,
+  "emulatorRelaunchPrompt": false,
+  "sessionPreserved": true,
+  "physicalInstalled": true,
+  "physicalApkHashMatches": true,
+  "physicalLocked": true,
+  "physicalNotificationGranted": false,
+  "vendorPushProviderReady": false
+}

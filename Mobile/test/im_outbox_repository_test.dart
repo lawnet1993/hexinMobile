@@ -229,6 +229,262 @@ void main() {
   );
 
   test(
+    'file attachment streams through part file and removes partial on cancel',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final sessionStore = SecureSessionStore();
+      await sessionStore.saveSession(
+        const MobileSession(
+          accessToken: 'token',
+          deviceId: 'device-1',
+          userId: 'member-1',
+          displayName: '测试成员',
+          username: 'term.member1',
+          policySignatureKey: '',
+          imApiUrl: 'http://127.0.0.1:1',
+          oaApiUrl: '',
+        ),
+      );
+      final directory = await Directory.systemTemp.createTemp(
+        'im-attachment-stream-',
+      );
+      final store = ImLocalStore(
+        factory: databaseFactoryFfi,
+        pathResolver: () async => inMemoryDatabasePath,
+      );
+      final outboxFiles = ImOutboxFileStore(
+        keyLoader: sessionStore.readOrCreateImCacheKey,
+        directoryLoader: () async => Directory(path.join(directory.path, 'q')),
+      );
+      final repository = ImRepository(
+        CollaborationClient(sessionStore),
+        sessionStore,
+        store,
+        outboxFileStore: outboxFiles,
+      );
+      final bytes = Uint8List.fromList(
+        List<int>.generate(1024 * 1024 + 17, (index) => index % 251),
+      );
+      final message = await repository.sendAttachment(
+        conversationId: 'conversation-1',
+        fileName: 'large.bin',
+        bytes: bytes,
+        contentType: 'application/octet-stream',
+      );
+      final target = File(path.join(directory.path, 'opened.bin'));
+
+      try {
+        final progress = <(int, int)>[];
+        final downloaded = await repository.downloadAttachmentToFile(
+          message,
+          target.path,
+          onReceiveProgress: (received, total) =>
+              progress.add((received, total)),
+        );
+        expect(downloaded.path, target.path);
+        expect(await target.readAsBytes(), bytes);
+        expect(await File('${target.path}.part').exists(), isFalse);
+        expect(progress.last, (bytes.length, bytes.length));
+
+        await target.delete();
+        final cancelToken = CancelToken();
+        await expectLater(
+          repository.downloadAttachmentToFile(
+            message,
+            target.path,
+            cancelToken: cancelToken,
+            onReceiveProgress: (received, _) {
+              if (received > 0) cancelToken.cancel('test-cancel');
+            },
+          ),
+          throwsA(
+            isA<DioException>().having(
+              (error) => error.type,
+              'type',
+              DioExceptionType.cancel,
+            ),
+          ),
+        );
+        expect(await target.exists(), isFalse);
+        expect(await File('${target.path}.part').exists(), isFalse);
+      } finally {
+        await store.close();
+        await directory.delete(recursive: true);
+      }
+    },
+  );
+
+  test(
+    'multi-image preparation encrypts each result before preparing the next',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final sessionStore = SecureSessionStore();
+      await sessionStore.saveSession(
+        const MobileSession(
+          accessToken: 'token',
+          deviceId: 'device-1',
+          userId: 'member-1',
+          displayName: '测试成员',
+          username: 'term.member1',
+          policySignatureKey: '',
+          imApiUrl: 'http://127.0.0.1:1',
+          oaApiUrl: '',
+        ),
+      );
+      final store = ImLocalStore(
+        factory: databaseFactoryFfi,
+        pathResolver: () async => inMemoryDatabasePath,
+      );
+      final queueDirectory = await Directory.systemTemp.createTemp(
+        'im-image-preparation-',
+      );
+      final repository = ImRepository(
+        CollaborationClient(sessionStore),
+        sessionStore,
+        store,
+        outboxFileStore: ImOutboxFileStore(
+          keyLoader: sessionStore.readOrCreateImCacheKey,
+          directoryLoader: () async => queueDirectory,
+        ),
+      );
+
+      Future<int> queuedFileCount() async => queueDirectory
+          .list(recursive: true)
+          .where((entity) => entity is File && entity.path.endsWith('.imq'))
+          .length;
+
+      try {
+        final preparedIndexes = <int>[];
+        final message = await repository.sendPreparedImages(
+          conversationId: 'conversation-1',
+          count: 3,
+          prepare: (index) async {
+            expect(await queuedFileCount(), index);
+            preparedIndexes.add(index);
+            return (
+              fileName: 'image-$index.jpg',
+              bytes: Uint8List.fromList([index + 1]),
+              contentType: 'image/jpeg',
+            );
+          },
+        );
+        expect(preparedIndexes, [0, 1, 2]);
+        expect(message.localStatus, ImLocalMessageStatus.pending);
+        expect(message.images, hasLength(3));
+        expect(await queuedFileCount(), 3);
+
+        await expectLater(
+          repository.sendPreparedImages(
+            conversationId: 'conversation-2',
+            count: 3,
+            prepare: (index) async {
+              if (index == 1) throw StateError('prepare failed');
+              return (
+                fileName: 'failed-$index.jpg',
+                bytes: Uint8List.fromList([9]),
+                contentType: 'image/jpeg',
+              );
+            },
+          ),
+          throwsStateError,
+        );
+        expect(await queuedFileCount(), 3);
+      } finally {
+        await store.close();
+        await queueDirectory.delete(recursive: true);
+      }
+    },
+  );
+
+  test(
+    'original image streams are encrypted sequentially and rollback on failure',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final sessionStore = SecureSessionStore();
+      await sessionStore.saveSession(
+        const MobileSession(
+          accessToken: 'token',
+          deviceId: 'device-1',
+          userId: 'member-1',
+          displayName: '测试成员',
+          username: 'term.member1',
+          policySignatureKey: '',
+          imApiUrl: 'http://127.0.0.1:1',
+          oaApiUrl: '',
+        ),
+      );
+      final store = ImLocalStore(
+        factory: databaseFactoryFfi,
+        pathResolver: () async => inMemoryDatabasePath,
+      );
+      final queueDirectory = await Directory.systemTemp.createTemp(
+        'im-original-image-streams-',
+      );
+      final repository = ImRepository(
+        CollaborationClient(sessionStore),
+        sessionStore,
+        store,
+        outboxFileStore: ImOutboxFileStore(
+          keyLoader: sessionStore.readOrCreateImCacheKey,
+          directoryLoader: () async => queueDirectory,
+        ),
+      );
+
+      Future<int> queuedFileCount() async => queueDirectory
+          .list(recursive: true)
+          .where((entity) => entity is File && entity.path.endsWith('.imq'))
+          .length;
+
+      try {
+        final opened = <int>[];
+        final message = await repository.sendPreparedImageStreams(
+          conversationId: 'conversation-1',
+          count: 2,
+          prepare: (index) async {
+            expect(await queuedFileCount(), index);
+            final bytes = [index + 1, index + 11, index + 21];
+            return (
+              fileName: 'animated-$index.gif',
+              length: bytes.length,
+              contentType: 'image/gif',
+              openRead: () async* {
+                opened.add(index);
+                yield bytes.sublist(0, 1);
+                yield bytes.sublist(1);
+              },
+            );
+          },
+        );
+        expect(opened, [0, 1]);
+        expect(message.localStatus, ImLocalMessageStatus.pending);
+        expect(message.images, hasLength(2));
+        expect(await queuedFileCount(), 2);
+
+        await expectLater(
+          repository.sendPreparedImageStreams(
+            conversationId: 'conversation-2',
+            count: 2,
+            prepare: (index) async {
+              if (index == 1) throw StateError('prepare failed');
+              return (
+                fileName: 'failed.gif',
+                length: 3,
+                contentType: 'image/gif',
+                openRead: () => Stream<List<int>>.value(const [1, 2, 3]),
+              );
+            },
+          ),
+          throwsStateError,
+        );
+        expect(await queuedFileCount(), 2);
+      } finally {
+        await store.close();
+        await queueDirectory.delete(recursive: true);
+      }
+    },
+  );
+
+  test(
     'outbox error identifies upload or send stage without leaking request data',
     () {
       for (final entry in <String, String>{

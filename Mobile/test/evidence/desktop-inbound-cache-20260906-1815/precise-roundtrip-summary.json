@@ -1,0 +1,13 @@
+{
+  "watchReadyAtUtc": "2026-09-06T10:18:42.3197379+00:00",
+  "mobileTappedAtUtc": "2026-09-06T10:18:49.5606662+00:00",
+  "desktopDetectedAtUtc": "2026-09-06T10:18:50.2978534+00:00",
+  "mobileToDesktopCacheMs": 737.187,
+  "reached": true,
+  "baselineCount": 255,
+  "finalCount": 256,
+  "baselineMaxSequence": 255,
+  "finalMaxSequence": 256,
+  "serverMarkerCount": 1,
+  "desktopProcessRunning": true
+}

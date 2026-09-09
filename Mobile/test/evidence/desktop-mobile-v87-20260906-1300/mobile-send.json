@@ -1,0 +1,16 @@
+{
+  "serial": "emulator-5556",
+  "expectedHeader": "Test Terminal 01",
+  "prefix": "AI-UAT-DESKTOP-V87-20260906-1300-",
+  "requested": 1,
+  "startedAtUtc": "2026-09-06T05:00:30.9241249+00:00",
+  "completedAtUtc": "2026-09-06T05:00:35.1443842+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T05:00:32.0664240+00:00"
+    }
+  ]
+}

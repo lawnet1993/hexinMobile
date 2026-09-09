@@ -15,6 +15,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/media/mobile_image_compressor.dart';
+import '../../../core/media/mobile_file_content_type.dart';
 import '../../../core/media/mobile_upload_policy.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/errors/mobile_error_text.dart';
@@ -59,7 +60,8 @@ class ApprovalRequestPage extends ConsumerStatefulWidget {
       _ApprovalRequestPageState();
 }
 
-class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
+class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _values = <String, Object?>{};
   final _attachments = <OaLocalAttachment>[];
@@ -69,6 +71,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   String _title = '';
   String _defaultTitle = '';
   bool _submitting = false;
+  double? _submissionUploadProgress;
   bool _validationAttempted = false;
   bool _previewing = false;
   OaWorkflowPreview? _workflowPreview;
@@ -94,19 +97,34 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   OaApprovalDraft? _draft;
   Timer? _draftTimer;
   Timer? _workflowPreviewTimer;
+  Timer? _temporaryAttachmentCleanupTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _draftAccountScope = ref.read(collaborationAccountScopeProvider);
+    unawaited(_cleanupTemporaryAttachmentHandoffs());
     Future<void>.microtask(_loadDraft);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _draftTimer?.cancel();
     _workflowPreviewTimer?.cancel();
+    _temporaryAttachmentCleanupTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    _temporaryAttachmentCleanupTimer?.cancel();
+    _temporaryAttachmentCleanupTimer = Timer(
+      const Duration(seconds: 2),
+      () => unawaited(_cleanupTemporaryAttachmentHandoffs()),
+    );
   }
 
   @override
@@ -265,6 +283,23 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
                     padding: const EdgeInsets.all(12),
                     child: Column(
                       children: [
+                        TextFormField(
+                          key: const Key('approval-title-field'),
+                          initialValue: _title,
+                          maxLength: 100,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            hintText: '申请标题',
+                            counterText: '',
+                            isDense: true,
+                          ),
+                          onChanged: (value) {
+                            _title = value;
+                            _markDraftChanged();
+                            _scheduleDraftSave(template, allowOfflineDraft);
+                          },
+                        ),
+                        const SizedBox(height: 10),
                         for (final field in fields) ...[
                           if (field.type == 'attachment' ||
                               field.type == 'file')
@@ -408,7 +443,11 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
                             allowOfflineDraft,
                           ),
                     style: compactMobileActionStyle,
-                    child: _submitting
+                    child: _submitting && _submissionUploadProgress != null
+                        ? Text(
+                            '上传 ${(_submissionUploadProgress! * 100).clamp(0, 100).round()}%',
+                          )
+                        : _submitting
                         ? const SizedBox.square(
                             dimension: 16,
                             child: CircularProgressIndicator(
@@ -461,7 +500,10 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     }
     _draftTimer?.cancel();
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _submissionUploadProgress = null;
+    });
     try {
       // A successful submission deletes the draft. Do not let an older disk
       // write finish afterwards and resurrect it, or start a duplicate submit.
@@ -474,10 +516,27 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
             template: template,
             title: title,
             formData: _values,
+            sourceDraftId: _draft?.id ?? '',
             attachmentIds: widget.initialAttachmentIds,
             attachmentBindings: widget.initialAttachmentBindings,
             pendingAttachments: _attachments,
             allowOfflineQueue: allowOfflineDraft,
+            onAttachmentUploadProgress:
+                (attachmentIndex, attachmentCount, sent, total) {
+                  if (!mounted || !_submitting || attachmentCount <= 0) return;
+                  final itemProgress = total > 0
+                      ? (sent / total).clamp(0.0, 1.0)
+                      : 0.0;
+                  final overall =
+                      (attachmentIndex + itemProgress) / attachmentCount;
+                  final currentPercent = _submissionUploadProgress == null
+                      ? -1
+                      : (_submissionUploadProgress! * 100).floor();
+                  final nextPercent = (overall * 100).floor();
+                  if (nextPercent > currentPercent) {
+                    setState(() => _submissionUploadProgress = overall);
+                  }
+                },
           );
       if (mounted) {
         ref.read(oaCatalogSyncCoordinatorProvider).catchUpAfterMutation();
@@ -485,6 +544,10 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       await _discardSourceOutbox();
       if (_draft != null) {
         await ref.read(oaRepositoryProvider).deleteDraft(_draft!.id);
+      } else if (_ownsEphemeralAttachments) {
+        await ref
+            .read(oaRepositoryProvider)
+            .discardLocalAttachments(_attachments);
       }
       ref.invalidate(oaBootstrapProvider);
       ref.invalidate(oaNotificationsProvider);
@@ -496,6 +559,10 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       await _discardSourceOutbox();
       if (_draft != null) {
         await ref.read(oaRepositoryProvider).deleteDraft(_draft!.id);
+      } else if (_ownsEphemeralAttachments) {
+        await ref
+            .read(oaRepositoryProvider)
+            .discardLocalAttachments(_attachments);
       }
       ref.invalidate(oaDraftsProvider);
       ref.invalidate(oaOutboxProvider);
@@ -516,7 +583,12 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
             .showSnackBar(SnackBar(content: Text(details.displayMessage)));
       }
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _submissionUploadProgress = null;
+        });
+      }
     }
   }
 
@@ -837,56 +909,87 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     try {
       final selected = await withMobileFileAccess(FilePicker.pickFile);
       if (selected == null || !mounted) return;
-      final originalContentType = _attachmentContentType(
-        path.extension(selected.name).replaceFirst('.', ''),
+      final originalContentType = await resolveMobileFileContentType(
+        fileName: selected.name,
+        openRead: () => withMobileFileStreamAccess(selected.readAsByteStream()),
       );
       final sourceLength = await withMobileFileAccess(selected.length);
+      final compressLocally = isMobileLocallyCompressibleImageType(
+        originalContentType,
+      );
       validateMobileUploadSourceLength(
-        originalContentType.startsWith('image/')
+        compressLocally
             ? MobileUploadKind.approvalImage
             : MobileUploadKind.approvalFile,
         sourceLength,
       );
       setState(() => _uploadingAttachment = true);
       uploading = true;
-      final bytes = await withMobileFileAccess(selected.readAsBytes);
-      if (bytes.isEmpty) {
-        throw const MobileUploadAccessException();
-      }
-      final prepared = await ref
-          .read(mobileImageCompressorProvider)
-          .prepare(
-            fileName: selected.name,
-            bytes: bytes,
-            contentType: originalContentType,
-            purpose: MobileImagePurpose.approval,
-          );
-      final preview = originalContentType.startsWith('image/')
-          ? await ref
-                .read(mobileImageCompressorProvider)
-                .prepare(
-                  fileName: prepared.fileName,
-                  bytes: prepared.bytes,
-                  contentType: prepared.contentType,
-                  purpose: MobileImagePurpose.avatar,
-                )
-          : null;
-      if (prepared.bytes.length > 20 * 1024 * 1024) {
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('单个附件不能超过 20 MB')));
+      final attachmentId = const Uuid().v4();
+      late final OaLocalAttachment attachment;
+      if (compressLocally) {
+        final prepared = await ref
+            .read(mobileImageCompressorProvider)
+            .prepareStream(
+              fileName: selected.name,
+              sourceLength: sourceLength,
+              openRead: () =>
+                  withMobileFileStreamAccess(selected.readAsByteStream()),
+              contentType: originalContentType,
+              purpose: MobileImagePurpose.approval,
+            );
+        if (prepared.bytes.isEmpty) throw const MobileUploadAccessException();
+        final preview = await ref
+            .read(mobileImageCompressorProvider)
+            .prepare(
+              fileName: prepared.fileName,
+              bytes: prepared.bytes,
+              contentType: prepared.contentType,
+              purpose: MobileImagePurpose.avatar,
+            );
+        if (prepared.bytes.length > 20 * 1024 * 1024) {
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('单个附件不能超过 20 MB')));
+          }
+          return;
         }
-        return;
+        final staged = await ref
+            .read(oaRepositoryProvider)
+            .stageLocalAttachmentStream(
+              id: attachmentId,
+              ownerId: _draft?.id ?? _newDraftId,
+              fileName: prepared.fileName,
+              contentType: prepared.contentType,
+              length: prepared.bytes.length,
+              formFieldId: field.id,
+              openRead: () => Stream<List<int>>.value(prepared.bytes),
+            );
+        attachment = staged.copyWith(previewBytes: preview.bytes);
+      } else {
+        attachment = await ref
+            .read(oaRepositoryProvider)
+            .stageLocalAttachmentStream(
+              id: attachmentId,
+              ownerId: _draft?.id ?? _newDraftId,
+              fileName: selected.name,
+              contentType: originalContentType,
+              length: sourceLength,
+              formFieldId: field.id,
+              openRead: () =>
+                  withMobileFileStreamAccess(selected.readAsByteStream()),
+            );
       }
-      final attachment = OaLocalAttachment(
-        id: const Uuid().v4(),
-        fileName: prepared.fileName,
-        contentType: prepared.contentType,
-        bytes: prepared.bytes,
-        formFieldId: field.id,
-        previewBytes: preview?.bytes ?? const [],
-      );
       if (mounted) {
+        final replaced = field.multiple
+            ? const <OaLocalAttachment>[]
+            : _attachments
+                  .where(
+                    (item) =>
+                        item.formFieldId.isEmpty ||
+                        item.formFieldId == field.id,
+                  )
+                  .toList(growable: false);
         setState(() {
           if (!field.multiple) {
             _attachments.removeWhere(
@@ -899,6 +1002,7 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
           _clientFieldErrors.remove(field.id);
           _markDraftChanged();
         });
+        unawaited(_discardPageOwnedAttachments(replaced));
         _scheduleDraftSave(template, allowOfflineDraft);
       }
     } catch (error) {
@@ -908,6 +1012,12 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
         );
       }
     } finally {
+      try {
+        await FilePicker.clearTemporaryFiles();
+      } catch (_) {
+        // The encrypted draft copy is authoritative. Picker cache cleanup is
+        // best effort on platforms that do not expose a temporary cache.
+      }
       if (mounted && uploading) {
         setState(() => _uploadingAttachment = false);
       }
@@ -925,7 +1035,21 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       _clientFieldErrors.remove(attachment.formFieldId);
       _markDraftChanged();
     });
+    unawaited(_discardPageOwnedAttachments([attachment]));
     _scheduleDraftSave(template, allowOfflineDraft);
+  }
+
+  Future<void> _discardPageOwnedAttachments(
+    Iterable<OaLocalAttachment> attachments,
+  ) async {
+    final candidates = attachments.toList(growable: false);
+    if (candidates.isEmpty || !_ownsEphemeralAttachments) return;
+    try {
+      await ref.read(oaRepositoryProvider).discardLocalAttachments(candidates);
+    } catch (_) {
+      // Account teardown and storage cleanup own the remaining fallback path.
+      // Removing an attachment from the form must not become a blocking error.
+    }
   }
 
   Future<void> _openLocalAttachment(
@@ -933,14 +1057,14 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
     required bool allowImagePreview,
   }) async {
     try {
-      final bytes = attachment.bytes.isNotEmpty
-          ? Uint8List.fromList(attachment.bytes)
-          : await ref
-                .read(oaRepositoryProvider)
-                .readLocalAttachmentBytes(attachment);
-      if (!mounted) return;
       if (allowImagePreview &&
           attachment.contentType.toLowerCase().startsWith('image/')) {
+        final bytes = attachment.bytes.isNotEmpty
+            ? Uint8List.fromList(attachment.bytes)
+            : await ref
+                  .read(oaRepositoryProvider)
+                  .readLocalAttachmentBytes(attachment);
+        if (!mounted) return;
         await Navigator.of(context).push<void>(
           MaterialPageRoute<void>(
             fullscreenDialog: true,
@@ -959,7 +1083,26 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
       final target = File(
         path.join(directory.path, 'oa-${attachment.id}-$safeName'),
       );
-      await target.writeAsBytes(bytes, flush: true);
+      final partial = File('${target.path}.part');
+      if (await partial.exists()) await partial.delete();
+      try {
+        final sink = partial.openWrite();
+        try {
+          await sink.addStream(
+            ref
+                .read(oaRepositoryProvider)
+                .readLocalAttachmentStream(attachment),
+          );
+        } finally {
+          await sink.close();
+        }
+        if (await target.exists()) await target.delete();
+        await partial.rename(target.path);
+      } catch (_) {
+        if (await partial.exists()) await partial.delete();
+        rethrow;
+      }
+      if (!mounted) return;
       final result = await OpenFilex.open(target.path);
       if (result.type != ResultType.done && mounted) {
         ScaffoldMessenger.of(context)
@@ -970,6 +1113,25 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(_errorMessage(error))));
       }
+    }
+  }
+
+  Future<void> _cleanupTemporaryAttachmentHandoffs() async {
+    try {
+      final directory = await getTemporaryDirectory();
+      if (!await directory.exists()) return;
+      await for (final entity in directory.list(followLinks: false)) {
+        if (entity is! File) continue;
+        final name = path.basename(entity.path);
+        if (!name.startsWith('oa-')) continue;
+        try {
+          await entity.delete();
+        } catch (_) {
+          // An external viewer may still hold the file. Retry on next resume.
+        }
+      }
+    } catch (_) {
+      // Temporary cleanup must not block the approval form.
     }
   }
 
@@ -1011,6 +1173,10 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
   bool get _ownsDraftPage =>
       mounted &&
       ref.read(collaborationAccountScopeProvider) == _draftAccountScope;
+
+  bool get _ownsEphemeralAttachments =>
+      _draft == null &&
+      (widget.sourceOutboxId == null || widget.sourceOutboxId!.isEmpty);
 
   void _markDraftChanged() {
     _draftRevision++;
@@ -1087,6 +1253,12 @@ class _ApprovalRequestPageState extends ConsumerState<ApprovalRequestPage> {
           }
           return;
         }
+      }
+      if (!allowOfflineDraft && _ownsEphemeralAttachments) {
+        await ref
+            .read(oaRepositoryProvider)
+            .discardLocalAttachments(_attachments);
+        if (!_ownsDraftPage) return;
       }
       if (!mounted || !_ownsDraftPage) return;
       setState(() => _allowPop = true);
@@ -1250,7 +1422,9 @@ class _AttachmentEditor extends StatelessWidget {
             if (!field.isReadOnly) ...[
               const SizedBox(width: 8),
               OutlinedButton.icon(
-                onPressed: uploading
+                onPressed:
+                    uploading ||
+                        (field.multiple && items.length >= field.maxCount)
                     ? null
                     : () {
                         onAdd();
@@ -1701,10 +1875,7 @@ class _SchemaField extends StatelessWidget {
                   (member) => _ReferenceOption(
                     id: member.id,
                     label: member.displayName,
-                    description: [
-                      member.username,
-                      member.departmentName,
-                    ].where((item) => item.isNotEmpty).join(' · '),
+                    description: member.departmentName,
                   ),
                 )
                 .toList()
@@ -2612,7 +2783,7 @@ bool _isRecoverableWorkflowPreviewError(Object? error) {
 
 String _workflowPreviewFailureLabel(Object error) {
   if (_isRecoverableWorkflowPreviewError(error)) {
-    return '网络不可用，表单与草稿已保留';
+    return '审批流程暂时无法同步，表单与草稿已保留';
   }
   if (error is DioException) {
     final status = error.response?.statusCode;
@@ -2664,20 +2835,3 @@ String _fileSize(int bytes) {
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
-
-String _attachmentContentType(String? extension) => switch (extension
-    ?.toLowerCase()) {
-  'pdf' => 'application/pdf',
-  'png' => 'image/png',
-  'jpg' || 'jpeg' => 'image/jpeg',
-  'webp' => 'image/webp',
-  'heic' || 'heif' => 'image/heic',
-  'doc' => 'application/msword',
-  'docx' =>
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'xls' => 'application/vnd.ms-excel',
-  'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'txt' => 'text/plain',
-  'zip' => 'application/zip',
-  _ => 'application/octet-stream',
-};

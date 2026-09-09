@@ -277,8 +277,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
         await context.push<void>('/chat/${existing.id}', extra: existing);
         return;
       }
-      final conversation = await ref
-          .read(contactConversationCreatorProvider)(member.id);
+      final conversation = await ref.read(contactConversationCreatorProvider)(
+        member.id,
+      );
       if (!mounted) return;
       ref.invalidate(imBootstrapProvider);
       openTrace?.bind(conversation.id);
@@ -445,6 +446,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
               actions: [
                 IconButton(
                   tooltip: '添加好友',
+                  style: compactHeaderIconButtonStyle,
                   onPressed: _searchOutsideDirectory,
                   icon: const Icon(Icons.person_add_alt_1_outlined, size: 20),
                 ),
@@ -457,7 +459,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                   Expanded(
                     child: MobileSearchField(
                       key: const Key('contacts-search-field'),
-                      hintText: _mode == 3 ? '搜索群名称或消息' : '搜索姓名、部门或终端账号',
+                      hintText: _mode == 3 ? '搜索群名称或消息' : '搜索姓名或部门',
                       onChanged: (value) => setState(() {
                         _query = value.trim().toLowerCase();
                         _resetContactWindow();
@@ -467,21 +469,15 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                   if (_mode == 0) ...[
                     const SizedBox(width: 6),
                     SizedBox.square(
-                      dimension: 34,
+                      dimension: 40,
                       child: IconButton(
                         key: const Key('organization-department-selector'),
                         tooltip: '选择部门',
                         padding: EdgeInsets.zero,
                         style: IconButton.styleFrom(
-                          backgroundColor: _selectedDepartmentId.isEmpty
-                              ? const Color(0xFFF1F3F6)
-                              : const Color(0xFFE8F1FF),
                           foregroundColor: _selectedDepartmentId.isEmpty
                               ? AppColors.secondaryText
                               : AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
                         ),
                         onPressed: value.value == null
                             ? null
@@ -489,7 +485,21 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                                 directory.value ?? const <ImDepartment>[],
                                 pickerMembers,
                               ),
-                        icon: const Icon(Icons.account_tree_outlined, size: 18),
+                        icon: Container(
+                          width: 34,
+                          height: 34,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _selectedDepartmentId.isEmpty
+                                ? const Color(0xFFF1F3F6)
+                                : const Color(0xFFE8F1FF),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.account_tree_outlined,
+                            size: 18,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -743,9 +753,11 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                               collapsedFlat: _collapsedFlatDepartmentIds,
                             );
                             final rowIndices = <Key, int>{
-                              for (var i = 0; i < rows.length; i++) rows[i].key: i,
+                              for (var i = 0; i < rows.length; i++)
+                                rows[i].key: i,
                             };
-                            final hasMore = !organizationTreeActive &&
+                            final hasMore =
+                                !organizationTreeActive &&
                                 contacts.length > shownContacts.length;
                             return RefreshIndicator(
                               onRefresh: () async {
@@ -758,18 +770,27 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                               child: ListView.builder(
                                 key: const Key('contacts-page-scroll'),
                                 controller: _contactsScrollController,
-                                scrollCacheExtent: const ScrollCacheExtent.pixels(192),
+                                scrollCacheExtent:
+                                    const ScrollCacheExtent.pixels(192),
                                 itemCount: rows.length + (hasMore ? 1 : 0),
-                                findChildIndexCallback: (key) => rowIndices[key],
+                                findChildIndexCallback: (key) =>
+                                    rowIndices[key],
                                 itemBuilder: (context, index) {
                                   if (index == rows.length) {
                                     return Padding(
                                       key: const Key('contacts-page-footer'),
-                                      padding: const EdgeInsets.symmetric(vertical: 10),
-                                      child: Center(child: Text(
-                                        '继续上滑 · ${shownContacts.length}/${contacts.length}',
-                                        style: const TextStyle(color: AppColors.weakText, fontSize: 12),
-                                      )),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 10,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '继续上滑 · ${shownContacts.length}/${contacts.length}',
+                                          style: const TextStyle(
+                                            color: AppColors.weakText,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
                                     );
                                   }
                                   final row = rows[index];
@@ -790,13 +811,19 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                                     key: row.key,
                                     department: department,
                                     expanded: organizationTreeActive
-                                        ? _expandedDepartmentIds.contains(department.id)
-                                        : !_collapsedFlatDepartmentIds.contains(department.id),
+                                        ? _expandedDepartmentIds.contains(
+                                            department.id,
+                                          )
+                                        : !_collapsedFlatDepartmentIds.contains(
+                                            department.id,
+                                          ),
                                     onExpanded: (expanded) => setState(() {
                                       final ids = organizationTreeActive
                                           ? _expandedDepartmentIds
                                           : _collapsedFlatDepartmentIds;
-                                      if (organizationTreeActive ? expanded : !expanded) {
+                                      if (organizationTreeActive
+                                          ? expanded
+                                          : !expanded) {
                                         ids.add(department.id);
                                       } else {
                                         ids.remove(department.id);
@@ -1084,23 +1111,29 @@ class _DirectoryModeButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(8),
-    onTap: onTap,
-    child: Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: selected ? const Color(0xFFE8F1FF) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12.5,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          color: selected ? AppColors.primary : AppColors.secondaryText,
+  Widget build(BuildContext context) => SizedBox(
+    key: ValueKey('directory-mode-$label'),
+    height: 40,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Center(
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFE8F1FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? AppColors.primary : AppColors.secondaryText,
+            ),
+          ),
         ),
       ),
     ),
@@ -1430,9 +1463,11 @@ class _ContactListEntry {
   const _ContactListEntry(this.department, [this.member]);
   final _DepartmentContactGroup department;
   final ImMember? member;
-  Key get key => ValueKey(member == null
-      ? 'department-group-${department.id}'
-      : 'contact-${department.id}-${member!.id}');
+  Key get key => ValueKey(
+    member == null
+        ? 'department-group-${department.id}'
+        : 'contact-${department.id}-${member!.id}',
+  );
 }
 
 List<_ContactListEntry> _visibleContactRows(
@@ -1455,6 +1490,7 @@ List<_ContactListEntry> _visibleContactRows(
       rows.add(_ContactListEntry(department, member));
     }
   }
+
   for (final department in departments) {
     append(department);
   }
@@ -1474,7 +1510,8 @@ class _DepartmentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canExpand = department.children.isNotEmpty || department.contacts.isNotEmpty;
+    final canExpand =
+        department.children.isNotEmpty || department.contacts.isNotEmpty;
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
@@ -1487,9 +1524,16 @@ class _DepartmentHeader extends StatelessWidget {
         shape: const Border(),
         collapsedShape: const Border(),
         minTileHeight: 44,
-        tilePadding: EdgeInsets.only(left: 12 + department.depth * 14, right: 8),
+        tilePadding: EdgeInsets.only(
+          left: 12 + department.depth * 14,
+          right: 8,
+        ),
         childrenPadding: EdgeInsets.zero,
-        leading: const Icon(Icons.account_tree_outlined, size: 18, color: AppColors.primary),
+        leading: const Icon(
+          Icons.account_tree_outlined,
+          size: 18,
+          color: AppColors.primary,
+        ),
         title: Row(
           children: [
             Expanded(
@@ -1539,7 +1583,11 @@ class _ContactListMember extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isCurrentMember = contact.id == currentMemberId;
-    final presence = watchMemberPresence(ref, contact, transportAvailable: presenceAvailable);
+    final presence = watchMemberPresence(
+      ref,
+      contact,
+      transportAvailable: presenceAvailable,
+    );
     return ListTile(
       minTileHeight: 48,
       contentPadding: const EdgeInsets.only(left: 14, right: 4),
@@ -1571,10 +1619,7 @@ class _ContactListMember extends ConsumerWidget {
                   : contact.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
           if (isCurrentMember) ...[
@@ -1598,9 +1643,7 @@ class _ContactListMember extends ConsumerWidget {
         ],
       ),
       subtitle: Text(
-        _contactPresenceLabel(
-          presence,
-        ),
+        _contactPresenceLabel(presence),
         style: TextStyle(
           fontSize: 10.5,
           color: presence.online == true
@@ -1636,10 +1679,7 @@ class _ContactListMember extends ConsumerWidget {
                 if (value == 'message') onMessage(contact);
                 if (value == 'remark') onRemark(contact);
               },
-              icon: const Icon(
-                Icons.more_horiz_rounded,
-                size: 18,
-              ),
+              icon: const Icon(Icons.more_horiz_rounded, size: 18),
             )
           : null,
       onTap: !isCurrentMember && contact.canStartDirect
@@ -1649,10 +1689,7 @@ class _ContactListMember extends ConsumerWidget {
   }
 }
 
-String _contactPresenceLabel(
-  ImMemberPresence member, {
-  DateTime? now,
-}) {
+String _contactPresenceLabel(ImMemberPresence member, {DateTime? now}) {
   if (member.online == null) return '状态未知';
   if (member.online == true) return '在线';
   final lastSeenAt = member.lastSeenAt?.toLocal();
@@ -1683,10 +1720,14 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
   final TextEditingController _controller = TextEditingController();
   List<ImSearchResult> _items = const [];
 
-  ImMember? get _presenceMember => _items.isEmpty ? null : ImMember(
-    id: _items.first.id, username: _items.first.username,
-    displayName: _items.first.displayName, isOnline: _items.first.isOnline,
-  );
+  ImMember? get _presenceMember => _items.isEmpty
+      ? null
+      : ImMember(
+          id: _items.first.id,
+          username: _items.first.username,
+          displayName: _items.first.displayName,
+          isOnline: _items.first.isOnline,
+        );
   bool _loading = false;
   String _query = '';
   String _error = '';
@@ -1890,8 +1931,13 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
                             builder: (context, ref, _) => InitialAvatar(
                               name: _items.first.displayName,
                               radius: 18,
-                              online: watchMemberPresence(ref, _presenceMember, transportAvailable:
-                                  ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
+                              online: watchMemberPresence(
+                                ref,
+                                _presenceMember,
+                                transportAvailable:
+                                    ref.watch(imRealtimeAvailabilityProvider) ==
+                                    ImRealtimeAvailability.available,
+                              ).online,
                               avatarKey: _items.first.avatarKey,
                               avatarDataUrl: _items.first.avatarDataUrl,
                             ),
@@ -1915,10 +1961,18 @@ class _MemberSearchSheetState extends ConsumerState<_MemberSearchSheet> {
                                 Consumer(
                                   builder: (context, ref, _) => Text(
                                     [
-                                      _items.first.username,
                                       _items.first.departmentName,
-                                      _contactPresenceLabel(watchMemberPresence(ref, _presenceMember, transportAvailable:
-                                          ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available)),
+                                      _contactPresenceLabel(
+                                        watchMemberPresence(
+                                          ref,
+                                          _presenceMember,
+                                          transportAvailable:
+                                              ref.watch(
+                                                imRealtimeAvailabilityProvider,
+                                              ) ==
+                                              ImRealtimeAvailability.available,
+                                        ),
+                                      ),
                                     ].where((item) => item.isNotEmpty).join(' · '),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

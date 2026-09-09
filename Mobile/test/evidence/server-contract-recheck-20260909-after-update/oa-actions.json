@@ -1,0 +1,59 @@
+{
+  "checkedAt": "2026-09-09T21:37:49.6198698+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "views": [
+    {
+      "view": "all",
+      "status": 200,
+      "itemCount": 37,
+      "hasMore": false
+    },
+    {
+      "view": "pending",
+      "status": 200,
+      "itemCount": 4,
+      "hasMore": false
+    },
+    {
+      "view": "initiated",
+      "status": 200,
+      "itemCount": 20,
+      "hasMore": false
+    },
+    {
+      "view": "cc",
+      "status": 200,
+      "itemCount": 0,
+      "hasMore": false
+    },
+    {
+      "view": "completed",
+      "status": 200,
+      "itemCount": 33,
+      "hasMore": false
+    },
+    {
+      "view": "draft",
+      "status": 400,
+      "itemCount": 0,
+      "hasMore": null
+    }
+  ],
+  "uniqueRequestsInspected": 37,
+  "allowedActionCounts": {
+    "transfer": 4,
+    "withdraw": 10,
+    "approve": 4,
+    "remind": 10,
+    "reject": 4,
+    "add_sign": 4
+  },
+  "taskCount": 125,
+  "tasksWithCompletionMode": 125,
+  "completionModeCounts": {
+    "all": 125
+  },
+  "returnCandidateCount": 0,
+  "returnCandidateIds": []
+}

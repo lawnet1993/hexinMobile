@@ -1,0 +1,46 @@
+[
+  {
+    "serial": "emulator-5554",
+    "account": "test02",
+    "cursor": 968,
+    "cacheCount": 13,
+    "eventCount": 12,
+    "latestEventType": "inspection.finished",
+    "pendingNotificationReads": 1,
+    "outboxCount": 0,
+    "draftCount": 0
+  },
+  {
+    "serial": "emulator-5556",
+    "account": "test03",
+    "cursor": 976,
+    "cacheCount": 5,
+    "eventCount": 12,
+    "latestEventType": "inspection.finished",
+    "pendingNotificationReads": 0,
+    "outboxCount": 0,
+    "draftCount": 0
+  },
+  {
+    "serial": "emulator-5558",
+    "account": "test04",
+    "cursor": 988,
+    "cacheCount": 5,
+    "eventCount": 12,
+    "latestEventType": "oa.notification.read",
+    "pendingNotificationReads": 0,
+    "outboxCount": 0,
+    "draftCount": 0
+  },
+  {
+    "serial": "emulator-5560",
+    "account": "test05",
+    "cursor": 972,
+    "cacheCount": 5,
+    "eventCount": 12,
+    "latestEventType": "inspection.finished",
+    "pendingNotificationReads": 0,
+    "outboxCount": 0,
+    "draftCount": 0
+  }
+]

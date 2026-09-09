@@ -1,9 +1,11 @@
 param(
   [Parameter(Mandatory)][string]$EvidenceDirectory,
-  [Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]+$')][string]$Name
+  [Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]+$')][string]$Name,
+  [ValidateSet('emulator-5554','emulator-5556','emulator-5558','emulator-5560')]
+  [string]$Serial = 'emulator-5556'
 )
 
-# Read-only current M3 process; retain only explicit startup timing fields.
+# Read-only current test-emulator process; retain only explicit startup fields.
 # Do not save raw logcat, debugger URLs, session state, or network payloads.
 $ErrorActionPreference = 'Stop'
 $adb = 'C:\Users\86137\AppData\Local\Android\Sdk\platform-tools\adb.exe'
@@ -15,9 +17,9 @@ if (-not $target.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase))
 New-Item -ItemType Directory -Path $target -Force | Out-Null
 $output = Join-Path $target ($Name + '.json')
 if (Test-Path -LiteralPath $output) { throw 'Choose a new evidence name.' }
-$mobilePid = ((& $adb -s emulator-5556 shell pidof com.hexing.zhilian.hexing_terminal_mobile) -join '').Trim()
-if ($LASTEXITCODE -ne 0 -or $mobilePid -notmatch '^\d+$') { throw 'Expected one active M3 app process.' }
-$lines = @(& $adb -s emulator-5556 logcat -d -v threadtime --pid=$mobilePid)
+$mobilePid = ((& $adb -s $Serial shell pidof com.hexing.zhilian.hexing_terminal_mobile) -join '').Trim()
+if ($LASTEXITCODE -ne 0 -or $mobilePid -notmatch '^\d+$') { throw 'Expected one active test-emulator app process.' }
+$lines = @(& $adb -s $Serial logcat -d -v threadtime --pid=$mobilePid)
 if ($LASTEXITCODE -ne 0) { throw 'Current process log unavailable.' }
 
 function Numeric-Tree($Value) {
@@ -54,7 +56,9 @@ foreach ($line in $lines) {
   } else {
     if ($data.stage -notin @('onCreateEnter','onCreateReturn','configureEngineEnter',
         'pluginsRegistered','configureEngineReturn','firstFlutterUiDisplayed',
-        'dartMain','tunnelRegistered','runAppReturned','firstFrameworkFrame')) { $valid = $false }
+        'dartMain','tunnelRegistered','runAppReturned','firstFrameworkFrame',
+        'secureSessionHydrated','shellCreated','shellFirstFrame',
+        'workbenchCacheReady','collaborationSyncRequested')) { $valid = $false }
     foreach ($p in $data.PSObject.Properties) {
       if ($p.Name -eq 'stage') { continue }
       if ($p.Name -notin @('elapsedMs','elapsedMicros') -or -not (Numeric-Tree $p.Value)) { $valid = $false }
@@ -69,7 +73,7 @@ foreach ($line in $lines) {
 }
 $lines = $null
 [ordered]@{
-  checkedAt=[DateTimeOffset]::Now.ToString('o');serial='emulator-5556';pid=$mobilePid;
+  checkedAt=[DateTimeOffset]::Now.ToString('o');serial=$Serial;pid=$mobilePid;
   rejectedTimingRecords=$rejected;events=$events;
   hasNativeFirstUi=@($events | Where-Object {$_.data.stage -eq 'firstFlutterUiDisplayed'}).Count -gt 0;
   hasFrameSummary=@($events | Where-Object {$_.kind -eq 'MOBILE_STARTUP_FRAMES'}).Count -gt 0

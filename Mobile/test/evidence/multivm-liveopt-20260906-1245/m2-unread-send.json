@@ -1,0 +1,16 @@
+{
+  "serial": "emulator-5556",
+  "expectedHeader": "AI-UAT-MULTIVM-20260906-1100",
+  "prefix": "AI-UAT-UNREAD-20260906-1300-M2-",
+  "requested": 1,
+  "startedAtUtc": "2026-09-06T04:56:05.2080184+00:00",
+  "completedAtUtc": "2026-09-06T04:56:09.3470811+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T04:56:06.2743595+00:00"
+    }
+  ]
+}

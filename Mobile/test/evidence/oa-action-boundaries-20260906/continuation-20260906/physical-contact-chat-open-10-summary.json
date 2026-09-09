@@ -1,0 +1,45 @@
+{
+  "device": "realme RMX3366",
+  "source": "contacts avatar to existing direct conversation",
+  "samples": 10,
+  "cacheHits": 3,
+  "cacheHitSamples": [
+    8,
+    9,
+    10
+  ],
+  "messageCountValues": [
+    50,
+    52,
+    58
+  ],
+  "routeMountedMs": {
+    "count": 10,
+    "p50": 12.189,
+    "p95": 28.856,
+    "max": 34.915
+  },
+  "routeFrameMs": {
+    "count": 10,
+    "p50": 24.656,
+    "p95": 58.156,
+    "max": 77.246
+  },
+  "messagesAvailableMs": {
+    "count": 10,
+    "p50": 55.189,
+    "p95": 118.602,
+    "max": 133.574
+  },
+  "latestMessageLaidOutMs": {
+    "count": 5,
+    "p50": 163.374,
+    "p95": 188.363,
+    "max": 194.034
+  },
+  "buildOverBudgetTotal": 14.0,
+  "rasterOverBudgetTotal": 2.0,
+  "frameSampleTotal": 468.0,
+  "totalSpanOverBudgetTotal": 40.0,
+  "interpretation": "early opens retained first-unread positioning; later opens used the retained latest window. No evidence of remote full-history refetch."
+}

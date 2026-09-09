@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-09-06T17:32:34.2734050+08:00",
+  "device": "realme RMX3366",
+  "startupEventCount": 15,
+  "syncEventCount": 0,
+  "hasSecureSessionHydrated": true,
+  "hasShellFirstFrame": true,
+  "hasSyncRequested": true,
+  "lastSync": null,
+  "authFailureMatches": 0,
+  "fatalMatches": 0
+}

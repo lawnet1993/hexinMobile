@@ -1,0 +1,50 @@
+{
+  "recordedAt": "2026-09-06T09:40:00+08:00",
+  "windows": {
+    "processName": "hexing-zhilian.exe",
+    "processPath": "C:\\Users\\86137\\AppData\\Local\\合兴智联\\hexing-zhilian.exe",
+    "processStartedAt": "2026-09-06T01:50:57+08:00",
+    "fileVersion": "1.0.87",
+    "productVersion": "1.0.87",
+    "downloadedInstallers": ["1.0.94", "1.0.95"],
+    "realtimeLog": {
+      "imReadyCount": 0,
+      "oaReadyCount": 0,
+      "imRetryWaitCount": 97,
+      "oaRetryWaitCount": 100,
+      "observedImAttempt": 739,
+      "imMissingEventIdWarnings": 227,
+      "oaMissingEventIdWarnings": 226
+    },
+    "cache": {
+      "eventInboxRows": 0,
+      "eventCursorRows": 0,
+      "messageRows": 596,
+      "maxMessageSequence": 20840,
+      "lastMessageUpdateEpoch": 1788657414
+    }
+  },
+  "mobile": {
+    "device": "emulator-5554",
+    "account": "test02",
+    "im": {
+      "eventInboxRows": 350,
+      "minEventSequence": 1,
+      "maxEventSequence": 4071,
+      "emptyEventIds": 0,
+      "eventCursor": 4071,
+      "ackCursor": 4071,
+      "messageRows": 353,
+      "maxConversationSequence": 252
+    },
+    "oa": {
+      "eventInboxRows": 102,
+      "minEventSequence": 3,
+      "maxEventSequence": 818,
+      "emptyEventIds": 0,
+      "eventCursor": 818
+    }
+  },
+  "verdict": "windows_not_passed",
+  "reason": "The running Windows client never reached realtime ready and rejected both IM and OA events with an empty event identifier, while the mobile client persisted non-empty event identifiers and advanced durable cursors."
+}

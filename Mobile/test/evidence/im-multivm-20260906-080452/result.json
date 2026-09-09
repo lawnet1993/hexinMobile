@@ -1,0 +1,46 @@
+{
+  "checkedAt": "2026-09-06T00:06:17Z",
+  "topology": {
+    "emulator-5554": "test02",
+    "emulator-5556": "test03",
+    "emulator-5558": "test04",
+    "windows": "test01"
+  },
+  "uiSend": {
+    "requested": 60,
+    "confirmedVisible": 60,
+    "composerEmpty": true
+  },
+  "server": [
+    {
+      "flow": "test02-to-test01",
+      "count": 20,
+      "uniqueMessageIds": 20,
+      "uniqueClientMessageIds": 20,
+      "lastMessageSequence": 252,
+      "latencyMs": {"min": 1175.1, "average": 1304.0, "p95": 1352.4, "max": 1402.5}
+    },
+    {
+      "flow": "test03-to-test01",
+      "count": 20,
+      "uniqueMessageIds": 20,
+      "uniqueClientMessageIds": 20,
+      "lastMessageSequence": 261,
+      "latencyMs": {"min": 1239.7, "average": 2168.9, "p95": 4730.2, "max": 8296.6}
+    }
+  ],
+  "mobile": [
+    {"device": "emulator-5554", "messageCount": 252, "maxSequence": 252, "duplicateIds": 0, "duplicateClientMessageIds": 0, "outbox": 0, "applied": 4032, "acked": 4032, "integrity": "ok", "totalPssKiB": 215234},
+    {"device": "emulator-5556", "messageCount": 261, "maxSequence": 261, "duplicateIds": 0, "duplicateClientMessageIds": 0, "outbox": 0, "applied": 4063, "acked": 4063, "integrity": "ok", "totalPssKiB": 193674},
+    {"device": "emulator-5558", "messageCount": 664, "maxSequence": 664, "duplicateIds": 0, "duplicateClientMessageIds": 0, "outbox": 0, "applied": 4049, "acked": 4049, "integrity": "ok", "totalPssKiB": 161800}
+  ],
+  "mobileSyncStages": [
+    {"device": "emulator-5554", "eventCycles": 21, "events": 21, "totalMs": {"p50": 781, "p95": 964, "max": 1319}},
+    {"device": "emulator-5556", "eventCycles": 23, "events": 38, "totalMs": {"p50": 1128, "p95": 1868, "max": 1990}},
+    {"device": "emulator-5558", "eventCycles": 19, "events": 20, "totalMs": {"p50": 1166, "p95": 1414, "max": 1414}}
+  ],
+  "windowsCache": [
+    {"conversation": "test02-to-test01", "rows": 10, "maxSequence": 10, "syncLastSequence": 10, "serverLastSequence": 252, "integrity": "ok"},
+    {"conversation": "test03-to-test01", "rows": 200, "maxSequence": 261, "syncLastSequence": 261, "serverLastSequence": 261, "duplicateIds": 0, "duplicateClientMessageIds": 0, "integrity": "ok"}
+  ]
+}

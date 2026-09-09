@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-09-06T18:15:18.0005080+08:00",
+  "conversationType": "direct",
+  "participants": "test01-test02",
+  "messageCount": 253,
+  "maxMessageSequence": 253.0,
+  "eventInboxCount": 1036,
+  "imCursor": 5011,
+  "syncLastMessageSequence": 10,
+  "integrity": "ok"
+}

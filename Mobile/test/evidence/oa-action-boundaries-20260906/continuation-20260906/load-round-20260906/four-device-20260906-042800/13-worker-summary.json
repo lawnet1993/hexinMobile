@@ -1,0 +1,20 @@
+[
+  {
+    "JobId": 1,
+    "State": "Completed",
+    "Reason": "",
+    "ErrorCount": 0
+  },
+  {
+    "JobId": 3,
+    "State": "Completed",
+    "Reason": "",
+    "ErrorCount": 0
+  },
+  {
+    "JobId": 5,
+    "State": "Completed",
+    "Reason": "",
+    "ErrorCount": 0
+  }
+]

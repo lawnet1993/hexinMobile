@@ -77,6 +77,18 @@ void main() {
     },
   );
 
+  test(
+    'failed bootstrap reports connecting while event retry is active',
+    () async {
+      final f = await _Fixture.create(failBootstrap: true);
+
+      await f.coordinator.start();
+      await f.pullEntered.future.timeout(const Duration(seconds: 3));
+
+      expect(f.availability, ImRealtimeAvailability.connecting);
+    },
+  );
+
   test('stop cancels held long poll and resolves push wake waiters', () async {
     final f = await _Fixture.create();
     await f.coordinator.start();

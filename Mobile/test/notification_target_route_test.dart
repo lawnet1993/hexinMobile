@@ -59,6 +59,22 @@ void main() {
       ),
       '/punch?inspection=active',
     );
+    expect(
+      notificationTargetRoute(
+        _notification(
+          category: 'access',
+          type: 'access.site.unavailable',
+          targetId: 'site-1',
+        ),
+      ),
+      '/sites',
+    );
+    expect(
+      notificationTargetRoute(
+        _notification(category: 'network', type: 'network.policy.changed'),
+      ),
+      '/sites',
+    );
   });
 
   test('invalid conversation targets fail closed', () {

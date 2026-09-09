@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
 import '../../../core/media/mobile_image_compressor.dart';
 import '../../../core/media/mobile_upload_policy.dart';
@@ -41,10 +44,16 @@ final profileAvatarPickerProvider =
         if (file == null) return null;
         final length = await withMobileFileAccess(file.length);
         validateMobileUploadSourceLength(MobileUploadKind.avatar, length);
+        final filePath = file.path ?? '';
         return (
           name: file.name,
-          path: file.path ?? '',
-          bytes: await withMobileFileAccess(file.readAsBytes),
+          path: filePath,
+          // Android/iOS pickers provide an app-readable temporary path. Let
+          // the native cropper decode that path instead of retaining an up to
+          // 80 MB source in Dart heap. Bytes remain the pathless fallback.
+          bytes: filePath.isEmpty
+              ? await withMobileFileAccess(file.readAsBytes)
+              : Uint8List(0),
         );
       },
     );
@@ -52,40 +61,70 @@ final profileAvatarPickerProvider =
 final profileAvatarCropperProvider = Provider<ProfileAvatarCropper>(
   (ref) => (source) async {
     if (source.path.isEmpty) return source;
-    final cropped = await ImageCropper().cropImage(
-      sourcePath: source.path,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-      maxWidth: 768,
-      maxHeight: 768,
-      compressFormat: ImageCompressFormat.jpg,
-      compressQuality: 95,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: '裁剪头像',
-          toolbarColor: Colors.white,
-          toolbarWidgetColor: AppColors.text,
-          activeControlsWidgetColor: AppColors.primary,
-          backgroundColor: Colors.black,
-          lockAspectRatio: true,
-          hideBottomControls: false,
-          cropStyle: CropStyle.circle,
-        ),
-        IOSUiSettings(
-          title: '裁剪头像',
-          doneButtonTitle: '完成',
-          cancelButtonTitle: '取消',
-          aspectRatioLockEnabled: true,
-          resetAspectRatioEnabled: false,
-          cropStyle: CropStyle.circle,
-        ),
-      ],
-    );
-    if (cropped == null) return null;
-    return (
-      name: '${_fileStem(source.name)}.jpg',
-      path: cropped.path,
-      bytes: await cropped.readAsBytes(),
-    );
+    Directory? cropInputDirectory;
+    try {
+      final sourceFile = File(source.path);
+      final sourceLength = await withMobileFileAccess(sourceFile.length);
+      final sampled = await ref
+          .read(mobileImageCompressorProvider)
+          .prepareStream(
+            fileName: source.name,
+            sourceLength: sourceLength,
+            openRead: () => withMobileFileStreamAccess(sourceFile.openRead()),
+            contentType: mobileImageContentType(source.name),
+            purpose: MobileImagePurpose.avatarCrop,
+          );
+      cropInputDirectory = await (await getTemporaryDirectory()).createTemp(
+        'avatar-crop-input-',
+      );
+      final cropInput = File(
+        path.join(cropInputDirectory.path, sampled.fileName),
+      );
+      await cropInput.writeAsBytes(sampled.bytes, flush: true);
+      final cropped = await ImageCropper().cropImage(
+        sourcePath: cropInput.path,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        maxWidth: 768,
+        maxHeight: 768,
+        compressFormat: ImageCompressFormat.jpg,
+        compressQuality: 95,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: '裁剪头像',
+            toolbarColor: Colors.white,
+            toolbarWidgetColor: AppColors.text,
+            activeControlsWidgetColor: AppColors.primary,
+            backgroundColor: Colors.black,
+            lockAspectRatio: true,
+            hideBottomControls: false,
+            cropStyle: CropStyle.circle,
+          ),
+          IOSUiSettings(
+            title: '裁剪头像',
+            doneButtonTitle: '完成',
+            cancelButtonTitle: '取消',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+            cropStyle: CropStyle.circle,
+          ),
+        ],
+      );
+      if (cropped == null) return null;
+      return (
+        name: '${_fileStem(source.name)}.jpg',
+        path: cropped.path,
+        bytes: await cropped.readAsBytes(),
+      );
+    } finally {
+      if (cropInputDirectory != null) {
+        try {
+          await cropInputDirectory.delete(recursive: true);
+        } on FileSystemException {
+          // The native cropper has already returned; cache cleanup is best
+          // effort if a platform briefly keeps the sampled input open.
+        }
+      }
+    }
   },
 );
 
@@ -301,12 +340,16 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
 
   Future<void> _pickCustomAvatar(MobileSession session) async {
     if (_avatarSaving || _saving || !_isCurrent(session)) return;
+    String? croppedPath;
     setState(() => _avatarSaving = true);
     try {
       final selected = await ref.read(profileAvatarPickerProvider)();
       if (!mounted || selected == null || !_isCurrent(session)) return;
       final file = await ref.read(profileAvatarCropperProvider)(selected);
       if (!mounted || file == null || !_isCurrent(session)) return;
+      if (file.path.isNotEmpty && file.path != selected.path) {
+        croppedPath = file.path;
+      }
       final prepared = await ref
           .read(mobileImageCompressorProvider)
           .prepare(
@@ -346,6 +389,21 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
         );
       }
     } finally {
+      final temporaryCrop = croppedPath;
+      if (temporaryCrop != null) {
+        try {
+          final file = File(temporaryCrop);
+          if (await file.exists()) await file.delete();
+        } catch (_) {
+          // The upload already has its bytes. Cache cleanup is best effort.
+        }
+      }
+      try {
+        await FilePicker.clearTemporaryFiles();
+      } catch (_) {
+        // Cropping/compression and the server update no longer depend on the
+        // picker copy. Cleanup is best effort on platforms without support.
+      }
       if (_isCurrent(session)) setState(() => _avatarSaving = false);
     }
   }

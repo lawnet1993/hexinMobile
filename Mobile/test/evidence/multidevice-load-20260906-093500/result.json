@@ -1,0 +1,185 @@
+{
+  "executedAt": "2026-09-06",
+  "build": {
+    "apk": "app-profile.apk",
+    "sizeBytes": 111236918,
+    "sha256": "0BBC94F4D56FF1D86A8420909AA9CB46410BC6E325472E0738E51B4D404DA544"
+  },
+  "topology": {
+    "simulatorsCreated": 2,
+    "maximumConcurrentSimulators": 3,
+    "physicalDevicesConnected": 1,
+    "independentAndroidIdentitiesVerified": true,
+    "persistentDataDisks": [
+      "E:/AndroidAVDs/SecureAccess_Load_M2.avd",
+      "E:/AndroidAVDs/SecureAccess_Load_M3.avd"
+    ],
+    "steadyStatePolicy": "two simulators plus one physical device; rotate the third simulator"
+  },
+  "initialCatchup": {
+    "M2": {
+      "account": "test03",
+      "events": 1817,
+      "batches": [500, 500, 500, 317],
+      "elapsedMs": 25003,
+      "maxCommitMs": 6280
+    },
+    "M3": {
+      "account": "test04",
+      "events": 1437,
+      "batches": [500, 500, 437],
+      "elapsedMs": 18070,
+      "maxCommitMs": 9712
+    }
+  },
+  "liveDirectMessage": {
+    "sender": "test02",
+    "receiver": "test04",
+    "message": "AI-UAT-LATENCY-20260906-095155-M1-M3-001",
+    "syncStageMs": 6351,
+    "requestMs": 6202,
+    "commitMs": 46,
+    "ackMs": 92,
+    "coarseUiObservationMs": 29291,
+    "uiMeasurementNote": "uiautomator polling overhead is included; use as an upper-bound observation, not an SLA percentile"
+  },
+  "onlineBurst": {
+    "prefix": "AI-UAT-BURST-20260906-095410-M1-M3",
+    "messagesSent": 20,
+    "sendDurationMs": 23348,
+    "messagesFoundInReceiverChat": 20,
+    "ordered": true,
+    "duplicates": 0,
+    "syncSamples": {
+      "positiveStages": 30,
+      "events": 31,
+      "totalMsP50": 951,
+      "totalMsP95": 4063,
+      "totalMsP99": 9185,
+      "totalMsMax": 9185,
+      "commitMsP95": 49,
+      "commitMsMax": 49,
+      "note": "totalMs includes long-poll waiting and is not delivery latency; sample window also contains presence, friend/read and one concurrent message event"
+    }
+  },
+  "verifiedEventAgeBurst": {
+    "sender": "test02",
+    "receiver": "test03",
+    "prefix": "AI-UAT-AGE-20260906-101358-M1-M2",
+    "messagesSent": 10,
+    "messagesFoundInSenderChat": 10,
+    "messagesFoundInReceiverChat": 10,
+    "ordered": true,
+    "duplicates": 0,
+    "eventSequences": [4391, 4393, 4395, 4397, 4399, 4401, 4403, 4405, 4407, 4409],
+    "eventAgeMs": {
+      "p50": 7,
+      "p95": 37,
+      "max": 37,
+      "negativeClockSkewSamplesClampedToZero": 2
+    },
+    "commitMs": {
+      "p50": 38,
+      "p95": 103,
+      "max": 103
+    },
+    "ackMs": {
+      "p50": 100,
+      "p95": 150,
+      "max": 150
+    },
+    "estimatedDurableLatencyMs": {
+      "definition": "max(0, eventAgeMs) + commitMs",
+      "p50": 50,
+      "p95": 123,
+      "max": 123
+    },
+    "estimatedThroughAckLatencyMs": {
+      "definition": "max(0, eventAgeMs) + commitMs + ackMs",
+      "p50": 148,
+      "p95": 231,
+      "max": 231
+    },
+    "longPollRequestMs": {
+      "p50": 879,
+      "p95": 24076,
+      "classification": "wait duration, not message delivery latency"
+    }
+  },
+  "offlineCompensation": {
+    "prefix": "AI-UAT-OFFLINE-20260906-095750-M1-M3",
+    "messagesSentWhileReceiverStopped": 30,
+    "sendDurationMs": 29612,
+    "receiverSequenceBeforeStop": 4230,
+    "firstSequenceAfterRestart": 4354,
+    "acknowledgedSequenceObservedAfterRestart": 4352,
+    "messagesFoundAfterOpeningConversation": 30,
+    "ordered": true,
+    "duplicates": 0,
+    "historyBackfillPassed": true,
+    "independentDeviceCursorPassed": null,
+    "finding": "inconclusive for cursor isolation because the app could be background-started during emulator boot before log capture"
+  },
+  "strictForceStopCompensation": {
+    "prefix": "AI-UAT-FORCESTOP-20260906-100549-M1-M3",
+    "receiverProcessConfirmedAbsent": true,
+    "messagesSent": 10,
+    "sendDurationMs": 10454,
+    "cursorBeforeStop": 4358,
+    "ackBeforeStop": 4358,
+    "catchupBatch": {
+      "waitSeconds": 0,
+      "eventCount": 10,
+      "firstSequence": 4360,
+      "lastSequence": 4378,
+      "requestMs": 714,
+      "bootstrapMs": 7,
+      "commitMs": 71,
+      "ackMs": 399,
+      "totalMs": 1197
+    },
+    "firstPositiveStageObservedAfterLaunchMs": 6280,
+    "conversationUnreadCount": 10,
+    "messagesFoundInReceiverChat": 10,
+    "ordered": true,
+    "duplicates": 0,
+    "finalCursor": 4380,
+    "finalAck": 4380,
+    "independentDeviceCursorPassed": true
+  },
+  "hostAndRuntime": {
+    "freeMemoryGbWithThreeSimulators": 1.60,
+    "freeMemoryGbWithTwoSimulators": 4.50,
+    "M1AppPssMb": 171.7,
+    "M1AppRssMb": 221.1,
+    "M3AppPssMb": 152.5,
+    "M3AppRssMb": 173.3,
+    "fatalCrashes": 0,
+    "anrs": 0,
+    "M1StartupTotalSpanP95Micros": 79439,
+    "M1StartupTotalSpanMaxMicros": 97227,
+    "M1StartupOverBudgetFrames": 11,
+    "M1StartupSampleFrames": 27
+  },
+  "loginBoundary": {
+    "firstFreshLoginPassed": true,
+    "logoutReloginPassed": true,
+    "coldRestartSavedCredentialReloginPassed": true,
+    "manualAutomationAttemptsRejected": ["test03", "test05", "test06"],
+    "passwordValueLocallyVerifiedWithoutLoggingSecret": true,
+    "directApiLoginStatus": 200,
+    "classification": "manual automation interfered with the saved-credential field; cold-start saved login and a redacted direct API login both passed"
+  },
+  "artifacts": [
+    "m2-login.png",
+    "m3-login.png",
+    "m2-post-login.png",
+    "m3-post-login.png",
+    "m1-burst-sender.png",
+    "m3-burst-receiver.png",
+    "m3-offline-catchup-30.png",
+    "age-burst-verification.json",
+    "m1-age-burst-10.png",
+    "m2-age-burst-10.png"
+  ]
+}

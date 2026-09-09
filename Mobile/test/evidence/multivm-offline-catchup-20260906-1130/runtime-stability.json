@@ -1,0 +1,80 @@
+{
+  "sample": "three emulators after 24 alternating chat scroll gestures each",
+  "hostFreePhysicalMemoryMb": 3233.0,
+  "devices": [
+    {
+      "serial": "emulator-5554",
+      "totalPssKb": 167268,
+      "totalRssKb": 188644,
+      "swapPssKb": 54074,
+      "gfxInfo": {
+        "supported": false,
+        "reason": "Flutter renders through SurfaceView; Android gfxinfo captured no app frames in this emulator run",
+        "renderedFrames": 0,
+        "jankyFrames": null,
+        "jankyPercent": null
+      },
+      "fatalExceptionCount": 0,
+      "anrCount": 0,
+      "outOfMemoryCount": 0,
+      "unhandledExceptionCount": 0
+    },
+    {
+      "serial": "emulator-5556",
+      "totalPssKb": 160828,
+      "totalRssKb": 167240,
+      "swapPssKb": 54716,
+      "gfxInfo": {
+        "supported": false,
+        "reason": "Flutter renders through SurfaceView; Android gfxinfo captured no app frames in this emulator run",
+        "renderedFrames": 0,
+        "jankyFrames": null,
+        "jankyPercent": null
+      },
+      "fatalExceptionCount": 0,
+      "anrCount": 0,
+      "outOfMemoryCount": 0,
+      "unhandledExceptionCount": 0
+    },
+    {
+      "serial": "emulator-5558",
+      "totalPssKb": 180589,
+      "totalRssKb": 273604,
+      "swapPssKb": 212,
+      "gfxInfo": {
+        "supported": false,
+        "reason": "Flutter renders through SurfaceView; Android gfxinfo captured no app frames in this emulator run",
+        "renderedFrames": 0,
+        "jankyFrames": null,
+        "jankyPercent": null
+      },
+      "fatalExceptionCount": 0,
+      "anrCount": 0,
+      "outOfMemoryCount": 0,
+      "unhandledExceptionCount": 0
+    }
+  ],
+  "qemuProcesses": [
+    {
+      "id": 147780,
+      "processName": "qemu-system-x86_64",
+      "workingSetMb": 3104.5,
+      "privateMb": 4428.2,
+      "cpuSeconds": 492.2
+    },
+    {
+      "id": 74320,
+      "processName": "qemu-system-x86_64-headless",
+      "workingSetMb": 2984.1,
+      "privateMb": 3859.4,
+      "cpuSeconds": 3132.6
+    },
+    {
+      "id": 144952,
+      "processName": "qemu-system-x86_64-headless",
+      "workingSetMb": 3924.7,
+      "privateMb": 4432.3,
+      "cpuSeconds": 7869.9
+    }
+  ]
+}

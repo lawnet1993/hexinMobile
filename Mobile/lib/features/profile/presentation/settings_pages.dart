@@ -23,7 +23,7 @@ import '../../collaboration/application/mobile_device_authorization_coordinator.
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/data/im_member_presence.dart';
 import '../../collaboration/domain/collaboration_models.dart';
-import '../../network/application/tunnel_controller.dart';
+import 'device_presentation.dart';
 
 final accountSecurityDeviceIdentityProvider =
     FutureProvider<MobileDeviceIdentity>(
@@ -65,8 +65,12 @@ class _AccountSecurityPageState extends ConsumerState<AccountSecurityPage> {
               value: _accountSecurityLoginStatus(
                 hasSession: session != null,
                 realtimeAvailability: realtimeAvailability,
-                memberOnline: watchMemberPresence(ref, member, transportAvailable:
-                    realtimeAvailability == ImRealtimeAvailability.available).online,
+                memberOnline: watchMemberPresence(
+                  ref,
+                  member,
+                  transportAvailable:
+                      realtimeAvailability == ImRealtimeAvailability.available,
+                ).online,
               ),
             ),
           ],
@@ -183,140 +187,142 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_submitting,
     child: SafeArea(
-    top: false,
-    child: AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            key: const Key('change-password-form-content'),
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(99),
+      top: false,
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              key: const Key('change-password-form-content'),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 32,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  const Expanded(
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '修改登录密码',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: _submitting
+                          ? null
+                          : () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded, size: 19),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                _PasswordField(
+                  fieldKey: const Key('current-password-field'),
+                  onSubmitted: (_) => _nextFocus.requestFocus(),
+                  enabled: !_submitting,
+                  validateOnChange: _validationAttempted,
+                  textInputAction: TextInputAction.next,
+                  controller: _current,
+                  label: '当前密码',
+                  obscure: _currentObscure,
+                  onToggleObscure: () =>
+                      setState(() => _currentObscure = !_currentObscure),
+                ),
+                const SizedBox(height: 8),
+                _PasswordField(
+                  fieldKey: const Key('new-password-field'),
+                  focusNode: _nextFocus,
+                  onSubmitted: (_) => _confirmFocus.requestFocus(),
+                  enabled: !_submitting,
+                  validateOnChange: _validationAttempted,
+                  textInputAction: TextInputAction.next,
+                  controller: _next,
+                  label: '新密码',
+                  obscure: _nextObscure,
+                  onToggleObscure: () =>
+                      setState(() => _nextObscure = !_nextObscure),
+                  validateLength: true,
+                ),
+                const SizedBox(height: 8),
+                _PasswordField(
+                  fieldKey: const Key('confirm-password-field'),
+                  focusNode: _confirmFocus,
+                  enabled: !_submitting,
+                  validateOnChange: _validationAttempted,
+                  controller: _confirm,
+                  label: '再次输入新密码',
+                  obscure: _confirmObscure,
+                  onToggleObscure: () =>
+                      setState(() => _confirmObscure = !_confirmObscure),
+                  confirm: _next,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '修改成功后，其他设备需重新登录',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                if (_submitError != null) ...[
+                  const SizedBox(height: 6),
+                  Semantics(
+                    liveRegion: true,
                     child: Text(
-                      '修改登录密码',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                      _submitError!,
+                      key: const Key('change-password-error'),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.error,
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: '关闭',
-                    onPressed: _submitting
-                        ? null
-                        : () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, size: 19),
-                  ),
                 ],
-              ),
-              const SizedBox(height: 4),
-              _PasswordField(
-                fieldKey: const Key('current-password-field'),
-                onSubmitted: (_) => _nextFocus.requestFocus(),
-                enabled: !_submitting,
-                validateOnChange: _validationAttempted,
-                textInputAction: TextInputAction.next,
-                controller: _current,
-                label: '当前密码',
-                obscure: _currentObscure,
-                onToggleObscure: () =>
-                    setState(() => _currentObscure = !_currentObscure),
-              ),
-              const SizedBox(height: 8),
-              _PasswordField(
-                fieldKey: const Key('new-password-field'),
-                focusNode: _nextFocus,
-                onSubmitted: (_) => _confirmFocus.requestFocus(),
-                enabled: !_submitting,
-                validateOnChange: _validationAttempted,
-                textInputAction: TextInputAction.next,
-                controller: _next,
-                label: '新密码',
-                obscure: _nextObscure,
-                onToggleObscure: () =>
-                    setState(() => _nextObscure = !_nextObscure),
-                validateLength: true,
-              ),
-              const SizedBox(height: 8),
-              _PasswordField(
-                fieldKey: const Key('confirm-password-field'),
-                focusNode: _confirmFocus,
-                enabled: !_submitting,
-                validateOnChange: _validationAttempted,
-                controller: _confirm,
-                label: '再次输入新密码',
-                obscure: _confirmObscure,
-                onToggleObscure: () =>
-                    setState(() => _confirmObscure = !_confirmObscure),
-                confirm: _next,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '修改成功后，其他设备需重新登录',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: AppColors.secondaryText,
-                ),
-              ),
-              if (_submitError != null) ...[
-                const SizedBox(height: 6),
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    _submitError!,
-                    key: const Key('change-password-error'),
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      color: AppColors.error,
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
+                    key: const Key('change-password-submit'),
+                    width: 118,
+                    height: 36,
+                    child: FilledButton(
+                      onPressed: _canSubmit ? _changePassword : null,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        _submitting ? '提交中…' : '确认修改',
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
                   ),
                 ),
               ],
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: SizedBox(
-                  key: const Key('change-password-submit'),
-                  width: 118,
-                  height: 36,
-                  child: FilledButton(
-                    onPressed: _canSubmit ? _changePassword : null,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      _submitting ? '提交中…' : '确认修改',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
-    ),
     ),
   );
 
@@ -357,16 +363,24 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
       // fails. Never encourage retrying a password already accepted remotely.
       var credentialCleanupFailed = false;
       try {
-        await sessionStore.clearCredentialIfMatches(session.username, oldPassword);
+        await sessionStore.clearCredentialIfMatches(
+          session.username,
+          oldPassword,
+        );
       } catch (_) {
         credentialCleanupFailed = true;
       }
       if (!mounted || !_isCurrentSession(session)) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(credentialCleanupFailed
-              ? '密码已修改，本机登录信息清理失败，请关闭记住密码'
-              : '密码已修改，其他设备需重新登录')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            credentialCleanupFailed
+                ? '密码已修改，本机登录信息清理失败，请关闭记住密码'
+                : '密码已修改，其他设备需重新登录',
+          ),
+        ),
+      );
       Navigator.pop(context);
     } catch (error) {
       if (!mounted || !_isCurrentSession(session)) return;
@@ -388,13 +402,13 @@ String _passwordChangeError(Object error) {
       (error is DioException &&
           (error.response?.statusCode == 408 ||
               (error.response?.statusCode ?? 0) >= 500 ||
-              (error.response == null && error.type != DioExceptionType.connectionTimeout &&
+              (error.response == null &&
+                  error.type != DioExceptionType.connectionTimeout &&
                   error.type != DioExceptionType.badCertificate)))) {
     return '修改结果尚未确认，请稍后核实，勿重复提交';
   }
   if (error is DioException && error.response != null) {
-    return mobileActionErrorText('修改未完成', error,
-        fallback: '请检查当前密码和新密码后重试');
+    return mobileActionErrorText('修改未完成', error, fallback: '请检查当前密码和新密码后重试');
   }
   return '修改未完成，请检查连接后重试';
 }
@@ -408,8 +422,52 @@ class NotificationSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _NotificationSettingsPageState
-    extends ConsumerState<NotificationSettingsPage> {
+    extends ConsumerState<NotificationSettingsPage>
+    with WidgetsBindingObserver {
   bool _saving = false;
+  bool _updatingSystemPermission = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(mobileNotificationPermissionStateProvider);
+    }
+  }
+
+  Future<void> _updateSystemPermission(
+    MobileNotificationPermissionState state,
+  ) async {
+    if (_updatingSystemPermission) return;
+    setState(() => _updatingSystemPermission = true);
+    try {
+      final source = ref.read(mobileNotificationPermissionSourceProvider);
+      if (state == MobileNotificationPermissionState.notDetermined) {
+        await source.request();
+      } else if (state == MobileNotificationPermissionState.denied) {
+        final opened = await source.openSettings();
+        if (!opened && mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('无法打开系统设置，请手动开启通知权限')));
+        }
+      }
+    } finally {
+      ref.invalidate(mobileNotificationPermissionStateProvider);
+      if (mounted) setState(() => _updatingSystemPermission = false);
+    }
+  }
 
   Future<void> _updatePrivacy(String mode) async {
     if (_saving) return;
@@ -441,6 +499,9 @@ class _NotificationSettingsPageState
   Widget build(BuildContext context) {
     final pushDevice = ref.watch(imPushDeviceProvider);
     final runtimeToken = ref.watch(mobilePushRuntimeTokenProvider);
+    final systemPermission = ref.watch(
+      mobileNotificationPermissionStateProvider,
+    );
     final syncState = ref.watch(imRealtimeAvailabilityProvider);
     final syncConnecting = syncState == ImRealtimeAvailability.connecting;
     final syncUnavailable = syncState == ImRealtimeAvailability.unavailable;
@@ -462,10 +523,23 @@ class _NotificationSettingsPageState
                     ? '正在连接'
                     : syncUnavailable
                     ? '连接恢复后同步'
-                    : '实时同步',
+                    : '应用内实时同步',
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        _SettingsSection(
+          title: '系统通知权限',
+          child: systemPermission.when(
+            loading: () => const _ValueRow(label: '系统通知', value: '正在检查'),
+            error: (_, _) => const _ValueRow(label: '系统通知', value: '暂不可用'),
+            data: (state) => _SystemNotificationPermissionRow(
+              state: state,
+              busy: _updatingSystemPermission,
+              onPressed: () => _updateSystemPermission(state),
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         _SettingsSection(
@@ -494,8 +568,7 @@ class _NotificationSettingsPageState
                           values: const ['仅显示摘要', '显示消息详情', '不显示内容'],
                           onSelected: _saving
                               ? (_) {}
-                              : (value) =>
-                                    _updatePrivacy(_privacyMode(value)),
+                              : (value) => _updatePrivacy(_privacyMode(value)),
                         ),
                         const Divider(height: 1, indent: 14),
                         _ValueRow(
@@ -508,6 +581,72 @@ class _NotificationSettingsPageState
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SystemNotificationPermissionRow extends StatelessWidget {
+  const _SystemNotificationPermissionRow({
+    required this.state,
+    required this.busy,
+    required this.onPressed,
+  });
+
+  final MobileNotificationPermissionState state;
+  final bool busy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (state) {
+      MobileNotificationPermissionState.granted => '已开启',
+      MobileNotificationPermissionState.notDetermined => '未开启',
+      MobileNotificationPermissionState.denied => '已关闭',
+      MobileNotificationPermissionState.unavailable => '暂不可用',
+    };
+    final action = switch (state) {
+      MobileNotificationPermissionState.notDetermined => '开启',
+      MobileNotificationPermissionState.denied => '去设置',
+      _ => null,
+    };
+    return ListTile(
+      key: const Key('system-notification-permission'),
+      dense: true,
+      minTileHeight: 48,
+      contentPadding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
+      title: const Text('系统通知', style: TextStyle(fontSize: 14)),
+      trailing: action == null
+          ? Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppColors.secondaryText,
+              ),
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                TextButton(
+                  key: const Key('system-notification-permission-action'),
+                  onPressed: busy ? null : onPressed,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text(busy ? '处理中…' : action),
+                ),
+              ],
+            ),
     );
   }
 }
@@ -568,57 +707,17 @@ class _PushChannelPendingTile extends StatelessWidget {
     container: true,
     label: '服务端推送能力已接入，厂商推送通道待接入',
     child: ExcludeSemantics(
-      child: ListTile(
+      child: Column(
         key: const Key('push-channel-pending'),
-        dense: true,
-        minTileHeight: 60,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        leading: DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFFEAF2FF),
-            borderRadius: BorderRadius.circular(8),
+        children: const [
+          _ValueRow(
+            label: '服务端推送注册',
+            value: '已接入',
+            valueColor: AppColors.success,
           ),
-          child: const SizedBox.square(
-            dimension: 32,
-            child: Icon(
-              Icons.notifications_off_outlined,
-              size: 19,
-              color: AppColors.primary,
-            ),
-          ),
-        ),
-        title: const Row(
-          children: [
-            Expanded(child: Text('厂商推送通道', style: TextStyle(fontSize: 14))),
-            Text(
-              '待接入',
-              style: TextStyle(fontSize: 13, color: AppColors.secondaryText),
-            ),
-          ],
-        ),
-        subtitle: const Padding(
-          padding: EdgeInsets.only(top: 2),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '服务端注册接口',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: AppColors.secondaryText,
-                  ),
-                ),
-              ),
-              Text(
-                '已接入',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.success,
-                ),
-              ),
-            ],
-          ),
-        ),
+          Divider(height: 1, indent: 14),
+          _ValueRow(label: '厂商推送通道', value: '待接入'),
+        ],
       ),
     ),
   );
@@ -684,10 +783,15 @@ class _LoginDevicesPageState extends ConsumerState<LoginDevicesPage> {
   }
 
   Future<void> _revoke(ImDeviceAuthorization device) async {
+    final activity = _deviceLastSeenLabel(device.lastSeenAt);
+    final displayName = deviceDisplayName(
+      name: device.deviceName,
+      platform: device.platform,
+    );
     final confirmed = await showMobileConfirmSheet(
       context,
       title: '撤销设备授权',
-      message: '撤销“${device.deviceName}”后，该设备需要重新登录。',
+      message: '撤销“$displayName”（$activity）后，该设备需要重新登录。',
       confirmLabel: '撤销',
       destructive: true,
     );
@@ -890,9 +994,21 @@ class _DeviceAuthorizationTile extends StatelessWidget {
     final isCurrent =
         currentDeviceId.isNotEmpty &&
         currentDeviceId.toLowerCase() == device.deviceId.toLowerCase();
-    final lastSeen = device.lastSeenAt == null
-        ? '暂无活动记录'
-        : '最近活动 ${device.lastSeenAt!.toLocal().toString().substring(0, 16)}';
+    final lastSeen = _deviceLastSeenLabel(device.lastSeenAt);
+    final displayName = deviceDisplayName(
+      name: device.deviceName,
+      platform: device.platform,
+    );
+    final platformLabel = devicePlatformLabel(device.platform);
+    final subtitle = [
+      if (platformLabel.isNotEmpty &&
+          !deviceNameIncludesPlatform(
+            displayName: displayName,
+            platform: device.platform,
+          ))
+        platformLabel,
+      lastSeen,
+    ].join(' · ');
     return ListTile(
       dense: true,
       minTileHeight: 54,
@@ -903,13 +1019,9 @@ class _DeviceAuthorizationTile extends StatelessWidget {
         size: 21,
         color: device.isAuthorized ? AppColors.primary : AppColors.weakText,
       ),
-      title: Text(
-        device.deviceName.isEmpty ? device.platform : device.deviceName,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      title: Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
-        '${device.platform} · $lastSeen',
+        subtitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 11),
@@ -925,6 +1037,10 @@ class _DeviceAuthorizationTile extends StatelessWidget {
     );
   }
 }
+
+String _deviceLastSeenLabel(DateTime? lastSeenAt) => lastSeenAt == null
+    ? '暂无活动记录'
+    : '最近活动 ${lastSeenAt.toLocal().toString().substring(0, 16)}';
 
 class AppearanceLanguagePage extends ConsumerStatefulWidget {
   const AppearanceLanguagePage({super.key});
@@ -963,7 +1079,7 @@ class _AppearanceLanguagePageState
       ref.invalidate(imLanguagePreferenceProvider);
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('账号语言已更新')));
+            .showSnackBar(const SnackBar(content: Text('内容语言已更新')));
       }
     } catch (error) {
       if (mounted) {
@@ -997,14 +1113,14 @@ class _AppearanceLanguagePageState
               onSelected: _updateTheme,
             ),
             language.when(
-              loading: () => const _ValueRow(label: '账号语言', value: '同步中…'),
+              loading: () => const _ValueRow(label: '内容语言', value: '同步中…'),
               error: (_, _) => _ValueRow(
-                label: '账号语言',
+                label: '内容语言',
                 value: '同步失败',
                 onTap: () => ref.invalidate(imLanguagePreferenceProvider),
               ),
               data: (preference) => _ChoiceRow(
-                label: '账号语言',
+                label: '内容语言',
                 value: _saving ? '同步中…' : _languageLabel(preference?.language),
                 values: _saving
                     ? const ['同步中…']
@@ -1054,7 +1170,7 @@ class HelpFeedbackPage extends ConsumerWidget {
           ExpansionTile(
             title: Text('无法访问授权站点'),
             childrenPadding: EdgeInsets.fromLTRB(16, 0, 16, 14),
-            children: [Text('请先在“网络与安全”中检查管理通道和策略状态。')],
+            children: [Text('授权站点请在桌面端访问；移动端仅接收授权变化与访问异常提醒。')],
           ),
         ],
       ),
@@ -1093,12 +1209,11 @@ class _DiagnosticsAction extends ConsumerWidget {
   Future<void> _copy(BuildContext context, WidgetRef ref) async {
     final package = await PackageInfo.fromPlatform();
     final device = await DeviceInfoPlugin().deviceInfo;
-    final tunnel = ref.read(tunnelControllerProvider).value;
     final text = [
       '应用: ${package.appName} ${package.version} (${package.buildNumber})',
       '设备: ${device.data['brand'] ?? ''} ${device.data['model'] ?? ''}'.trim(),
       '系统: ${device.data['version.release'] ?? device.data['systemVersion'] ?? ''}',
-      '安全连接: ${tunnel?.status.phase.name ?? 'checking'}',
+      '移动端范围: 消息、审批与提醒',
     ].join('\n');
     await Clipboard.setData(ClipboardData(text: text));
     if (context.mounted) {
@@ -1274,9 +1389,15 @@ class _SettingsSection extends StatelessWidget {
 }
 
 class _ValueRow extends StatelessWidget {
-  const _ValueRow({required this.label, required this.value, this.onTap});
+  const _ValueRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.onTap,
+  });
   final String label;
   final String value;
+  final Color? valueColor;
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => ListTile(
@@ -1291,7 +1412,7 @@ class _ValueRow extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 12.5,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          color: valueColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     ),
@@ -1384,7 +1505,9 @@ class _PasswordField extends StatelessWidget {
     textInputAction: textInputAction,
     enableSuggestions: false,
     autocorrect: false,
-    autovalidateMode: validateOnChange ? AutovalidateMode.always : AutovalidateMode.disabled,
+    autovalidateMode: validateOnChange
+        ? AutovalidateMode.always
+        : AutovalidateMode.disabled,
     obscureText: obscure,
     style: const TextStyle(fontSize: 14),
     decoration: InputDecoration(
@@ -1407,14 +1530,14 @@ class _PasswordField extends StatelessWidget {
         borderRadius: BorderRadius.all(Radius.circular(8)),
       ),
       suffixIconConstraints: const BoxConstraints.tightFor(
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
       ),
       suffixIcon: IconButton(
         tooltip: obscure ? '显示$label' : '隐藏$label',
         onPressed: enabled ? onToggleObscure : null,
         padding: EdgeInsets.zero,
-        constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
         visualDensity: VisualDensity.compact,
         icon: Icon(
           obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,

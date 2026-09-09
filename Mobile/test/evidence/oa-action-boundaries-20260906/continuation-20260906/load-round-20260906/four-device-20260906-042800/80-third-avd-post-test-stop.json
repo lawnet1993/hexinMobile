@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-09-05T20:43:32.1555773Z",
+  "action": "stopped-new-headless-test-emulator",
+  "stoppedSerial": "emulator-5558",
+  "avdRetained": true,
+  "remainingDevices": [
+    "physical-device",
+    "emulator-5554",
+    "emulator-5556"
+  ],
+  "freePhysicalMemoryMB": 7958.69,
+  "totalVisibleMemoryMB": 32495.8,
+  "memoryLoadPercent": 75.5
+}

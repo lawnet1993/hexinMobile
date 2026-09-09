@@ -1,0 +1,25 @@
+{
+  "serial": "emulator-5560",
+  "expectedHeader": "Test Terminal 04",
+  "prefix": "AI-UAT-M3STOP-20260906-155939-M4-",
+  "requested": 3,
+  "inputSettleMilliseconds": 750,
+  "startedAtUtc": "2026-09-06T07:59:44.5310339+00:00",
+  "completedAtUtc": "2026-09-06T07:59:55.5340332+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T07:59:46.2904249+00:00"
+    },
+    {
+      "index": 2,
+      "tappedAtUtc": "2026-09-06T07:59:48.9319876+00:00"
+    },
+    {
+      "index": 3,
+      "tappedAtUtc": "2026-09-06T07:59:51.6181378+00:00"
+    }
+  ]
+}

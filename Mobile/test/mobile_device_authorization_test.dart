@@ -72,7 +72,7 @@ void main() {
 
     expect(
       deviceAuthorizationSummary(devices, currentDeviceId: 'android-device'),
-      'realme RMX3366 · android',
+      'realme RMX3366 · Android',
     );
   });
 
@@ -110,7 +110,7 @@ void main() {
           platform: 'android',
         ),
       ),
-      'realme RMX3366 · android',
+      'realme RMX3366 · Android',
     );
   });
 
@@ -212,6 +212,11 @@ void main() {
                 name: 'realme RMX3366',
                 platform: 'android',
               ),
+              _device(
+                id: 'windows-device',
+                name: 'Windows device',
+                platform: 'windows',
+              ),
             ],
           ),
         ],
@@ -222,7 +227,49 @@ void main() {
 
     expect(find.text('已授权设备'), findsOneWidget);
     expect(find.text('realme RMX3366'), findsOneWidget);
+    expect(find.text('Windows 设备'), findsOneWidget);
+    expect(find.text('Windows device'), findsNothing);
+    expect(find.textContaining('windows ·'), findsNothing);
     expect(find.text('离线 · 显示缓存'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('same-name device revoke confirmation identifies activity time', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_TestAuthController.new),
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.available,
+          ),
+          imDeviceAuthorizationsProvider.overrideWith(
+            (ref) async => [
+              _device(
+                id: 'windows-device-a',
+                name: 'Windows device',
+                platform: 'windows',
+              ),
+              _device(
+                id: 'windows-device-b',
+                name: 'Windows 设备',
+                platform: 'windows',
+              ),
+            ],
+          ),
+        ],
+        child: const MaterialApp(home: LoginDevicesPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('撤销').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('撤销设备授权'), findsOneWidget);
+    expect(find.textContaining('撤销“Windows 设备”（最近活动'), findsOneWidget);
+    expect(find.textContaining('windows-device'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

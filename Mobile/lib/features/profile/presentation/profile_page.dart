@@ -7,11 +7,13 @@ import '../../../core/theme/theme_mode_controller.dart';
 import '../../../core/storage/secure_session_store.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
+import '../../../shared/widgets/app_version_label.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../collaboration/application/mobile_device_authorization_coordinator.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/data/im_member_presence.dart';
 import '../../collaboration/domain/collaboration_models.dart';
+import 'device_presentation.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -26,7 +28,6 @@ class ProfilePage extends ConsumerWidget {
     final devices = ref.watch(imDeviceAuthorizationsProvider);
     final currentDevice = ref.watch(currentMobileDeviceAuthorizationProvider);
     final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.light;
-    final language = ref.watch(imLanguagePreferenceProvider).value?.language;
     final name = _profileDisplayName(member, session);
     final avatarName = name == '个人资料' ? '我' : name;
     final department = member?.departmentName.trim() ?? '';
@@ -134,16 +135,11 @@ class ProfilePage extends ConsumerWidget {
                 _Entry(
                   icon: Icons.palette_outlined,
                   title: '外观与语言',
-                  subtitle:
-                      '${switch (themeMode) {
-                        ThemeMode.light => '浅色',
-                        ThemeMode.dark => '深色',
-                        ThemeMode.system => '跟随系统',
-                      }}·${switch (language) {
-                        'zh-TW' => '繁體中文',
-                        'en-US' => 'English',
-                        _ => '简体中文',
-                      }}',
+                  subtitle: switch (themeMode) {
+                    ThemeMode.light => '浅色',
+                    ThemeMode.dark => '深色',
+                    ThemeMode.system => '跟随系统',
+                  },
                   onTap: () => context.push('/appearance-language'),
                 ),
                 _Entry(
@@ -154,7 +150,13 @@ class ProfilePage extends ConsumerWidget {
                 _Entry(
                   icon: Icons.info_outline_rounded,
                   title: '关于合兴智联',
-                  subtitle: 'v1.0.1',
+                  subtitleWidget: const AppVersionLabel(
+                    unavailableText: '版本信息不可用',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
                   onTap: () => context.push('/about'),
                 ),
               ],
@@ -249,12 +251,10 @@ String deviceAuthorizationSummary(
 }
 
 String _deviceAuthorizationLabel(ImDeviceAuthorization current) {
-  final name = current.deviceName.trim();
-  final platform = current.platform.trim();
-  return [
-    if (name.isNotEmpty) name,
-    if (platform.isNotEmpty) platform,
-  ].join(' · ');
+  return deviceCompactLabel(
+    name: current.deviceName,
+    platform: current.platform,
+  );
 }
 
 class _SettingsGroup extends StatelessWidget {
@@ -281,10 +281,12 @@ class _Entry extends StatelessWidget {
     required this.title,
     this.onTap,
     this.subtitle,
+    this.subtitleWidget,
   });
   final IconData icon;
   final String title;
   final String? subtitle;
+  final Widget? subtitleWidget;
   final VoidCallback? onTap;
 
   @override
@@ -306,15 +308,17 @@ class _Entry extends StatelessWidget {
       title,
       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
     ),
-    subtitle: subtitle == null
-        ? null
-        : Text(
-            subtitle!,
-            style: const TextStyle(
-              fontSize: 10.5,
-              color: AppColors.secondaryText,
-            ),
-          ),
+    subtitle:
+        subtitleWidget ??
+        (subtitle == null
+            ? null
+            : Text(
+                subtitle!,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: AppColors.secondaryText,
+                ),
+              )),
     trailing: const Icon(
       Icons.chevron_right_rounded,
       size: 19,

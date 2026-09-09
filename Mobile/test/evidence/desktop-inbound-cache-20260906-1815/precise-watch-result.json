@@ -1,0 +1,162 @@
+{
+  "startedAtUtc": "2026-09-06T10:16:40.6868792+00:00",
+  "baselineCount": 254,
+  "baselineMaxSequence": 254,
+  "reached": false,
+  "detectedAtUtc": null,
+  "detectedAfterMs": null,
+  "finalCount": 254,
+  "finalMaxSequence": 254,
+  "samples": [
+    {
+      "elapsedMs": 360,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 1879,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 3368,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 4816,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 6241,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 7694,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 9158,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 10610,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 12036,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 13468,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 14909,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 16369,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 17805,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 19263,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 20697,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 22178,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 23622,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 25061,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 26527,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 27958,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 29383,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 30825,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 32270,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 33770,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 35203,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 36629,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 38078,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 39516,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 40972,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    },
+    {
+      "elapsedMs": 42425,
+      "messageCount": 254,
+      "maxMessageSequence": 254
+    }
+  ]
+}

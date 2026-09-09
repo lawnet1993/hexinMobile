@@ -1,0 +1,430 @@
+{
+  "schemaVersion": 15,
+  "messageWindowOrderingPlan": [
+    {
+      "id": 5,
+      "parent": 0,
+      "notused": 0,
+      "detail": "SEARCH im_messages USING INDEX ix_im_messages_visible_window (account_id=? AND conversation_id=?)"
+    }
+  ],
+  "tableRowCounts": {
+    "im_members": 16,
+    "im_conversations": 13,
+    "im_messages": 813,
+    "im_outbox": 0,
+    "im_event_inbox": 261,
+    "im_sync_state": 42,
+    "im_conversation_members": 28,
+    "im_group_profiles": 3
+  },
+  "integrity": "ok",
+  "memberPresence": [],
+  "directoryPresence": [],
+  "eventCursors": [
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "cursor_kind": "applied",
+      "sequence": 2585
+    },
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "cursor_kind": "acked",
+      "sequence": 2585
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "cursor_kind": "applied",
+      "sequence": 6585
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "cursor_kind": "acked",
+      "sequence": 6585
+    }
+  ],
+  "recentEvents": [
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6585,
+      "event_id": "a2881faa-f819-4639-954c-b17f8dfc8baf",
+      "type": "message.created",
+      "created_at": "2026-09-09T13:45:36.300535Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6583,
+      "event_id": "18bc91aa-bf25-4dc8-be14-4fd451b174c5",
+      "type": "message.created",
+      "created_at": "2026-09-09T13:45:30.504390Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6581,
+      "event_id": "d65d4afa-c384-472d-a557-891037d77d45",
+      "type": "message.created",
+      "created_at": "2026-09-09T13:45:06.552792Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6579,
+      "event_id": "b2aa99ec-d465-4b87-8744-9447e8d56bb4",
+      "type": "conversation.read",
+      "created_at": "2026-09-09T13:43:54.394928Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6577,
+      "event_id": "b1fdcf4b-6b6a-43d3-abc5-334ca71f9b5f",
+      "type": "message.created",
+      "created_at": "2026-09-09T13:43:38.231639Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6575,
+      "event_id": "a3e075c6-9e5e-4e98-9fe2-df9cfe7ae2f5",
+      "type": "conversation.read",
+      "created_at": "2026-09-09T13:42:58.554838Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6571,
+      "event_id": "d95487c2-f92d-41ee-84c2-e20a5e0d2a0b",
+      "type": "presence.changed",
+      "created_at": "2026-09-09T13:41:40.677438Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6558,
+      "event_id": "d0dc76b6-735a-48f4-a935-3eabfab3b0aa",
+      "type": "presence.changed",
+      "created_at": "2026-09-09T13:12:04.669033Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6557,
+      "event_id": "66ec83a4-88f8-4670-aab8-4fb7565601dd",
+      "type": "conversation.read",
+      "created_at": "2026-09-09T10:48:57.012493Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6556,
+      "event_id": "2a0f139d-df32-40d6-9e98-ca76d67fc9a2",
+      "type": "message.created",
+      "created_at": "2026-09-09T10:48:45.866563Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6553,
+      "event_id": "06348ae5-f140-4476-a059-7d9bd95c400b",
+      "type": "conversation.read",
+      "created_at": "2026-09-09T10:48:37.032673Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6552,
+      "event_id": "3ef60d9e-9e09-4eac-8749-628ca6566f4b",
+      "type": "conversation.read",
+      "created_at": "2026-09-09T10:48:36.966943Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6550,
+      "event_id": "b933803e-ab9e-4aa5-bd8f-0a35425f71d3",
+      "type": "message.created",
+      "created_at": "2026-09-09T10:48:36.073996Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6548,
+      "event_id": "47faaccd-c98b-4b9e-ab2f-a504348a20e7",
+      "type": "conversation.read",
+      "created_at": "2026-09-09T10:48:19.757271Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6547,
+      "event_id": "341be418-00da-46ee-b9e8-6569f6754389",
+      "type": "conversation.read",
+      "created_at": "2026-09-09T10:48:19.607863Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6545,
+      "event_id": "0a6021ce-0e5e-481c-b865-95e00cff2e6a",
+      "type": "message.created",
+      "created_at": "2026-09-09T10:48:19.310270Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6543,
+      "event_id": "dc3fbed3-8248-470c-81d6-b20164e41e93",
+      "type": "conversation.read",
+      "created_at": "2026-09-09T10:48:15.341071Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6542,
+      "event_id": "2d7a05dc-3e92-488e-a0bb-50ea841eb700",
+      "type": "conversation.read",
+      "created_at": "2026-09-09T10:48:13.785823Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6540,
+      "event_id": "1b1ab6c4-59cb-44e9-a20f-6084e1b328a8",
+      "type": "message.created",
+      "created_at": "2026-09-09T10:48:13.506078Z"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "sequence": 6538,
+      "event_id": "60565be0-d2b8-4afc-a044-1c98a2c17d96",
+      "type": "conversation.read",
+      "created_at": "2026-09-09T10:31:19.029487Z"
+    }
+  ],
+  "currentMembers": [
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "username": "test02"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "username": "test01"
+    }
+  ],
+  "outbox": [],
+  "messageLedger": [],
+  "failures": [],
+  "groupMessages": [
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "message_count": 85,
+      "minimum_sequence": 1,
+      "maximum_sequence": 85
+    },
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "message_count": 85,
+      "minimum_sequence": 1,
+      "maximum_sequence": 85
+    }
+  ],
+  "targetMessage": [
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "0e25adad-cd23-4433-8b51-1a523cc393d7",
+      "client_message_id": "46bce48c-c409-45ae-99ee-4942a8d31320",
+      "sequence": 85,
+      "local_status": "sent"
+    },
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "id": "0e25adad-cd23-4433-8b51-1a523cc393d7",
+      "client_message_id": "46bce48c-c409-45ae-99ee-4942a8d31320",
+      "sequence": 85,
+      "local_status": "sent"
+    }
+  ],
+  "groupProjections": [
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "last_message_sequence": 85,
+      "last_read_sequence": 84,
+      "unread_count": 1,
+      "unread_mention_sequences_json": "[85]"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "last_message_sequence": 85,
+      "last_read_sequence": 85,
+      "unread_count": 0,
+      "unread_mention_sequences_json": "[]"
+    }
+  ],
+  "historyRepairState": [
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "state_key": "history.coverage.c4906953-10bd-4671-b984-c50ed3951349",
+      "value": "85"
+    },
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "state_key": "history.coverage.ce4a77c2-7acb-41f9-aa7e-d07937a4d2fa",
+      "value": "1"
+    },
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "state_key": "history.coverage.c4906953-10bd-4671-b984-c50ed3951349",
+      "value": "85"
+    },
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "state_key": "history.coverage.a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "value": "10"
+    },
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "state_key": "history.coverage.8109e5e7-e551-42ca-898a-d2aed122e0c3",
+      "value": "8"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "state_key": "history.coverage.e1d7dcef-688c-4caf-b52f-119257700e99",
+      "value": "1"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "state_key": "history.coverage.ce4a77c2-7acb-41f9-aa7e-d07937a4d2fa",
+      "value": "7"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "state_key": "history.coverage.a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "value": "262"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "state_key": "history.coverage.6dbd3aa2-d6ad-4e0e-b977-10239f614fbd",
+      "value": "4"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "state_key": "history.coverage.b0c895f2-3336-45f2-a52a-44e1e8500a2b",
+      "value": "41"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "state_key": "history.coverage.2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+      "value": "280"
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "state_key": "history.coverage.bd15cbb6-ab8e-4cf2-9d62-fdb6f37ce90a",
+      "value": "26"
+    }
+  ],
+  "conversationMetadata": [
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "id": "8109e5e7-e551-42ca-898a-d2aed122e0c3",
+      "type": "direct",
+      "last_message_sequence": 8,
+      "last_read_sequence": 8,
+      "unread_count": 0,
+      "local_message_count": 8
+    },
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "type": "direct",
+      "last_message_sequence": 10,
+      "last_read_sequence": 10,
+      "unread_count": 0,
+      "local_message_count": 10
+    },
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "id": "ce4a77c2-7acb-41f9-aa7e-d07937a4d2fa",
+      "type": "group",
+      "last_message_sequence": 1,
+      "last_read_sequence": 0,
+      "unread_count": 1,
+      "local_message_count": 1
+    },
+    {
+      "account_id": "81207c9c-e824-42b6-b14d-0e6b743ecdc3",
+      "id": "c4906953-10bd-4671-b984-c50ed3951349",
+      "type": "group",
+      "last_message_sequence": 85,
+      "last_read_sequence": 84,
+      "unread_count": 1,
+      "local_message_count": 85
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "b0c895f2-3336-45f2-a52a-44e1e8500a2b",
+      "type": "direct",
+      "last_message_sequence": 41,
+      "last_read_sequence": 41,
+      "unread_count": 0,
+      "local_message_count": 41
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+      "type": "direct",
+      "last_message_sequence": 280,
+      "last_read_sequence": 280,
+      "unread_count": 0,
+      "local_message_count": 280
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "6dbd3aa2-d6ad-4e0e-b977-10239f614fbd",
+      "type": "direct",
+      "last_message_sequence": 4,
+      "last_read_sequence": 4,
+      "unread_count": 0,
+      "local_message_count": 4
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "type": "direct",
+      "last_message_sequence": 262,
+      "last_read_sequence": 262,
+      "unread_count": 0,
+      "local_message_count": 262
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "ce4a77c2-7acb-41f9-aa7e-d07937a4d2fa",
+      "type": "group",
+      "last_message_sequence": 7,
+      "last_read_sequence": 7,
+      "unread_count": 0,
+      "local_message_count": 7
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "e1d7dcef-688c-4caf-b52f-119257700e99",
+      "type": "direct",
+      "last_message_sequence": 1,
+      "last_read_sequence": 1,
+      "unread_count": 0,
+      "local_message_count": 1
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "0bca42a7-4d63-4678-ade6-c5370bc6c0bf",
+      "type": "direct",
+      "last_message_sequence": 0,
+      "last_read_sequence": 0,
+      "unread_count": 0,
+      "local_message_count": 0
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "c4906953-10bd-4671-b984-c50ed3951349",
+      "type": "group",
+      "last_message_sequence": 85,
+      "last_read_sequence": 85,
+      "unread_count": 0,
+      "local_message_count": 85
+    },
+    {
+      "account_id": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+      "id": "bd15cbb6-ab8e-4cf2-9d62-fdb6f37ce90a",
+      "type": "group",
+      "last_message_sequence": 29,
+      "last_read_sequence": 26,
+      "unread_count": 3,
+      "local_message_count": 29
+    }
+  ]
+}

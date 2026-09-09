@@ -1,0 +1,46 @@
+[
+  {
+    "serial": "emulator-5554",
+    "events": 26,
+    "nonEmptyBatches": 25,
+    "eventCountSum": 68.0,
+    "oldestAgeMaxMs": 3448.0,
+    "newestAgeMaxMs": null,
+    "requestMaxMs": 25200.0,
+    "commitMaxMs": 786.0,
+    "clockSkewSamples": 22
+  },
+  {
+    "serial": "emulator-5556",
+    "events": 22,
+    "nonEmptyBatches": 22,
+    "eventCountSum": 65.0,
+    "oldestAgeMaxMs": 4940.0,
+    "newestAgeMaxMs": 709.0,
+    "requestMaxMs": 3188.0,
+    "commitMaxMs": 1073.0,
+    "clockSkewSamples": 3
+  },
+  {
+    "serial": "emulator-5558",
+    "events": 55,
+    "nonEmptyBatches": 53,
+    "eventCountSum": 87.0,
+    "oldestAgeMaxMs": 3682.0,
+    "newestAgeMaxMs": 106.0,
+    "requestMaxMs": 25189.0,
+    "commitMaxMs": 153.0,
+    "clockSkewSamples": 45
+  },
+  {
+    "serial": "emulator-5560",
+    "events": 5,
+    "nonEmptyBatches": 0,
+    "eventCountSum": null,
+    "oldestAgeMaxMs": null,
+    "newestAgeMaxMs": null,
+    "requestMaxMs": 25501.0,
+    "commitMaxMs": null,
+    "clockSkewSamples": 5
+  }
+]

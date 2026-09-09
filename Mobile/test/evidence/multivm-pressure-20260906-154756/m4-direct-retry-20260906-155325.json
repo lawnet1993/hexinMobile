@@ -1,0 +1,53 @@
+{
+  "serial": "emulator-5560",
+  "expectedHeader": "Test Terminal 04",
+  "prefix": "AI-UAT-4AVD-20260906-155325-M4R-",
+  "requested": 10,
+  "inputSettleMilliseconds": 750,
+  "startedAtUtc": "2026-09-06T07:53:30.7249961+00:00",
+  "completedAtUtc": "2026-09-06T07:54:00.7145515+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T07:53:32.4773531+00:00"
+    },
+    {
+      "index": 2,
+      "tappedAtUtc": "2026-09-06T07:53:35.2448044+00:00"
+    },
+    {
+      "index": 3,
+      "tappedAtUtc": "2026-09-06T07:53:37.9610782+00:00"
+    },
+    {
+      "index": 4,
+      "tappedAtUtc": "2026-09-06T07:53:40.6228918+00:00"
+    },
+    {
+      "index": 5,
+      "tappedAtUtc": "2026-09-06T07:53:43.2541218+00:00"
+    },
+    {
+      "index": 6,
+      "tappedAtUtc": "2026-09-06T07:53:45.8957397+00:00"
+    },
+    {
+      "index": 7,
+      "tappedAtUtc": "2026-09-06T07:53:48.5558616+00:00"
+    },
+    {
+      "index": 8,
+      "tappedAtUtc": "2026-09-06T07:53:51.2933949+00:00"
+    },
+    {
+      "index": 9,
+      "tappedAtUtc": "2026-09-06T07:53:53.9899647+00:00"
+    },
+    {
+      "index": 10,
+      "tappedAtUtc": "2026-09-06T07:53:56.6575034+00:00"
+    }
+  ]
+}

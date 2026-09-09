@@ -1,0 +1,179 @@
+{
+  "checkedAt": "2026-09-06T16:08:38.2128669+08:00",
+  "screen": "workbench",
+  "directConversationVisible": false,
+  "baseline": {
+    "last": 45,
+    "read": 45,
+    "unread": 0
+  },
+  "after": {
+    "last": 47,
+    "read": 47,
+    "unread": 0
+  },
+  "readDiagnostics": [
+    {
+      "source": "bootstrap",
+      "status": 200,
+      "last": 47,
+      "read": 47,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "bootstrap",
+      "status": 200,
+      "last": 229,
+      "read": 229,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "bootstrap",
+      "status": 200,
+      "last": 62,
+      "read": 62,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "bootstrap",
+      "status": 200,
+      "last": 694,
+      "read": 694,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "bootstrap",
+      "status": 200,
+      "last": 6,
+      "read": 6,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "bootstrap",
+      "status": 200,
+      "last": 3,
+      "read": 3,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "bootstrap",
+      "status": 200,
+      "last": 1,
+      "read": 1,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "conversation_index",
+      "status": 200,
+      "last": 47,
+      "read": 47,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "conversation_index",
+      "status": 200,
+      "last": 229,
+      "read": 229,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "conversation_index",
+      "status": 200,
+      "last": 62,
+      "read": 62,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "conversation_index",
+      "status": 200,
+      "last": 694,
+      "read": 694,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "conversation_index",
+      "status": 200,
+      "last": 6,
+      "read": 6,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "conversation_index",
+      "status": 200,
+      "last": 3,
+      "read": 3,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "conversation_index",
+      "status": 200,
+      "last": 1,
+      "read": 1,
+      "unread": 0,
+      "eventSequence": null,
+      "sequence": null,
+      "isSelf": null
+    },
+    {
+      "source": "read_event",
+      "status": null,
+      "last": null,
+      "read": null,
+      "unread": null,
+      "eventSequence": 5188,
+      "sequence": 46,
+      "isSelf": true
+    },
+    {
+      "source": "read_event",
+      "status": null,
+      "last": null,
+      "read": null,
+      "unread": null,
+      "eventSequence": 5192,
+      "sequence": 47,
+      "isSelf": true
+    }
+  ],
+  "outboxCount": 0,
+  "integrity": "ok"
+}

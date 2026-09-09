@@ -1,0 +1,14 @@
+{
+  "marker": "AI-UAT-SERVERFIX-GROUP-20260909-1721",
+  "sentAt": "2026-09-09T17:21:52.7614987+08:00",
+  "observations": [
+    {
+      "elapsedMs": 4728.0,
+      "visible": false
+    },
+    {
+      "elapsedMs": 10238.0,
+      "visible": true
+    }
+  ]
+}

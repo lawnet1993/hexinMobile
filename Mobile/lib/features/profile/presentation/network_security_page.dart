@@ -1,337 +1,74 @@
-import 'dart:async';
-
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:secure_tunnel/secure_tunnel.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/security/managed_security_repository.dart';
-import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_primitives.dart';
-import '../../network/application/tunnel_controller.dart';
 
-class NetworkSecurityPage extends ConsumerWidget {
+/// Mobile only surfaces the desktop security boundary and related reminders.
+/// Site tunnel diagnostics and controls belong to the Windows terminal.
+class NetworkSecurityPage extends StatelessWidget {
   const NetworkSecurityPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final value = ref.watch(tunnelControllerProvider);
-    final policy = ref.watch(managedPolicyStatusProvider);
-    return Scaffold(
-      appBar: AppBar(centerTitle: true, title: const Text('网络与安全')),
-      body: value.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _Failure(
-          message: mobileErrorText(error),
-          onRetry: () => ref.invalidate(tunnelControllerProvider),
-        ),
-        data: (data) {
-          final connected = data.status.isConnected;
-          final unavailable = data.status.phase == TunnelPhase.unavailable;
-          final statusColor = connected
-              ? AppColors.primary
-              : unavailable
-              ? AppColors.secondaryText
-              : AppColors.warning;
-          final runtimeCoreVersion = data.runtime?.coreVersion ?? '';
-          final installedCoreVersion = data.status.coreVersion.isEmpty
-              ? runtimeCoreVersion
-              : data.status.coreVersion;
-          final runtimeLabel = [
-            data.runtime?.platform ?? '',
-            data.runtime?.architecture ?? '',
-          ].where((value) => value.isNotEmpty).join(' · ');
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 28),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(centerTitle: true, title: const Text('网络与安全')),
+    body: ListView(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+      children: const [
+        MobileSurface(
+          key: Key('desktop-security-reminder'),
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: SizedBox(
-                  height: 36,
-                  child: TextButton.icon(
-                    onPressed: data.synchronizing
-                        ? null
-                        : () => _synchronize(context, ref),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    icon: const Icon(Icons.sync_rounded, size: 18),
-                    label: const Text('重新检测', style: TextStyle(fontSize: 13)),
-                  ),
-                ),
-              ),
-              MobileSurface(
-                key: const Key('network-security-status-card'),
-                padding: const EdgeInsets.all(12),
+              _ReminderIcon(),
+              SizedBox(width: 12),
+              Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: .1),
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          child: Icon(
-                            Icons.shield_outlined,
-                            size: 22,
-                            color: statusColor,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                '站点安全连接',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                connected
-                                    ? '安全连接正常'
-                                    : _phaseLabel(data.status.phase),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: connected
-                                      ? AppColors.success
-                                      : statusColor,
-                                ),
-                              ),
-                              if (!connected &&
-                                  data.message != null &&
-                                  data.message!.isNotEmpty) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  _displayTunnelMessage(data.message!),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    color: AppColors.secondaryText,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
+                    Text(
+                      '安全连接由桌面端管理',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const Divider(height: 18),
-                    if (unavailable) ...[
-                      const _InfoRow('适用范围', '企业站点'),
-                      _InfoRow(
-                        '站点组件',
-                        installedCoreVersion.isEmpty
-                            ? '未启用'
-                            : installedCoreVersion,
+                    SizedBox(height: 5),
+                    Text(
+                      '移动端的消息与审批直接同步，不启用站点隧道。策略变化、设备异常和站点提醒会进入通知中心。',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.45,
+                        color: AppColors.secondaryText,
                       ),
-                    ] else ...[
-                      _InfoRow(
-                        '策略标识',
-                        data.status.profileId.isEmpty
-                            ? '未安装'
-                            : data.status.profileId,
-                      ),
-                      _InfoRow(
-                        '策略版本',
-                        data.status.profileVersion.isEmpty
-                            ? '-'
-                            : data.status.profileVersion,
-                      ),
-                      _InfoRow(
-                        '组件版本',
-                        installedCoreVersion.isEmpty
-                            ? '-'
-                            : _componentVersion(installedCoreVersion),
-                      ),
-                      if (runtimeLabel.isNotEmpty)
-                        _InfoRow('运行环境', runtimeLabel),
-                      _InfoRow(
-                        '上传 / 下载',
-                        '${_bytes(data.status.uploadBytes)} / ${_bytes(data.status.downloadBytes)}',
-                      ),
-                    ],
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              MobileSurface(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                child: policy.when(
-                  loading: () => const _InfoRow('管理策略', '正在校验'),
-                  error: (error, _) => Column(
-                    children: [
-                      const _InfoRow('管理策略', '校验失败'),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _policyError(error),
-                              style: const TextStyle(
-                                color: AppColors.secondaryText,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            height: 34,
-                            child: TextButton(
-                              onPressed: () =>
-                                  ref.invalidate(managedPolicyStatusProvider),
-                              style: TextButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: const Text(
-                                '重试',
-                                style: TextStyle(fontSize: 13),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  data: (status) => Column(
-                    children: [
-                      _InfoRow(
-                        '管理策略',
-                        status.enabled ? '已启用 · 签名有效' : '未启用 · 签名有效',
-                      ),
-                      _InfoRow(
-                        '管理版本',
-                        status.policyVersion.isEmpty
-                            ? '-'
-                            : status.policyVersion,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ],
-          );
-        },
-      ),
-    );
-  }
-
-  static Future<void> _synchronize(BuildContext context, WidgetRef ref) async {
-    try {
-      await ref.read(tunnelControllerProvider.notifier).synchronize();
-    } catch (error) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(mobileErrorText(error))));
-    }
-  }
-
-  static String _phaseLabel(TunnelPhase phase) => switch (phase) {
-    TunnelPhase.connected => '站点安全连接正常',
-    TunnelPhase.preparing => '正在准备站点连接',
-    TunnelPhase.connecting => '正在建立站点连接',
-    TunnelPhase.reconnecting => '正在恢复站点连接',
-    TunnelPhase.stopping => '正在断开站点连接',
-    TunnelPhase.failed => '站点安全连接异常',
-    TunnelPhase.disconnected => '站点连接未启用',
-    TunnelPhase.unavailable => '当前未启用',
-  };
-}
-
-String _displayTunnelMessage(String value) {
-  final message = value.trim();
-  if (message.contains('mihomo') || message.contains('内核')) {
-    if (message.contains('未包含') || message.contains('未安装')) {
-      return '仅访问 IM 和 OA 时无需启用';
-    }
-    return '站点安全组件校验失败';
-  }
-  if (message.contains('Web') && message.contains('VPN')) {
-    return '当前环境不支持安全连接';
-  }
-  return message;
-}
-
-String _componentVersion(String value) {
-  final version = value.trim();
-  final publicVersion = version.replaceFirst(
-    RegExp(r'^mihomo[-_/\s]*', caseSensitive: false),
-    '',
-  );
-  return publicVersion.isEmpty ? version : publicVersion;
-}
-
-String _policyError(Object error) {
-  if (error is DioException && error.response?.statusCode == 401) {
-    return '登录已失效，请重新登录';
-  }
-  if (error is TimeoutException) return '检查超时，请稍后重试';
-  if (error is FormatException) return error.message;
-  return '策略服务暂不可用';
-}
-
-String _bytes(int value) {
-  if (value < 1024) return '$value B';
-  if (value < 1024 * 1024) return '${(value / 1024).toStringAsFixed(1)} KB';
-  return '${(value / 1024 / 1024).toStringAsFixed(1)} MB';
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow(this.label, this.value);
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(
-      children: [
-        SizedBox(
-          width: 104,
-          child: Text(
-            label,
-            style: const TextStyle(color: AppColors.secondaryText),
           ),
         ),
-        Expanded(child: Text(value)),
       ],
     ),
   );
 }
 
-class _Failure extends StatelessWidget {
-  const _Failure({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
+class _ReminderIcon extends StatelessWidget {
+  const _ReminderIcon();
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.error),
-          const SizedBox(height: 10),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 14),
-          OutlinedButton(onPressed: onRetry, child: const Text('重试')),
-        ],
-      ),
+  Widget build(BuildContext context) => Container(
+    width: 34,
+    height: 34,
+    decoration: BoxDecoration(
+      color: const Color(0xFFEAF2FF),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    alignment: Alignment.center,
+    child: const Icon(
+      Icons.desktop_windows_outlined,
+      size: 19,
+      color: AppColors.primary,
     ),
   );
 }

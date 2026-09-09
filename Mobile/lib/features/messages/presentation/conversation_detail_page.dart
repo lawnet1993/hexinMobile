@@ -661,8 +661,13 @@ class _DirectDetail extends StatelessWidget {
                 builder: (context, ref, _) => InitialAvatar(
                   name: displayName,
                   radius: 24,
-                  online: watchMemberPresence(ref, member, transportAvailable:
-                      ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
+                  online: watchMemberPresence(
+                    ref,
+                    member,
+                    transportAvailable:
+                        ref.watch(imRealtimeAvailabilityProvider) ==
+                        ImRealtimeAvailability.available,
+                  ).online,
                   avatarKey: member?.avatarKey ?? '',
                   avatarDataUrl: member?.avatarDataUrl ?? '',
                 ),
@@ -695,8 +700,13 @@ class _DirectDetail extends StatelessWidget {
                       const SizedBox(height: 4),
                       Consumer(
                         builder: (context, ref, _) {
-                          final presence = watchMemberPresence(ref, member, transportAvailable:
-                              ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available);
+                          final presence = watchMemberPresence(
+                            ref,
+                            member,
+                            transportAvailable:
+                                ref.watch(imRealtimeAvailabilityProvider) ==
+                                ImRealtimeAvailability.available,
+                          );
                           return Text(
                             _memberPresenceLabel(presence),
                             style: TextStyle(
@@ -957,9 +967,14 @@ class _GroupDetail extends StatelessWidget {
                         builder: (context, ref, _) => InitialAvatar(
                           name: member.displayName,
                           radius: 20,
-                          online: watchMemberPresence(ref, member, transportAvailable:
-                              ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available &&
-                              memberPresenceAvailable).online,
+                          online: watchMemberPresence(
+                            ref,
+                            member,
+                            transportAvailable:
+                                ref.watch(imRealtimeAvailabilityProvider) ==
+                                    ImRealtimeAvailability.available &&
+                                memberPresenceAvailable,
+                          ).online,
                           avatarKey: member.avatarKey,
                           avatarDataUrl: member.avatarDataUrl,
                         ),
@@ -1318,7 +1333,9 @@ class _GroupMemberDirectorySheet extends ConsumerStatefulWidget {
 class _GroupMemberDirectorySheetState
     extends ConsumerState<_GroupMemberDirectorySheet> {
   static const _pageSize = 50;
-  final _searchController = TextEditingController();
+  // The backend may still match an account identifier, but the mobile member
+  // directory deliberately presents people rather than login credentials.
+  final _searchController = MobileSearchTextController(searchLabel: '搜索成员');
   late final VisibleRefreshScheduler _presenceRefreshScheduler;
   String? _memberSnapshotScope;
   int _page = 1;
@@ -1427,7 +1444,7 @@ class _GroupMemberDirectorySheetState
                   child: MobileSearchField(
                     key: const Key('group-member-directory-search'),
                     controller: _searchController,
-                    hintText: '搜索姓名或账号',
+                    hintText: '搜索成员',
                     onSubmitted: (_) => _search(),
                   ),
                 ),
@@ -1475,76 +1492,82 @@ class _GroupMemberDirectorySheetState
                             widget.canManageMembers &&
                             member.id != widget.currentMemberId &&
                             !isOwner;
-                        return Consumer(builder: (context, ref, _) {
-                          final presence = watchMemberPresence(ref, member, transportAvailable: presenceAvailable);
-                          return SizedBox(
-                          key: ValueKey(
-                            'group-member-directory-member-${member.id}',
-                          ),
-                          height: 54,
-                          child: ListTile(
-                            dense: true,
-                            visualDensity: VisualDensity.compact,
-                            minLeadingWidth: 36,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                            ),
-                            leading: InitialAvatar(
-                              name: member.displayName,
-                              radius: 18,
-                              online: presence.online,
-                              avatarKey: member.avatarKey,
-                              avatarDataUrl: member.avatarDataUrl,
-                            ),
-                            title: Text(
-                              member.id == widget.currentMemberId
-                                  ? '${member.displayName}（我）'
-                                  : member.displayName,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            subtitle: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  [member.departmentName, member.username]
-                                      .where((item) => item.isNotEmpty)
-                                      .join(' · '),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 10.5),
+                        return Consumer(
+                          builder: (context, ref, _) {
+                            final presence = watchMemberPresence(
+                              ref,
+                              member,
+                              transportAvailable: presenceAvailable,
+                            );
+                            return SizedBox(
+                              key: ValueKey(
+                                'group-member-directory-member-${member.id}',
+                              ),
+                              height: 54,
+                              child: ListTile(
+                                dense: true,
+                                visualDensity: VisualDensity.compact,
+                                minLeadingWidth: 36,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
                                 ),
-                                const SizedBox(height: 1),
-                                Text(
-                                  _memberPresenceLabel(presence),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    color: presence.online == true
-                                        ? const Color(0xFF0A9F64)
-                                        : AppColors.secondaryText,
-                                  ),
+                                leading: InitialAvatar(
+                                  name: member.displayName,
+                                  radius: 18,
+                                  online: presence.online,
+                                  avatarKey: member.avatarKey,
+                                  avatarDataUrl: member.avatarDataUrl,
                                 ),
-                              ],
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (isOwner)
-                                  const _MemberRoleLabel(label: '群主')
-                                else if (isManager)
-                                  const _MemberRoleLabel(label: '管理员'),
-                                if (canOperate)
-                                  const Icon(Icons.chevron_right_rounded),
-                              ],
-                            ),
-                            onTap: canOperate
-                                ? () => widget.onManageMember(member)
-                                : null,
-                          ),
+                                title: Text(
+                                  member.id == widget.currentMemberId
+                                      ? '${member.displayName}（我）'
+                                      : member.displayName,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                subtitle: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (member.departmentName.isNotEmpty) ...[
+                                      Text(
+                                        member.departmentName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 10.5),
+                                      ),
+                                      const SizedBox(height: 1),
+                                    ],
+                                    Text(
+                                      _memberPresenceLabel(presence),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        color: presence.online == true
+                                            ? const Color(0xFF0A9F64)
+                                            : AppColors.secondaryText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (isOwner)
+                                      const _MemberRoleLabel(label: '群主')
+                                    else if (isManager)
+                                      const _MemberRoleLabel(label: '管理员'),
+                                    if (canOperate)
+                                      const Icon(Icons.chevron_right_rounded),
+                                  ],
+                                ),
+                                onTap: canOperate
+                                    ? () => widget.onManageMember(member)
+                                    : null,
+                              ),
+                            );
+                          },
                         );
-                        });
                       },
                     ),
             ),
@@ -1699,8 +1722,15 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
                               builder: (context, ref, _) => InitialAvatar(
                                 name: member.displayName,
                                 radius: 17,
-                                online: watchMemberPresence(ref, member, transportAvailable:
-                                    ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
+                                online: watchMemberPresence(
+                                  ref,
+                                  member,
+                                  transportAvailable:
+                                      ref.watch(
+                                        imRealtimeAvailabilityProvider,
+                                      ) ==
+                                      ImRealtimeAvailability.available,
+                                ).online,
                                 avatarKey: member.avatarKey,
                                 avatarDataUrl: member.avatarDataUrl,
                               ),
@@ -1714,18 +1744,17 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            subtitle: Text(
-                              [
-                                member.departmentName,
-                                member.username,
-                              ].where((item) => item.isNotEmpty).join(' · '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.secondaryText,
-                              ),
-                            ),
+                            subtitle: member.departmentName.isEmpty
+                                ? null
+                                : Text(
+                                    member.departmentName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.secondaryText,
+                                    ),
+                                  ),
                             onChanged: (selected) => setState(() {
                               if (selected == true) {
                                 _selected.add(member.id);
@@ -1900,8 +1929,13 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                   builder: (context, ref, _) => InitialAvatar(
                     name: widget.fixedMember.displayName,
                     radius: 17,
-                    online: watchMemberPresence(ref, widget.fixedMember, transportAvailable:
-                        ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
+                    online: watchMemberPresence(
+                      ref,
+                      widget.fixedMember,
+                      transportAvailable:
+                          ref.watch(imRealtimeAvailabilityProvider) ==
+                          ImRealtimeAvailability.available,
+                    ).online,
                     avatarKey: widget.fixedMember.avatarKey,
                     avatarDataUrl: widget.fixedMember.avatarDataUrl,
                   ),
@@ -1910,18 +1944,17 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                   widget.fixedMember.displayName,
                   style: const TextStyle(fontSize: 13.5),
                 ),
-                subtitle: Text(
-                  [
-                    widget.fixedMember.departmentName,
-                    widget.fixedMember.username,
-                  ].where((item) => item.isNotEmpty).join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.secondaryText,
-                  ),
-                ),
+                subtitle: widget.fixedMember.departmentName.isEmpty
+                    ? null
+                    : Text(
+                        widget.fixedMember.departmentName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
                 trailing: const Icon(
                   Icons.check_circle,
                   color: AppColors.primary,
@@ -1948,8 +1981,13 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                         builder: (context, ref, _) => InitialAvatar(
                           name: member.displayName,
                           radius: 17,
-                          online: watchMemberPresence(ref, member, transportAvailable:
-                              ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
+                          online: watchMemberPresence(
+                            ref,
+                            member,
+                            transportAvailable:
+                                ref.watch(imRealtimeAvailabilityProvider) ==
+                                ImRealtimeAvailability.available,
+                          ).online,
                           avatarKey: member.avatarKey,
                           avatarDataUrl: member.avatarDataUrl,
                         ),
@@ -1960,18 +1998,17 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 13.5),
                       ),
-                      subtitle: Text(
-                        [
-                          member.departmentName,
-                          member.username,
-                        ].where((item) => item.isNotEmpty).join(' · '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.secondaryText,
-                        ),
-                      ),
+                      subtitle: member.departmentName.isEmpty
+                          ? null
+                          : Text(
+                              member.departmentName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.secondaryText,
+                              ),
+                            ),
                       onChanged: (selected) => setState(() {
                         if (selected == true) {
                           _selected.add(member.id);

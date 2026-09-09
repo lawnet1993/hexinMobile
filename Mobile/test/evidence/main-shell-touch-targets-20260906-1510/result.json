@@ -1,0 +1,62 @@
+{
+  "testedAt": "2026-09-06T15:10:00+08:00",
+  "scope": "main-shell compact header actions",
+  "device": {
+    "serial": "emulator-5556",
+    "densityDpi": 420,
+    "profileBuild": true
+  },
+  "targetsDp": {
+    "workbench.notification": {
+      "width": 44.2,
+      "height": 43.8
+    },
+    "messages.favorites": {
+      "width": 44.2,
+      "height": 43.8
+    },
+    "messages.newConversation": {
+      "width": 43.8,
+      "height": 43.8
+    },
+    "todos.create": {
+      "width": 44.2,
+      "height": 43.8
+    },
+    "contacts.addFriend": {
+      "width": 43.8,
+      "height": 44.2
+    }
+  },
+  "verification": {
+    "targetedTests": {
+      "passed": 133,
+      "failed": 0
+    },
+    "fullFlutterTests": {
+      "passed": 1405,
+      "failed": 0
+    },
+    "targetedAnalyzeIssues": 0,
+    "gitDiffCheckPassed": true,
+    "profileApkBuilt": true,
+    "installedWithoutClearingData": [
+      "emulator-5556",
+      "emulator-5558"
+    ],
+    "runtimeFatalAnrOomFlutterErrors": 0
+  },
+  "goldens": {
+    "reviewedAndUpdated": [
+      "02-workbench.png",
+      "04-messages.png",
+      "06-todos.png",
+      "08-contacts.png",
+      "13-mandatory-update.png"
+    ],
+    "updateMode": "scoped per reviewed golden"
+  },
+  "limitations": [
+    "The connected physical realme device remained locked and dozing, so this boundary was not marked as physical-device verified."
+  ]
+}

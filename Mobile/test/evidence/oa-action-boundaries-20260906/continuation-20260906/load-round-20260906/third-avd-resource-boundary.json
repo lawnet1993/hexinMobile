@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-06",
+  "hostMemoryTotalGb": 31.73,
+  "before": {
+    "hostFreeMemoryGb": 2.58,
+    "emulator5554WorkingSetGb": 3.73,
+    "emulator5556WorkingSetGb": 3.63
+  },
+  "attempt": {
+    "avd": "SecureAccess_Load_03",
+    "serial": "emulator-5558",
+    "mode": "headless",
+    "configuredRamMb": 1024,
+    "qemuWorkingSetGb": 2.20,
+    "state": "offline",
+    "hostFreeMemoryGb": 0.57
+  },
+  "afterStop": {
+    "hostFreeMemoryGb": 2.97,
+    "remainingDevices": [
+      "dd00d66d",
+      "emulator-5554",
+      "emulator-5556"
+    ]
+  },
+  "decision": "Stop the third GUI emulator because host paging would invalidate latency results. Keep the AVD definition on E: for a future run after freeing memory."
+}

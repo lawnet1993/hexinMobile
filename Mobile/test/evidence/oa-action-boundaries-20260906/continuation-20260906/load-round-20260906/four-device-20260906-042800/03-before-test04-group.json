@@ -1,0 +1,29 @@
+{
+  "serial": "emulator-5556",
+  "account": "test03",
+  "conversationId": "245e652d-14be-4c29-a7aa-57b7659fa4e6",
+  "prefix": "AI-UAT-MV4-20260906-042800-T04-",
+  "expected": 20,
+  "received": 0,
+  "complete": false,
+  "uniqueMessageIds": 0,
+  "uniqueSenderClientMessageKeys": 0,
+  "sequenceRange": null,
+  "sequenceContiguous": true,
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "eventCursors": {
+    "acked": 3160,
+    "applied": 3160
+  },
+  "latencyMs": {
+    "samples": 0,
+    "min": null,
+    "average": null,
+    "p50": null,
+    "p90": null,
+    "p95": null,
+    "max": null
+  }
+}

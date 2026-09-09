@@ -229,7 +229,10 @@ void main() {
       await tester.pumpAndSettle();
       final surface = find.byKey(const Key('approval-form-surface'));
       final before = tester.getTopLeft(surface);
-      await tester.enterText(find.byType(TextFormField), 'AI-UAT-稳定表单');
+      await tester.enterText(
+        find.byKey(const ValueKey('schema-reason')),
+        'AI-UAT-稳定表单',
+      );
       await tester.pump(const Duration(milliseconds: 650));
       expect(submitted?['reason'], 'AI-UAT-稳定表单');
       expect(tester.getTopLeft(surface), before);
@@ -242,7 +245,9 @@ void main() {
         lessThanOrEqualTo(18),
       );
       expect(
-        tester.widget<TextFormField>(find.byType(TextFormField)).initialValue,
+        tester
+            .widget<TextFormField>(find.byKey(const ValueKey('schema-reason')))
+            .initialValue,
         'AI-UAT-稳定表单',
       );
       expect(tester.takeException(), isNull);

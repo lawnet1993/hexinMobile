@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -216,18 +215,6 @@ void main() {
               throwsA(isA<SessionChangedException>()),
             );
           } else {
-            final stored = await attachmentFiles.writeBytes(
-              accountId: 'a',
-              ownerId: 'outbox-a',
-              fileName: attachment.fileName,
-              contentType: attachment.contentType,
-              bytes: Uint8List.fromList(attachment.bytes),
-            );
-            final queuedAttachment = attachment.copyWith(
-              bytes: const [],
-              storedFile: stored,
-              storageOwnerId: 'outbox-a',
-            );
             await store.enqueue(
               'a',
               id: 'outbox-a',
@@ -237,7 +224,15 @@ void main() {
                 'clientRequestId': 'client-a',
                 'title': 'AI-UAT-session',
                 'formDataJson': '{"amount":1}',
-                'pendingAttachments': [queuedAttachment.toJson()],
+                'pendingAttachments': [
+                  {
+                    'id': attachment.id,
+                    'fileName': attachment.fileName,
+                    'contentType': attachment.contentType,
+                    'bytesBase64': base64Encode(attachment.bytes),
+                    'formFieldId': attachment.formFieldId,
+                  },
+                ],
               },
             );
             expect(await repository.flushOutbox(), 0);
@@ -248,6 +243,7 @@ void main() {
           expect(pending.state, 'pending');
           expect(pending.attempts, 0);
           expect(pending.lastError, isEmpty);
+          expect(jsonEncode(pending.payload), isNot(contains('bytesBase64')));
           expect(await store.readOutbox('b'), isEmpty);
           final stableId = pending.payload['clientRequestId'];
           // Resume the original account with a fresh session, not the old token.
@@ -337,6 +333,82 @@ void main() {
       },
     );
   }
+
+  test('recovered approval delivery removes its source draft and keeps local metadata off the wire', () async {
+    HttpOverrides.global = _RealHttp();
+    addTearDown(() => HttpOverrides.global = null);
+    FlutterSecureStorage.setMockInitialValues({});
+    final sessions = SecureSessionStore();
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final directory = await Directory.systemTemp.createTemp(
+      'oa-recovered-draft-',
+    );
+    final store = OaLocalStore.withOptions(
+      databaseFactoryFfi,
+      () async => '${directory.path}/oa.db',
+      const PlainImCacheCipher(),
+    );
+    addTearDown(() async {
+      await store.close();
+      await directory.delete(recursive: true);
+    });
+    await sessions.saveSession(
+      MobileSession(
+        accessToken: 'fixture-a',
+        userId: 'a',
+        deviceId: 'fixture-device',
+        username: 'a',
+        displayName: 'a',
+        policySignatureKey: '',
+        imApiUrl: '',
+        oaApiUrl: 'http://127.0.0.1:${server.port}',
+      ),
+    );
+    await store.saveDraft(
+      'a',
+      OaApprovalDraft(
+        id: 'draft-a',
+        applicationKey: 'leave',
+        templateId: 'template-a',
+        workflowKey: 'flow-a',
+        title: 'AI-UAT-draft',
+        formData: const {'reason': 'AI-UAT'},
+        updatedAt: DateTime.utc(2026, 9, 6),
+      ),
+    );
+    await store.enqueue(
+      'a',
+      id: 'outbox-a',
+      idempotencyKey: 'client-a',
+      commandType: 'submit-approval',
+      payload: const {
+        'clientRequestId': 'client-a',
+        'title': 'AI-UAT-submit',
+        'formDataJson': '{}',
+        '_sourceDraftId': 'draft-a',
+      },
+    );
+    Map<String, Object?>? requestBody;
+    server.listen((request) async {
+      requestBody = (jsonDecode(await utf8.decoder.bind(request).join()) as Map)
+          .cast<String, Object?>();
+      request.response.headers.contentType = ContentType.json;
+      request.response.write('{"id":"approval-a"}');
+      await request.response.close();
+    });
+    final repository = OaRepository(
+      CollaborationClient(sessions),
+      sessions,
+      store,
+    );
+
+    expect(await repository.flushOutbox(), 1);
+    expect(await store.readOutbox('a'), isEmpty);
+    expect(await store.readDraft('a', 'draft-a'), isNull);
+    expect(requestBody, isNotNull);
+    expect(requestBody, isNot(contains('_sourceDraftId')));
+  });
 }
 
 class _RealHttp extends HttpOverrides {}

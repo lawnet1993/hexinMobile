@@ -1,0 +1,173 @@
+{
+  "checkedAt": "2026-09-06T15:23:27.5658903+08:00",
+  "serial": "emulator-5558",
+  "pid": "18777",
+  "rejectedTimingRecords": 0,
+  "events": [
+    {
+      "deviceLogTime": "09-06 15:16:09.504",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "onCreateEnter",
+        "elapsedMs": 0
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.764",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "configureEngineEnter",
+        "elapsedMs": 260
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.855",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "pluginsRegistered",
+        "elapsedMs": 351
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.855",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "configureEngineReturn",
+        "elapsedMs": 351
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.915",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "onCreateReturn",
+        "elapsedMs": 411
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.964",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "dartMain",
+        "elapsedMicros": 12
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.964",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "tunnelRegistered",
+        "elapsedMicros": 333
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.966",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "runAppReturned",
+        "elapsedMicros": 2046
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.978",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "shellCreated",
+        "elapsedMicros": 13887
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.993",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "firstFrameworkFrame",
+        "elapsedMicros": 28978
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.994",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "shellFirstFrame",
+        "elapsedMicros": 29468
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:09.994",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "collaborationSyncRequested",
+        "elapsedMicros": 29584
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:10.963",
+      "kind": "MOBILE_STARTUP_NATIVE",
+      "data": {
+        "stage": "firstFlutterUiDisplayed",
+        "elapsedMs": 1459
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:10.972",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "secureSessionHydrated",
+        "elapsedMicros": 1007567
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:11.480",
+      "kind": "MOBILE_STARTUP",
+      "data": {
+        "stage": "workbenchCacheReady",
+        "elapsedMicros": 1516182
+      }
+    },
+    {
+      "deviceLogTime": "09-06 15:16:24.967",
+      "kind": "MOBILE_STARTUP_FRAMES",
+      "data": {
+        "reason": "window_elapsed",
+        "elapsedMicros": 15002825,
+        "sampleCount": 35,
+        "maxSamples": 240,
+        "invalidSamples": 0,
+        "refreshRateHz": 60.000003814697266,
+        "frameBudgetMicros": 16667,
+        "build": {
+          "p50Micros": 1242,
+          "p95Micros": 8813,
+          "maxMicros": 17177,
+          "overBudgetCount": 1
+        },
+        "raster": {
+          "p50Micros": 8396,
+          "p95Micros": 44521,
+          "maxMicros": 76415,
+          "overBudgetCount": 8
+        },
+        "totalSpan": {
+          "p50Micros": 16777,
+          "p95Micros": 114746,
+          "maxMicros": 125417,
+          "overBudgetCount": 18
+        },
+        "vsyncOverhead": {
+          "p50Micros": 4524,
+          "p95Micros": 47712,
+          "maxMicros": 79461,
+          "overBudgetCount": 4
+        },
+        "firstFrame": {
+          "buildMicros": 2164,
+          "rasterMicros": 76415,
+          "totalSpanMicros": 125417,
+          "vsyncOverheadMicros": 45861
+        }
+      }
+    }
+  ],
+  "hasNativeFirstUi": true,
+  "hasFrameSummary": true
+}

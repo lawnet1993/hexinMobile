@@ -154,4 +154,124 @@ void main() {
       if (await root.exists()) await root.delete(recursive: true);
     }
   });
+
+  test(
+    'picker file is staged and restored as chunks without byte payload',
+    () async {
+      final root = await Directory.systemTemp.createTemp('oa-picker-stream-');
+      FlutterSecureStorage.setMockInitialValues({});
+      final sessions = SecureSessionStore();
+      await sessions.saveSession(
+        const MobileSession(
+          accessToken: 'fixture-token',
+          deviceId: 'fixture-device',
+          userId: 'fixture-account',
+          displayName: 'Fixture',
+          username: 'fixture',
+          policySignatureKey: '',
+          imApiUrl: '',
+          oaApiUrl: 'http://127.0.0.1:1',
+        ),
+      );
+      final localStore = OaLocalStore.withOptions(
+        databaseFactoryFfi,
+        () async => '${root.path}/oa.db',
+        const PlainImCacheCipher(),
+      );
+      final repository = OaRepository(
+        CollaborationClient(sessions),
+        sessions,
+        localStore,
+        attachmentFileStore: OaAttachmentFileStore(
+          keyLoader: sessions.readOrCreateImCacheKey,
+          directoryLoader: () async => Directory('${root.path}/files'),
+        ),
+      );
+      const chunkCount = 19;
+      const chunkLength = 1024 * 1024;
+      var opened = 0;
+
+      Stream<List<int>> source() async* {
+        opened++;
+        for (var index = 0; index < chunkCount; index++) {
+          yield Uint8List(chunkLength)..fillRange(0, chunkLength, index);
+        }
+      }
+
+      try {
+        final staged = await repository.stageLocalAttachmentStream(
+          id: 'large-attachment',
+          ownerId: 'draft-large',
+          fileName: 'AI-UAT-19MiB.bin',
+          contentType: 'application/octet-stream',
+          length: chunkCount * chunkLength,
+          formFieldId: 'proof',
+          openRead: source,
+        );
+        expect(opened, 1);
+        expect(staged.bytes, isEmpty);
+        expect(staged.size, chunkCount * chunkLength);
+        expect(staged.storageOwnerId, 'draft-large');
+
+        final saved = await repository.saveDraft(
+          id: 'draft-large',
+          applicationKey: 'leave',
+          template: const OaApprovalTemplate(
+            id: 'template-large',
+            name: '请假审批',
+            category: '考勤',
+            workflowKey: 'leave-flow',
+          ),
+          title: 'AI-UAT-大附件流式草稿',
+          formData: const {},
+          attachments: [staged],
+        );
+        expect(
+          saved.attachments.single.storedFile?.token,
+          staged.storedFile?.token,
+        );
+
+        var restoredLength = 0;
+        var maxChunkLength = 0;
+        await for (final chunk in repository.readLocalAttachmentStream(
+          saved.attachments.single,
+        )) {
+          restoredLength += chunk.length;
+          if (chunk.length > maxChunkLength) maxChunkLength = chunk.length;
+        }
+        expect(restoredLength, chunkCount * chunkLength);
+        expect(maxChunkLength, lessThan(chunkCount * chunkLength));
+        await repository.deleteDraft('draft-large');
+
+        final ephemeral = await repository.stageLocalAttachmentStream(
+          id: 'ephemeral-attachment',
+          ownerId: 'ephemeral-page',
+          fileName: 'AI-UAT-ephemeral.bin',
+          contentType: 'application/octet-stream',
+          length: 3,
+          formFieldId: 'proof',
+          openRead: () => Stream<List<int>>.value(const [7, 8, 9]),
+        );
+        final stagedFiles = Directory('${root.path}/files');
+        expect(
+          await stagedFiles
+              .list(recursive: true)
+              .where((entity) => entity is File)
+              .length,
+          greaterThan(0),
+        );
+        await repository.discardLocalAttachments([ephemeral]);
+        expect(
+          await stagedFiles
+              .list(recursive: true)
+              .where((entity) => entity is File)
+              .length,
+          0,
+        );
+      } finally {
+        await localStore.close();
+        if (await root.exists()) await root.delete(recursive: true);
+      }
+    },
+  );
 }

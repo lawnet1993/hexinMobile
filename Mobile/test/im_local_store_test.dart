@@ -1019,6 +1019,113 @@ void main() {
     },
   );
 
+  test(
+    'cached bootstrap event advances preview unread and mention transactionally',
+    () async {
+      await store.replaceBootstrap(
+        'account-a',
+        ImBootstrap(
+          currentMember: const ImMember(
+            id: 'member-a',
+            username: 'a',
+            displayName: 'A',
+            isOnline: true,
+          ),
+          contacts: const [],
+          conversations: [
+            ImConversation(
+              id: 'conversation-a',
+              type: 'Direct',
+              title: 'Conversation a',
+              preview: 'old preview',
+              updatedAt: DateTime.utc(2026, 9, 6, 4),
+              unreadCount: 0,
+              lastMessageSequence: 65,
+              lastReadSequence: 65,
+            ),
+          ],
+        ),
+      );
+      final created = ImSyncEvent(
+        sequence: 100,
+        id: 'event-created-66',
+        type: 'message.created',
+        payloadJson: jsonEncode({
+          'Id': 'message-66',
+          'ConversationId': 'conversation-a',
+          'Sequence': 66,
+          'SenderId': 'member-b',
+          'ClientMessageId': 'remote-client-66',
+          'Content': 'new preview',
+          'Kind': 'text',
+          'CreatedAt': '2026-09-06T04:01:00Z',
+          'Mentions': [
+            {
+              'MentionedMemberId': 'member-a',
+              'DisplayName': 'A',
+              'IsMentionAll': false,
+            },
+          ],
+        }),
+        createdAt: DateTime.utc(2026, 9, 6, 4, 1),
+      );
+
+      for (var replay = 0; replay < 2; replay++) {
+        await store.applySyncBatch(
+          accountId: 'account-a',
+          deviceId: 'mobile-device-a',
+          events: [created],
+          bootstrap: _bootstrap('a', unread: 0),
+          replaceBootstrap: false,
+        );
+      }
+
+      final conversation = (await store.readBootstrap('account-a'))!
+          .conversations
+          .single;
+      expect(conversation.lastMessageSequence, 66);
+      expect(conversation.preview, 'new preview');
+      expect(conversation.unreadCount, 1);
+      expect(conversation.unreadMentionSequences, [66]);
+      expect(
+        await store.lastEventSequence('account-a', 'mobile-device-a'),
+        100,
+      );
+
+      final ownDesktopCreated = ImSyncEvent(
+        sequence: 101,
+        id: 'event-created-67',
+        type: 'message.created',
+        payloadJson: jsonEncode({
+          'Id': 'message-67',
+          'ConversationId': 'conversation-a',
+          'Sequence': 67,
+          'SenderId': 'member-a',
+          'ClientMessageId': 'desktop-client-67',
+          'Content': 'same account desktop message',
+          'Kind': 'text',
+          'CreatedAt': '2026-09-06T04:02:00Z',
+        }),
+        createdAt: DateTime.utc(2026, 9, 6, 4, 2),
+      );
+      await store.applySyncBatch(
+        accountId: 'account-a',
+        deviceId: 'mobile-device-a',
+        events: [ownDesktopCreated],
+        bootstrap: _bootstrap('a', unread: 0),
+        replaceBootstrap: false,
+      );
+
+      final afterDesktopEcho = (await store.readBootstrap('account-a'))!
+          .conversations
+          .single;
+      expect(afterDesktopEcho.lastMessageSequence, 67);
+      expect(afterDesktopEcho.preview, 'same account desktop message');
+      expect(afterDesktopEcho.unreadCount, 1);
+      expect(afterDesktopEcho.unreadMentionSequences, [66]);
+    },
+  );
+
   test('event cursors are isolated by account and mobile device', () async {
     final event = ImSyncEvent(
       sequence: 31,

@@ -33,21 +33,27 @@ final notificationReadSynchronizerProvider =
         ref.invalidate(oaNotificationPageProvider);
         ref.invalidate(oaBootstrapProvider);
         ref.invalidate(oaPendingNotificationReadsProvider);
-        ref.read(oaRepositoryProvider).flushNotificationReads().then((sent) {
-          if (!disposed && sent > 0) {
-            ref.read(oaCatalogSyncCoordinatorProvider).catchUpAfterMutation();
-          }
-        }).whenComplete(
-          () {
-            if (!disposed) ref.invalidate(oaPendingNotificationReadsProvider);
-          },
-        ).ignore();
+        ref
+            .read(oaRepositoryProvider)
+            .flushNotificationReads()
+            .then((sent) {
+              if (!disposed && sent > 0) {
+                ref
+                    .read(oaCatalogSyncCoordinatorProvider)
+                    .catchUpAfterMutation();
+              }
+            })
+            .whenComplete(() {
+              if (!disposed) ref.invalidate(oaPendingNotificationReadsProvider);
+            })
+            .ignore();
       };
     });
 
 String? notificationTargetRoute(OaNotification item) {
   final targetId = item.targetId.trim();
   if (_isInspectionNotification(item)) return '/punch?inspection=active';
+  if (_isDesktopSiteNotification(item)) return '/sites';
   if (_isAttendanceNotification(item)) {
     final exceptionId = targetId.isNotEmpty ? targetId : item.requestId.trim();
     return exceptionId.isEmpty
@@ -1079,6 +1085,21 @@ bool _isSecurityNotification(OaNotification item) {
   final category = item.category.trim().toLowerCase();
   final type = item.type.trim().toLowerCase();
   const prefixes = ['security', 'risk', 'network', 'endpoint', 'access'];
+  return prefixes.any(
+    (prefix) =>
+        category == prefix ||
+        category.startsWith('$prefix.') ||
+        category.startsWith('${prefix}_') ||
+        type == prefix ||
+        type.startsWith('$prefix.') ||
+        type.startsWith('${prefix}_'),
+  );
+}
+
+bool _isDesktopSiteNotification(OaNotification item) {
+  final category = item.category.trim().toLowerCase();
+  final type = item.type.trim().toLowerCase();
+  const prefixes = ['site', 'network', 'access'];
   return prefixes.any(
     (prefix) =>
         category == prefix ||

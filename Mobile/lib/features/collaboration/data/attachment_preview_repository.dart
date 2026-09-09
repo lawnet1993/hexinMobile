@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/collaboration_client.dart';
@@ -77,6 +76,7 @@ final class AttachmentPreviewRepository implements AttachmentPreviewGateway {
           validateStatus: (status) => status != null && status < 500,
         ),
       );
+      _profilePreviewStatus('create', response.statusCode);
       await _ensureCurrent(session);
       if (response.statusCode == 404 || response.statusCode == 410) {
         throw AttachmentPreviewSessionExpired(response.statusCode!);
@@ -131,6 +131,7 @@ final class AttachmentPreviewRepository implements AttachmentPreviewGateway {
                   status >= 500),
         ),
       );
+      _profilePreviewStatus('range', response.statusCode);
       await _ensureCurrent(activeSession);
       final status = response.statusCode;
       if (status == 404 || status == 410) {
@@ -324,6 +325,14 @@ final class AttachmentPreviewRepository implements AttachmentPreviewGateway {
 
   Future<void> _ensureCurrent(MobileSession expected) =>
       _sessionStore.withCurrentSession(expected, () async {});
+}
+
+void _profilePreviewStatus(String phase, int? status) {
+  if (!kDebugMode && !kProfileMode) return;
+  debugPrint(
+    'MOBILE_ATTACHMENT_PREVIEW '
+    '{"phase":"$phase","status":${status ?? 0}}',
+  );
 }
 
 AttachmentContentRange? _parseContentRange(String? value) {

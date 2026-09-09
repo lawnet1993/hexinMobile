@@ -1,0 +1,25 @@
+{
+  "checkedAtUtc": "2026-09-05T22:05:04.7443483+00:00",
+  "afterSequence": 3724,
+  "latestSequence": 3764,
+  "returnedEvents": 20,
+  "matchedEvents": 20,
+  "byPrefix": [
+    {
+      "prefix": "AI-UAT-AGE-20260906-T02-",
+      "count": 10,
+      "firstEventSequence": 3726,
+      "lastEventSequence": 3758,
+      "firstCreatedAtUtc": "2026-09-05T22:03:58.6554230+00:00",
+      "lastCreatedAtUtc": "2026-09-05T22:04:10.0390270+00:00"
+    },
+    {
+      "prefix": "AI-UAT-AGE-20260906-T03-",
+      "count": 10,
+      "firstEventSequence": 3728,
+      "lastEventSequence": 3764,
+      "firstCreatedAtUtc": "2026-09-05T22:03:58.7683580+00:00",
+      "lastCreatedAtUtc": "2026-09-05T22:04:12.7552630+00:00"
+    }
+  ]
+}

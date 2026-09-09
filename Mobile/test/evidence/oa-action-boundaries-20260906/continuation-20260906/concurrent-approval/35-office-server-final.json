@@ -1,0 +1,177 @@
+{
+  "checkedAt": "2026-09-06T04:16:05.3619014+08:00",
+  "origin": "http://api.sfhkh.com",
+  "account": "test01",
+  "marker": "AI-UAT-20260906-OFFICE-ROUNDTRIP",
+  "bootstrapStatus": 200,
+  "requestId": "4e72a3fa-86e3-4559-9103-c8619c75b95c",
+  "pageStatus": 200,
+  "pageRequestId": "5a5d2db9-1303-4363-81d7-d5e834226fb7",
+  "hasMore": false,
+  "requests": [
+    {
+      "id": "507e7276-380f-4fe6-bc65-b963ad3b54b4",
+      "detailStatus": 200,
+      "requestId": "68e520b7-7267-45ed-838a-e18f960e1eef",
+      "markerMatched": true,
+      "status": "submitted",
+      "title": "Test Terminal 02的报销审批",
+      "requesterName": "Test Terminal 02",
+      "requesterDepartmentName": "公司总部",
+      "createdAt": "2026-09-05T19:41:00.260571Z",
+      "updatedAt": "2026-09-05T20:15:38.996158Z",
+      "allowedActions": [],
+      "templateVersion": 1,
+      "requestVersion": 3,
+      "workflowKey": "system.default.expense.reimbursement",
+      "clientRequestId": "65007451-fa25-4fcd-aeb0-063bb9c1feeb",
+      "completedAt": null,
+      "fields": [
+        "id",
+        "templateId",
+        "requesterId",
+        "currentApproverId",
+        "conversationId",
+        "title",
+        "formDataJson",
+        "status",
+        "reviewedById",
+        "reviewComment",
+        "reviewedAt",
+        "createdAt",
+        "updatedAt",
+        "requesterName",
+        "requesterDepartmentName",
+        "currentApproverName",
+        "currentApproverPositionName",
+        "templateName",
+        "templateCategory",
+        "allowedActions",
+        "applicationKey",
+        "workflowKey",
+        "templateVersion",
+        "clientRequestId",
+        "requesterDepartmentId",
+        "formSchemaSnapshotJson",
+        "workflowSnapshotJson",
+        "activeNodeIds",
+        "completedAt",
+        "version",
+        "tasks",
+        "actions",
+        "ccs",
+        "attachments",
+        "isSummary"
+      ],
+      "tasks": [
+        {
+          "id": "b2a333ff-2b6a-4e38-96d9-667f383a48df",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "8e0b6fdd-4490-435a-9be5-5a345e3b3ebc",
+          "assigneeName": "宋扬",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "f668ff0e-5822-4b7e-a59e-967dc35c46f3",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "3a23747a-5421-2cfa-a239-69cf81eecd6c",
+          "assigneeName": "陆炳002",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        },
+        {
+          "id": "5cee8da3-7139-4817-9ccc-c80ceb7d86ee",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "63bb07f7-89dc-449e-9e49-4b528f5215b7",
+          "assigneeName": "Test Terminal 01",
+          "assigneeDepartmentName": "公司总部",
+          "status": "approved",
+          "version": 2,
+          "canOperate": false,
+          "completedAt": "2026-09-05T20:15:38.996158Z"
+        },
+        {
+          "id": "21b48ad3-fce0-4571-b4e6-d632f1056539",
+          "nodeName": "部门负责人审批",
+          "assigneeId": "3a23732d-35f5-8845-7860-d12b3a4844cf",
+          "assigneeName": "陆炳",
+          "assigneeDepartmentName": "公司总部",
+          "status": "pending",
+          "version": 1,
+          "canOperate": false,
+          "completedAt": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "89f478b4-4698-4117-830e-d0a78c78d6e6",
+          "action": "submitted",
+          "actorName": "Test Terminal 02",
+          "comment": "",
+          "occurredAt": "2026-09-05T19:41:00.260571Z"
+        },
+        {
+          "id": "898ac777-e8bc-4057-b6f4-53c6bc69e8a9",
+          "action": "reminded",
+          "actorName": "Test Terminal 02",
+          "comment": "AI-UAT-REMIND-ONLINE-20260906-0357",
+          "occurredAt": "2026-09-05T19:58:10.493037Z"
+        },
+        {
+          "id": "b1e03f57-15d4-4bb1-ad8e-08fbc63ec0ee",
+          "action": "approved",
+          "actorName": "Test Terminal 01",
+          "comment": "AI-UAT-CONCURRENT-DESKTOP-WINNER-0417",
+          "occurredAt": "2026-09-05T20:15:38.996158Z"
+        }
+      ],
+      "attachments": [
+        {
+          "id": "e58d14b7-9998-45d6-9a84-3589cacdac81",
+          "fileName": "AI-UAT-20260906-office-roundtrip.docx",
+          "size": 36680,
+          "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "formFieldId": "attachments"
+        },
+        {
+          "id": "223759d9-f1ce-41f0-bce3-35e40e98261d",
+          "fileName": "AI-UAT-20260906-office-roundtrip.xlsx",
+          "size": 4876,
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "formFieldId": "attachments"
+        },
+        {
+          "id": "f9776222-8afb-49dd-9671-6c107469f383",
+          "fileName": "AI-UAT-20260906-office-roundtrip.pptx",
+          "size": 28291,
+          "contentType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          "formFieldId": "attachments"
+        }
+      ],
+      "notifications": [
+        {
+          "id": "e98b6571-a016-42c9-854b-0990363c3112",
+          "type": "approval.reminded",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-05T19:58:10.493037Z"
+        },
+        {
+          "id": "3a9594aa-a3f5-46a7-9d59-0c6d2ed5f68c",
+          "type": "approval.task.created",
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-09-05T19:41:00.260571Z"
+        }
+      ]
+    }
+  ],
+  "matchCount": 1
+}

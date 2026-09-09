@@ -1,0 +1,23 @@
+{
+  "date": "2026-09-06",
+  "verdict": "partial",
+  "direct": {
+    "desktopProbeTapToReturnMs": [591.12, 524.51, 527.95],
+    "mobileReceiverRequestMs": 1427,
+    "mobileReceiverTotalMs": 1590,
+    "mobileReceiverCommitMs": 34,
+    "verdict": "pass"
+  },
+  "group": {
+    "eventAgeMs": [7977, 14061, 12573],
+    "requestMs": [25179, 21049, 19526],
+    "commitMs": [21, 21, 32],
+    "verdict": "fail"
+  },
+  "integrity": {
+    "eventuallyReceived": true,
+    "duplicateObserved": false,
+    "cursorAckCompleted": true
+  },
+  "suspectedBoundary": "server_or_gateway_group_long_poll_wakeup"
+}

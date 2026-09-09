@@ -1,0 +1,62 @@
+{
+  "capturedAtUtc": "2026-09-05T20:38:07.6298356+00:00",
+  "host": {
+    "freeMemoryGb": 3.99,
+    "memoryLoadPercent": 87.4,
+    "qemu": [
+      {
+        "pid": 124588,
+        "workingSetGb": 3.43,
+        "cpuSeconds": 5814.5
+      },
+      {
+        "pid": 16272,
+        "workingSetGb": 3.76,
+        "cpuSeconds": 2216.02
+      },
+      {
+        "pid": 131688,
+        "workingSetGb": 3.44,
+        "cpuSeconds": 9521.23
+      }
+    ]
+  },
+  "devices": [
+    {
+      "serial": "dd00d66d",
+      "appPid": "26447",
+      "totalPssKb": 242581,
+      "fatalExceptionCount": 0,
+      "unhandledExceptionCount": 0,
+      "outOfMemoryCount": 0,
+      "renderOverflowCount": 0
+    },
+    {
+      "serial": "emulator-5554",
+      "appPid": "13815",
+      "totalPssKb": 184633,
+      "fatalExceptionCount": 0,
+      "unhandledExceptionCount": 0,
+      "outOfMemoryCount": 0,
+      "renderOverflowCount": 0
+    },
+    {
+      "serial": "emulator-5556",
+      "appPid": "19512",
+      "totalPssKb": 181291,
+      "fatalExceptionCount": 0,
+      "unhandledExceptionCount": 0,
+      "outOfMemoryCount": 0,
+      "renderOverflowCount": 0
+    },
+    {
+      "serial": "emulator-5558",
+      "appPid": "3991",
+      "totalPssKb": 183141,
+      "fatalExceptionCount": 0,
+      "unhandledExceptionCount": 0,
+      "outOfMemoryCount": 0,
+      "renderOverflowCount": 0
+    }
+  ]
+}

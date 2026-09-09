@@ -1,0 +1,159 @@
+{
+  "capturedAt": "2026-09-06T12:53:00+08:00",
+  "scope": "two-emulator real Flutter composer and SQLite projection verification",
+  "topology": [
+    {
+      "serial": "emulator-5556",
+      "account": "test03"
+    },
+    {
+      "serial": "emulator-5558",
+      "account": "test04"
+    }
+  ],
+  "conversation": "AI-UAT-MULTIVM-20260906-1100",
+  "beforeFix": {
+    "initialMessages": 65,
+    "sentMessages": 20,
+    "finalMessages": 85,
+    "dataIntegrity": {
+      "received": 85,
+      "uniqueMessageIds": 85,
+      "uniqueSenderClientMessageKeys": 85,
+      "sequenceRange": "1..85",
+      "outboxCount": 0,
+      "sqliteQuickCheck": "ok"
+    },
+    "transientProjectionMismatch": {
+      "serial": "emulator-5558",
+      "messageMaxSequence": 85,
+      "lastReadSequence": 85,
+      "lastMessageSequence": 80,
+      "nextSnapshotAfterMs": 12000,
+      "nextLastMessageSequence": 85
+    },
+    "syncStages": {
+      "emulator-5556": {
+        "eventBatches": 10,
+        "commitMsP50": 262.0,
+        "commitMsP95": 374.9,
+        "commitMsMax": 415.0,
+        "totalMsP95": 2231.2,
+        "totalMsMax": 3084.0
+      },
+      "emulator-5558": {
+        "eventBatches": 17,
+        "commitMsP50": 114.0,
+        "commitMsP95": 196.8,
+        "commitMsMax": 220.0,
+        "totalMsP95": 2002.4,
+        "totalMsMax": 4744.0
+      }
+    }
+  },
+  "change": {
+    "cachedBootstrapReplacedForEveryEventBatch": false,
+    "messageCreatedUpdatesConversationProjectionInEventTransaction": true,
+    "incomingUnreadRecalculatedInEventTransaction": true,
+    "mentionSequenceUpdatedInEventTransaction": true,
+    "sameAccountDesktopMessageUpdatesPreviewWithoutUnread": true
+  },
+  "afterFix": {
+    "initialMessages": 85,
+    "sentMessages": 10,
+    "snapshotCommandElapsedMs": 1169,
+    "devices": [
+      {
+        "serial": "emulator-5556",
+        "received": 95,
+        "uniqueMessageIds": 95,
+        "uniqueSenderClientMessageKeys": 95,
+        "sequenceRange": "1..95",
+        "lastMessageSequence": 95,
+        "lastReadSequence": 95,
+        "unreadCount": 0,
+        "outboxCount": 0,
+        "sqliteQuickCheck": "ok",
+        "appliedSequence": 4689,
+        "acknowledgedSequence": 4689
+      },
+      {
+        "serial": "emulator-5558",
+        "received": 95,
+        "uniqueMessageIds": 95,
+        "uniqueSenderClientMessageKeys": 95,
+        "sequenceRange": "1..95",
+        "lastMessageSequence": 95,
+        "lastReadSequence": 95,
+        "unreadCount": 0,
+        "outboxCount": 0,
+        "sqliteQuickCheck": "ok",
+        "appliedSequence": 4688,
+        "acknowledgedSequence": 4688
+      }
+    ],
+    "unopenedConversationUnread": {
+      "sender": "test03",
+      "receiver": "test04",
+      "receiverSurface": "conversation_list",
+      "sentMessages": 1,
+      "snapshotCommandElapsedMs": 990,
+      "received": 96,
+      "lastMessageSequence": 96,
+      "lastReadSequence": 95,
+      "unreadCount": 1,
+      "appliedSequence": 4690,
+      "acknowledgedSequence": 4690,
+      "listPreviewAndBadgeVisible": true
+    },
+    "visibleRead": {
+      "receiver": "test04",
+      "observationUpperBoundMs": 3323,
+      "lastMessageSequence": 96,
+      "lastReadSequence": 96,
+      "unreadCount": 0,
+      "appliedSequence": 4691,
+      "acknowledgedSequence": 4691,
+      "senderReceiptVisible": true
+    },
+    "syncStages": {
+      "emulator-5556": {
+        "eventBatches": 9,
+        "events": 16,
+        "commitMsP50": 38.0,
+        "commitMsP95": 254.2,
+        "commitMsMax": 259.0,
+        "totalMsP95": 2131.0,
+        "totalMsMax": 2907.0,
+        "fatalMatches": 0
+      },
+      "emulator-5558": {
+        "eventBatches": 9,
+        "events": 16,
+        "commitMsP50": 51.0,
+        "commitMsP95": 85.6,
+        "commitMsMax": 94.0,
+        "totalMsP95": 3576.8,
+        "totalMsMax": 5558.0,
+        "fatalMatches": 0
+      }
+    }
+  },
+  "verification": {
+    "targetedTestsPassed": 43,
+    "targetedTestsFailed": 0,
+    "fullTestsPassed": 1406,
+    "fullTestsFailed": 0,
+    "analyzeErrors": 0,
+    "analyzeWarnings": 0,
+    "existingAnalyzeInfos": 7,
+    "profileApkBytes": 111236918,
+    "profileApkSha256": "C31AAD0029F83EA55F5010ED073A2319A90ED39B8DFBEE84CCAE436742663ADA"
+  },
+  "verdict": {
+    "transactionalConversationProjection": "passed_on_two_android_emulators",
+    "dataReliability": "passed",
+    "endToEndTimeliness": "partial_due_to_5558_ms_outlier",
+    "lockedPhysicalDevice": "not_tested_in_this_run"
+  }
+}

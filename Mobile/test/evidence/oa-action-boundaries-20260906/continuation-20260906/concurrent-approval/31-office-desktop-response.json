@@ -1,0 +1,16 @@
+{
+  "source": "installed-desktop-session",
+  "account": "test01",
+  "requestId": "507e7276-380f-4fe6-bc65-b963ad3b54b4",
+  "taskId": "5cee8da3-7139-4817-9ccc-c80ceb7d86ee",
+  "expectedTaskVersion": 1,
+  "startedAt": "2026-09-05T20:15:38.2686221+00:00",
+  "completedAt": "2026-09-05T20:15:38.5204097+00:00",
+  "durationMs": 251.788,
+  "httpStatus": 200,
+  "correlationId": "c4dba314-6476-4dbd-9d56-574e547f7987",
+  "responseCode": "",
+  "responseMessage": "",
+  "responseStatus": "submitted",
+  "responseVersion": 3
+}

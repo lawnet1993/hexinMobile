@@ -1,0 +1,129 @@
+{
+  "checkedAt": "2026-09-06T08:25:11.591135+00:00",
+  "accountId": "b6a2d272-aaca-4845-bbf8-294288c940a9",
+  "schemaVersion": 3,
+  "cursor": [
+    {
+      "value": "1000",
+      "updated_at": "2026-09-06T08:24:30.773950Z"
+    }
+  ],
+  "caches": [
+    {
+      "cache_key": "app-catalog",
+      "updated_at": "2026-09-06T08:24:29.691261Z"
+    },
+    {
+      "cache_key": "attendance-overview",
+      "updated_at": "2026-09-06T01:47:38.154492Z"
+    },
+    {
+      "cache_key": "bootstrap",
+      "updated_at": "2026-09-06T08:24:30.773950Z"
+    },
+    {
+      "cache_key": "notifications",
+      "updated_at": "2026-09-06T08:24:30.773950Z"
+    },
+    {
+      "cache_key": "notifications-page",
+      "updated_at": "2026-09-06T08:24:30.773950Z"
+    }
+  ],
+  "events": [
+    {
+      "sequence": 1000,
+      "event_id": "1d6e6377-5af7-4584-83b6-2edad67cc78a",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-06T08:23:44.916876Z",
+      "applied_at": "2026-09-06T08:24:30.773950Z"
+    },
+    {
+      "sequence": 999,
+      "event_id": "8f87f4b0-b39d-47ec-9e50-42a036cfe492",
+      "type": "approval.submitted",
+      "created_at": "2026-09-06T08:23:44.916876Z",
+      "applied_at": "2026-09-06T08:24:30.773950Z"
+    },
+    {
+      "sequence": 988,
+      "event_id": "ee975899-7968-4866-b8c2-bbd925661f28",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-06T07:19:41.509444Z",
+      "applied_at": "2026-09-06T07:20:01.699767Z"
+    },
+    {
+      "sequence": 987,
+      "event_id": "adca07ed-20cb-4142-8b04-a6199678a791",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-06T07:19:40.943533Z",
+      "applied_at": "2026-09-06T07:20:01.699767Z"
+    },
+    {
+      "sequence": 986,
+      "event_id": "ff640635-ab57-4254-98f6-63dcca901aa3",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-06T07:19:40.386799Z",
+      "applied_at": "2026-09-06T07:20:01.699767Z"
+    },
+    {
+      "sequence": 964,
+      "event_id": "2851c4df-9284-45ab-b3dc-f7895d354334",
+      "type": "inspection.finished",
+      "created_at": "2026-09-06T06:53:44.844397Z",
+      "applied_at": "2026-09-06T06:53:47.148026Z"
+    },
+    {
+      "sequence": 957,
+      "event_id": "57daf3ef-5368-4180-935a-40a75e3b5009",
+      "type": "inspection.response.accepted",
+      "created_at": "2026-09-06T06:51:01.498280Z",
+      "applied_at": "2026-09-06T06:51:03.261721Z"
+    },
+    {
+      "sequence": 956,
+      "event_id": "2d261f8e-43b5-4da4-a0d7-3dd04be54e11",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-06T06:51:01.498280Z",
+      "applied_at": "2026-09-06T06:51:03.261721Z"
+    },
+    {
+      "sequence": 942,
+      "event_id": "b658fd40-1b76-4059-9219-7e816d5664a1",
+      "type": "oa.notification.created",
+      "created_at": "2026-09-06T06:50:42.231767Z",
+      "applied_at": "2026-09-06T06:51:02.546065Z"
+    },
+    {
+      "sequence": 932,
+      "event_id": "88edc0bf-ec80-4db9-91ac-3fbaf05b3205",
+      "type": "inspection.started",
+      "created_at": "2026-09-06T06:50:42.231767Z",
+      "applied_at": "2026-09-06T06:51:02.546065Z"
+    },
+    {
+      "sequence": 901,
+      "event_id": "b65942d8-a62c-42e5-8e46-8b72ccf96408",
+      "type": "inspection.finished",
+      "created_at": "2026-09-06T06:50:37.681405Z",
+      "applied_at": "2026-09-06T06:50:41.591378Z"
+    },
+    {
+      "sequence": 882,
+      "event_id": "b6a04e1a-7df8-47da-9dcf-b2074c70de39",
+      "type": "oa.notification.read",
+      "created_at": "2026-09-06T06:49:51.888249Z",
+      "applied_at": "2026-09-06T06:49:53.944089Z"
+    }
+  ],
+  "readReceipts": [],
+  "outbox": [],
+  "drafts": [
+    {
+      "id": "6c8b39c7-37db-4868-af7f-b988f44aca47",
+      "application_key": "attendance.leave",
+      "template_id": "87adcda2-a096-465b-a572-5c49eb6ab68c",
+      "updated_at": "2026-09-06T08:23:00.630714Z"
+    }
+  ]
+}

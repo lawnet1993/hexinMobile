@@ -1,0 +1,6 @@
+{
+  "device": "realme RMX3366",
+  "postNotificationPermissionLines": "      android.permission.POST_NOTIFICATIONS |         android.permission.POST_NOTIFICATIONS: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED] |         android.permission.POST_NOTIFICATIONS: granted=false",
+  "postNotificationAppOp": "Uid mode: POST_NOTIFICATION: ignore",
+  "deviceIdleMode": "ACTIVE"
+}

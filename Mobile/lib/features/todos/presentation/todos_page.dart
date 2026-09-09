@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/errors/mobile_error_text.dart';
 import '../../../shared/widgets/mobile_bottom_sheets.dart';
+import '../../../shared/widgets/mobile_primitives.dart';
 import '../../../shared/widgets/page_states.dart';
 import '../../collaboration/data/collaboration_repositories.dart';
 import '../../collaboration/data/oa_local_store.dart';
@@ -78,6 +79,7 @@ class _TodosPageState extends ConsumerState<TodosPage> {
         actions: [
           IconButton(
             tooltip: '新建',
+            style: compactHeaderIconButtonStyle,
             icon: const Icon(Icons.add_rounded, size: 21),
             onPressed: _todoActionId.isNotEmpty
                 ? null
@@ -255,21 +257,33 @@ class _TodosPageState extends ConsumerState<TodosPage> {
                           ),
                           const SizedBox(width: 6),
                           SizedBox.square(
-                            dimension: 34,
+                            key: const Key('approval-filter-button'),
+                            dimension: 40,
                             child: IconButton(
                               tooltip: '筛选',
                               style: IconButton.styleFrom(
                                 padding: EdgeInsets.zero,
-                                backgroundColor: const Color(0xFFF5F7FA),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                               onPressed: () =>
                                   _showFilters(catalog?.items ?? const []),
-                              icon: Badge.count(
-                                count: _activeFilterCount,
-                                isLabelVisible: _activeFilterCount > 0,
-                                backgroundColor: AppColors.primary,
-                                child: const Icon(Icons.tune_rounded, size: 17),
+                              icon: Container(
+                                width: 34,
+                                height: 34,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF5F7FA),
+                                  borderRadius: BorderRadius.circular(17),
+                                ),
+                                child: Badge.count(
+                                  count: _activeFilterCount,
+                                  isLabelVisible: _activeFilterCount > 0,
+                                  backgroundColor: AppColors.primary,
+                                  child: const Icon(
+                                    Icons.tune_rounded,
+                                    size: 17,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -1371,7 +1385,11 @@ class _Tab extends StatelessWidget {
       selected: selected,
       label: visibleBadge ? '$label，$badge 条' : label,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 64),
+        key: ValueKey('todo-tab-target-$label'),
+        // Keep the label and badge compact while giving the tab a reliable
+        // touch target. The extra vertical space also separates the text from
+        // the active underline without increasing either visual element.
+        constraints: const BoxConstraints(minWidth: 64, minHeight: 40),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: onTap,
@@ -1380,7 +1398,7 @@ class _Tab extends StatelessWidget {
             children: [
               ExcludeSemantics(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

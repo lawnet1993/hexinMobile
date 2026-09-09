@@ -1,0 +1,90 @@
+{
+  "sequenceWindow": "4446..4537",
+  "note": "Stage batches include group, read, membership and message events in the bounded load window; request wait is not pure delivery latency. Negative event ages are clock skew and are clamped to zero.",
+  "devices": [
+    {
+      "serial": "emulator-5554",
+      "batches": 26,
+      "events": 57.0,
+      "negativeAgeBatches": 24,
+      "oldestEventAgeMsClamped": {
+        "p50": 0.0,
+        "p95": 4131.0,
+        "max": 7884.0
+      },
+      "commitMs": {
+        "p50": 106.0,
+        "p95": 158.8,
+        "max": 160.0
+      },
+      "ackMs": {
+        "p50": 109.0,
+        "p95": 141.5,
+        "max": 181.0
+      },
+      "totalStageMs": {
+        "p50": 497.5,
+        "p95": 8914.2,
+        "max": 11580.0
+      },
+      "maxObservedPendingAck": 0.0,
+      "finalCursorHealth": "healthy"
+    },
+    {
+      "serial": "emulator-5556",
+      "batches": 13,
+      "events": 23.0,
+      "negativeAgeBatches": 0,
+      "oldestEventAgeMsClamped": {
+        "p50": 815.0,
+        "p95": 1957.0,
+        "max": 2491.0
+      },
+      "commitMs": {
+        "p50": 403.0,
+        "p95": 635.0,
+        "max": 761.0
+      },
+      "ackMs": {
+        "p50": 227.0,
+        "p95": 514.6,
+        "max": 844.0
+      },
+      "totalStageMs": {
+        "p50": 1244.0,
+        "p95": 3855.8,
+        "max": 5156.0
+      },
+      "maxObservedPendingAck": 11.0,
+      "finalCursorHealth": "healthy"
+    },
+    {
+      "serial": "emulator-5558",
+      "batches": 24,
+      "events": 53.0,
+      "negativeAgeBatches": 3,
+      "oldestEventAgeMsClamped": {
+        "p50": 406.5,
+        "p95": 5785.9,
+        "max": 7662.0
+      },
+      "commitMs": {
+        "p50": 112.0,
+        "p95": 203.4,
+        "max": 228.0
+      },
+      "ackMs": {
+        "p50": 112.5,
+        "p95": 135.7,
+        "max": 139.0
+      },
+      "totalStageMs": {
+        "p50": 620.5,
+        "p95": 8299.5,
+        "max": 8957.0
+      },
+      "maxObservedPendingAck": 6.0,
+      "finalCursorHealth": "healthy"
+    }
+  ]
+}

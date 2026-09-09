@@ -1,0 +1,39 @@
+{
+  "serial": "dd00d66d",
+  "account": "test01",
+  "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+  "prefix": "AI-UAT-OPT-20260906-T03-",
+  "expected": 20,
+  "received": 20,
+  "complete": true,
+  "uniqueMessageIds": 20,
+  "uniqueSenderClientMessageKeys": 20,
+  "sequenceRange": "200..219",
+  "sequenceContiguous": true,
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "eventCursors": {
+    "acked": 3724,
+    "applied": 3724
+  },
+  "createdAtUtcRange": [
+    "2026-09-05T21:56:22.669536+00:00",
+    "2026-09-05T21:56:52.061394+00:00"
+  ],
+  "persistedAtUtcRange": [
+    "2026-09-05T21:56:50.811119+00:00",
+    "2026-09-05T21:56:52.678361+00:00"
+  ],
+  "latencyMs": {
+    "samples": 20,
+    "negativeSamples": 0,
+    "clockSkewWarning": false,
+    "min": 616.967,
+    "average": 13059.285,
+    "p50": 12503.797,
+    "p90": 25048.307,
+    "p95": 26437.413,
+    "max": 28141.583
+  }
+}

@@ -184,6 +184,8 @@ final class OaApprovalTask {
     required this.completedAt,
     this.nodeId = '',
     this.stage = 0,
+    this.completionMode = '',
+    this.nodeType = '',
     this.completedById = '',
     this.completedByName = '',
     this.dueAt,
@@ -197,6 +199,8 @@ final class OaApprovalTask {
     nodeId: _text(json, 'nodeId'),
     nodeName: _text(json, 'nodeName'),
     stage: _integer(_value(json, 'stage')),
+    completionMode: _text(json, 'completionMode'),
+    nodeType: _text(json, 'nodeType'),
     assigneeId: _text(json, 'assigneeId'),
     assigneeName: _text(json, 'assigneeName'),
     status: _text(json, 'status'),
@@ -218,6 +222,8 @@ final class OaApprovalTask {
   final String nodeId;
   final String nodeName;
   final int stage;
+  final String completionMode;
+  final String nodeType;
   final String assigneeId;
   final String assigneeName;
   final String status;

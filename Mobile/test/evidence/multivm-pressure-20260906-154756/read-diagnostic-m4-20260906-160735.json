@@ -1,0 +1,21 @@
+{
+  "serial": "emulator-5560",
+  "expectedHeader": "Test Terminal 04",
+  "prefix": "AI-UAT-READDIAG-20260906-160735-M4-",
+  "requested": 2,
+  "inputSettleMilliseconds": 750,
+  "startedAtUtc": "2026-09-06T08:07:41.3633963+00:00",
+  "completedAtUtc": "2026-09-06T08:07:50.5216905+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T08:07:43.5024635+00:00"
+    },
+    {
+      "index": 2,
+      "tappedAtUtc": "2026-09-06T08:07:46.5722864+00:00"
+    }
+  ]
+}

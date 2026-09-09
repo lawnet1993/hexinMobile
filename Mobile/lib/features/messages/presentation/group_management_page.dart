@@ -486,8 +486,13 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
                 builder: (context, ref, _) => InitialAvatar(
                   name: item.member.displayName,
                   radius: 17,
-                  online: watchMemberPresence(ref, item.member, transportAvailable:
-                      ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
+                  online: watchMemberPresence(
+                    ref,
+                    item.member,
+                    transportAvailable:
+                        ref.watch(imRealtimeAvailabilityProvider) ==
+                        ImRealtimeAvailability.available,
+                  ).online,
                   avatarKey: item.member.avatarKey,
                   avatarDataUrl: item.member.avatarDataUrl,
                 ),
@@ -611,8 +616,13 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
                 builder: (context, ref, _) => InitialAvatar(
                   name: item.displayName,
                   radius: 17,
-                  online: watchMemberPresence(ref, item, transportAvailable:
-                      ref.watch(imRealtimeAvailabilityProvider) == ImRealtimeAvailability.available).online,
+                  online: watchMemberPresence(
+                    ref,
+                    item,
+                    transportAvailable:
+                        ref.watch(imRealtimeAvailabilityProvider) ==
+                        ImRealtimeAvailability.available,
+                  ).online,
                   avatarKey: item.avatarKey,
                   avatarDataUrl: item.avatarDataUrl,
                 ),
@@ -621,10 +631,12 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
                 item.displayName,
                 style: const TextStyle(fontSize: 13),
               ),
-              subtitle: Text(
-                item.username,
-                style: const TextStyle(fontSize: 10.5),
-              ),
+              subtitle: item.departmentName.isEmpty
+                  ? null
+                  : Text(
+                      item.departmentName,
+                      style: const TextStyle(fontSize: 10.5),
+                    ),
               trailing: Text(
                 isOwner ? '群主' : '管理员',
                 style: TextStyle(

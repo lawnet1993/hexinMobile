@@ -1,0 +1,27 @@
+{
+  "complete": true,
+  "elapsedMs": 4775,
+  "polls": 4,
+  "receivedTotal": 65,
+  "senderCounts": {
+    "test02": 25,
+    "test03": 25,
+    "test04": 15
+  },
+  "uniqueMessageIds": 65,
+  "uniqueSenderClientMessageKeys": 65,
+  "sequenceStrictlyIncreasing": true,
+  "sequenceRange": "1..65",
+  "allSent": true,
+  "outboxCount": 0,
+  "integrity": "ok",
+  "conversationProjection": {
+    "lastMessageSequence": 65,
+    "lastReadSequence": 45,
+    "unreadCount": 20
+  },
+  "eventCursors": {
+    "acked": 4571,
+    "applied": 4571
+  }
+}

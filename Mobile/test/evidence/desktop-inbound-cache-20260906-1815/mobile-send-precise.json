@@ -1,0 +1,17 @@
+{
+  "serial": "emulator-5554",
+  "expectedHeader": "Test Terminal 01",
+  "prefix": "AI-UAT-DESKTOP-INBOUND-20260906-1816-",
+  "requested": 1,
+  "inputSettleMilliseconds": 750,
+  "startedAtUtc": "2026-09-06T10:17:23.2965525+00:00",
+  "completedAtUtc": "2026-09-06T10:17:29.3646377+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T10:17:25.4730340+00:00"
+    }
+  ]
+}

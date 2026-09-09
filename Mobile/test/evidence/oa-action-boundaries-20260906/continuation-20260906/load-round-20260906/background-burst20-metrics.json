@@ -1,0 +1,54 @@
+{
+  "stamp": "20260906-035100",
+  "receiver": {
+    "serial": "dd00d66d",
+    "account": "test01",
+    "foregroundStateDuringReceive": "Android Office attachment resolver in foreground; mobile app backgrounded"
+  },
+  "senders": [
+    {
+      "serial": "emulator-5554",
+      "account": "test02",
+      "createdAtRangeUtc": "2026-09-05T19:53:05.013639Z..2026-09-05T19:53:14.866480Z",
+      "conversationId": "a164a0c0-4cad-44b0-9ece-e095371b2f91",
+      "sequenceRange": "59..68",
+      "rows": 10,
+      "uniqueMessageIds": 10,
+      "uniqueClientMessageIds": 10,
+      "latencyMs": {
+        "min": 374.007,
+        "average": 711.000,
+        "max": 933.006
+      }
+    },
+    {
+      "serial": "emulator-5556",
+      "account": "test03",
+      "createdAtRangeUtc": "2026-09-05T19:51:03.759506Z..2026-09-05T19:51:17.448675Z",
+      "conversationId": "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136",
+      "sequenceRange": "110..119",
+      "rows": 10,
+      "uniqueMessageIds": 10,
+      "uniqueClientMessageIds": 10,
+      "latencyMs": {
+        "min": 2608.998,
+        "average": 8533.605,
+        "max": 15565.999
+      }
+    }
+  ],
+  "combined": {
+    "rows": 20,
+    "uniqueMessageIds": 20,
+    "uniqueSenderClientMessageKeys": 20,
+    "sequenceContiguousPerConversation": true,
+    "latencyMs": {
+      "min": 374.007,
+      "average": 4622.302,
+      "p50": 933.006,
+      "p95": 13986.969,
+      "max": 15565.999
+    }
+  },
+  "uiEvidence": "The receiver message list showed the latest T02-10 and T03-10 rows after returning to the app."
+}

@@ -186,6 +186,8 @@ void main() {
 
     expect(find.byType(NetworkIndicator), findsNothing);
     expect(find.byTooltip('我的收藏'), findsOneWidget);
+    expect(tester.getSize(find.byTooltip('我的收藏')), const Size.square(44));
+    expect(tester.getSize(find.byTooltip('发起会话')), const Size.square(44));
     final flatContent = tester.widget<Material>(
       find.byKey(const Key('messages-flat-content')),
     );
@@ -196,6 +198,22 @@ void main() {
     expect(
       find.byKey(const ValueKey('message-group-avatar-ops')),
       findsOneWidget,
+    );
+    final groupTitle = find.byKey(const ValueKey('conversation-title-ops'));
+    final groupBadge = find.byKey(const ValueKey('group-badge-ops'));
+    final groupTime = find.byKey(const ValueKey('conversation-time-ops'));
+    final groupTitleTimeGap = find.byKey(
+      const ValueKey('conversation-title-time-gap-ops'),
+    );
+    expect(groupBadge, findsOneWidget);
+    expect(tester.getSize(groupTitleTimeGap).width, 8);
+    expect(
+      tester.getCenter(groupBadge).dy,
+      greaterThan(tester.getCenter(groupTitle).dy),
+    );
+    expect(
+      tester.getTopRight(groupTitle).dx,
+      lessThanOrEqualTo(tester.getTopLeft(groupTime).dx),
     );
     expect(
       find.byKey(const ValueKey('message-direct-avatar-tang')),

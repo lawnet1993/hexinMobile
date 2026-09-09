@@ -1,0 +1,16 @@
+{
+  "serial": "emulator-5554",
+  "expectedHeader": "AI-UAT-MULTIVM-20260906-1100",
+  "prefix": "AI-UAT-RX-LATENCY-20260906-1351-M1-",
+  "requested": 1,
+  "startedAtUtc": "2026-09-06T05:42:49.4285948+00:00",
+  "completedAtUtc": "2026-09-06T05:42:53.2505322+00:00",
+  "lastMarkerVisible": true,
+  "composerEmpty": true,
+  "events": [
+    {
+      "index": 1,
+      "tappedAtUtc": "2026-09-06T05:42:50.1605890+00:00"
+    }
+  ]
+}

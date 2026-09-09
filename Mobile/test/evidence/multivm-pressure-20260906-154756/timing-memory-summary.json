@@ -1,0 +1,92 @@
+{
+  "groupWindow": [
+    {
+      "serial": "emulator-5554",
+      "batches": 5,
+      "events": 20.0,
+      "oldestEventAgeMaxMs": 7780.0,
+      "newestEventAgeMaxMs": -1145.0,
+      "commitMaxMs": 452.0,
+      "ackMaxMs": 144.0,
+      "totalMaxMs": 9105.0
+    },
+    {
+      "serial": "emulator-5556",
+      "batches": 4,
+      "events": 33.0,
+      "oldestEventAgeMaxMs": 20259.0,
+      "newestEventAgeMaxMs": 337.0,
+      "commitMaxMs": 1088.0,
+      "ackMaxMs": 223.0,
+      "totalMaxMs": 3480.0
+    },
+    {
+      "serial": "emulator-5558",
+      "batches": 18,
+      "events": 42.0,
+      "oldestEventAgeMaxMs": 7103.0,
+      "newestEventAgeMaxMs": 29.0,
+      "commitMaxMs": 217.0,
+      "ackMaxMs": 399.0,
+      "totalMaxMs": 13251.0
+    },
+    {
+      "serial": "emulator-5560",
+      "batches": 0,
+      "events": null,
+      "oldestEventAgeMaxMs": null,
+      "newestEventAgeMaxMs": null,
+      "commitMaxMs": null,
+      "ackMaxMs": null,
+      "totalMaxMs": null
+    }
+  ],
+  "directRetryWindow": [
+    {
+      "serial": "emulator-5554",
+      "batches": 0,
+      "events": null,
+      "oldestEventAgeMaxMs": null,
+      "newestEventAgeMaxMs": null,
+      "commitMaxMs": null,
+      "ackMaxMs": null,
+      "totalMaxMs": null
+    },
+    {
+      "serial": "emulator-5556",
+      "batches": 0,
+      "events": null,
+      "oldestEventAgeMaxMs": null,
+      "newestEventAgeMaxMs": null,
+      "commitMaxMs": null,
+      "ackMaxMs": null,
+      "totalMaxMs": null
+    },
+    {
+      "serial": "emulator-5558",
+      "batches": 20,
+      "events": 20.0,
+      "oldestEventAgeMaxMs": -236.0,
+      "newestEventAgeMaxMs": -236.0,
+      "commitMaxMs": 41.0,
+      "ackMaxMs": 291.0,
+      "totalMaxMs": 7229.0
+    },
+    {
+      "serial": "emulator-5560",
+      "batches": 14,
+      "events": 20.0,
+      "oldestEventAgeMaxMs": 2108.0,
+      "newestEventAgeMaxMs": 1584.0,
+      "commitMaxMs": 282.0,
+      "ackMaxMs": 290.0,
+      "totalMaxMs": 1194.0
+    }
+  ],
+  "peakPssKb": {
+    "emulator-5554": 193029,
+    "emulator-5556": 183435,
+    "emulator-5558": 189334,
+    "emulator-5560": 159434
+  }
+}

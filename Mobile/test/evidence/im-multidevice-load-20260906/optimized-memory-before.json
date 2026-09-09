@@ -1,0 +1,20 @@
+[
+  {
+    "serial": "dd00d66d",
+    "pid": 7662,
+    "totalPssKiB": 208328,
+    "totalRssKiB": 322136
+  },
+  {
+    "serial": "emulator-5554",
+    "pid": 17405,
+    "totalPssKiB": 212610,
+    "totalRssKiB": 283012
+  },
+  {
+    "serial": "emulator-5556",
+    "pid": 18411,
+    "totalPssKiB": 204291,
+    "totalRssKiB": 267564
+  }
+]

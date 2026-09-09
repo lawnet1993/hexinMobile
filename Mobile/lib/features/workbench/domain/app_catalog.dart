@@ -304,12 +304,12 @@ abstract final class MobileAppCatalog {
       route: '/login-devices',
     ),
     MobileAppEntry(
-      '网络诊断',
-      '检测安全连接',
-      Icons.wifi_tethering_rounded,
+      '站点访问',
+      '桌面端使用',
+      Icons.desktop_windows_outlined,
       Color(0xFF12A84A),
       category: '安全',
-      route: '/network-security',
+      route: '/sites',
     ),
   ];
 }

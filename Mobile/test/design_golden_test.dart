@@ -29,6 +29,7 @@ import 'package:hexing_terminal_mobile/features/workbench/presentation/all_apps_
 import 'package:hexing_terminal_mobile/features/workbench/presentation/workbench_page.dart';
 import 'package:hexing_terminal_mobile/features/workbench/data/managed_sites_repository.dart';
 import 'package:hexing_terminal_mobile/shared/widgets/mobile_primitives.dart';
+import 'package:hexing_terminal_mobile/shared/widgets/app_version_label.dart';
 import 'package:secure_tunnel/secure_tunnel.dart';
 
 import 'support/fixture_member_presence.dart';
@@ -137,6 +138,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appVersionProvider.overrideWith((ref) async => '1.0.1'),
             authControllerProvider.overrideWith(_PreviewAuthController.new),
             oaBootstrapProvider.overrideWith(
               (ref) async => PreviewData.oaBootstrap,
@@ -276,6 +278,8 @@ void main() {
         expect(find.text('消息、审批与公告'), findsOneWidget);
         expect(find.text('登录设备'), findsOneWidget);
         expect(find.text('外观与语言'), findsOneWidget);
+        expect(find.text('浅色'), findsOneWidget);
+        expect(find.text('English'), findsNothing);
       }
       await expectLater(
         find.byKey(_captureKey),

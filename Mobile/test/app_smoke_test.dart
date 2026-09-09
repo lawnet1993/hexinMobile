@@ -7,7 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:hexing_terminal_mobile/core/demo/preview_data.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration_repositories.dart';
 import 'package:hexing_terminal_mobile/features/collaboration/data/im_member_presence.dart';
+
 import 'support/fixture_member_presence.dart';
+
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 import 'package:hexing_terminal_mobile/features/contacts/presentation/contacts_page.dart';
 import 'package:hexing_terminal_mobile/features/shell/presentation/mobile_shell.dart';
@@ -142,16 +144,17 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('security shortcuts keep desktop-aligned destinations distinct', () {
+  test('security shortcut keeps login devices separate from desktop sites', () {
     final loginDevices = MobileAppCatalog.entries.singleWhere(
       (item) => item.title == '登录设备',
     );
-    final networkDiagnostics = MobileAppCatalog.entries.singleWhere(
-      (item) => item.title == '网络诊断',
+    final desktopSites = MobileAppCatalog.entries.singleWhere(
+      (item) => item.title == '站点访问',
     );
 
     expect(loginDevices.route, '/login-devices');
-    expect(networkDiagnostics.route, '/network-security');
+    expect(desktopSites.subtitle, '桌面端使用');
+    expect(desktopSites.route, '/sites');
   });
 
   testWidgets('bottom navigation has five ordered primary destinations', (
@@ -291,6 +294,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(tester.getSize(find.byTooltip('添加好友')), const Size.square(44));
       await tester.tap(find.byTooltip('添加好友'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('friend-search-sheet')), findsOneWidget);
@@ -318,7 +322,8 @@ void main() {
       expect(find.byKey(const Key('friend-search-sheet')), findsOneWidget);
       expect(find.byKey(const Key('friend-search-result')), findsOneWidget);
       expect(find.text('Test Terminal 03'), findsOneWidget);
-      expect(find.text('test03 · 集团总部 · 状态未知'), findsOneWidget);
+      expect(find.text('集团总部 · 状态未知'), findsOneWidget);
+      expect(find.textContaining('test03 ·'), findsNothing);
       expect(find.byKey(const Key('friend-search-action')), findsOneWidget);
       expect(find.text('发消息'), findsOneWidget);
       expect(find.text('验证消息'), findsNothing);
@@ -864,10 +869,15 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            imMemberPresenceProjectionProvider.overrideWith(() => FixtureMemberPresence(PreviewData.imBootstrap.contacts)),
-            contactPresenceRefresherProvider.overrideWithValue(() async {}),
+      ProviderScope(
+        overrides: [
+          imRealtimeAvailabilityProvider.overrideWithValue(
+            ImRealtimeAvailability.available,
+          ),
+          imMemberPresenceProjectionProvider.overrideWith(
+            () => FixtureMemberPresence(PreviewData.imBootstrap.contacts),
+          ),
+          contactPresenceRefresherProvider.overrideWithValue(() async {}),
           imBootstrapProvider.overrideWith(
             (ref) async => PreviewData.imBootstrap,
           ),
@@ -938,10 +948,15 @@ void main() {
       final visible = ValueNotifier(true);
       addTearDown(visible.dispose);
       await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              imMemberPresenceProjectionProvider.overrideWith(() => FixtureMemberPresence(PreviewData.imBootstrap.contacts)),
-              contactPresenceRefresherProvider.overrideWithValue(() async {
+        ProviderScope(
+          overrides: [
+            imRealtimeAvailabilityProvider.overrideWithValue(
+              ImRealtimeAvailability.available,
+            ),
+            imMemberPresenceProjectionProvider.overrideWith(
+              () => FixtureMemberPresence(PreviewData.imBootstrap.contacts),
+            ),
+            contactPresenceRefresherProvider.overrideWithValue(() async {
               calls++;
               if (fail) throw StateError('offline');
             }),

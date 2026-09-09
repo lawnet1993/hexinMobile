@@ -42,6 +42,12 @@ import UserNotifications
       case "getInitialNotification":
         result(self.initialTargetRoute)
         self.initialTargetRoute = nil
+      case "getNotificationPermission":
+        self.notificationPermissionState(result)
+      case "requestNotificationPermission":
+        self.requestNotificationPermission(result)
+      case "openNotificationSettings":
+        self.openNotificationSettings(result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -115,6 +121,42 @@ import UserNotifications
     let token = defaults.string(forKey: pushTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     guard !provider.isEmpty, !token.isEmpty else { return nil }
     return ["platform": "ios", "provider": provider, "token": token]
+  }
+
+  private func notificationPermissionState(_ result: @escaping FlutterResult) {
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+      let state: String
+      switch settings.authorizationStatus {
+      case .authorized, .provisional, .ephemeral:
+        state = "granted"
+      case .notDetermined:
+        state = "notDetermined"
+      case .denied:
+        state = "denied"
+      @unknown default:
+        state = "unavailable"
+      }
+      DispatchQueue.main.async { result(state) }
+    }
+  }
+
+  private func requestNotificationPermission(_ result: @escaping FlutterResult) {
+    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) {
+      granted, _ in
+      if granted {
+        DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
+      }
+      DispatchQueue.main.async { result(granted ? "granted" : "denied") }
+    }
+  }
+
+  private func openNotificationSettings(_ result: @escaping FlutterResult) {
+    guard let url = URL(string: UIApplication.openSettingsURLString) else {
+      return result(false)
+    }
+    DispatchQueue.main.async {
+      UIApplication.shared.open(url, options: [:]) { opened in result(opened) }
+    }
   }
 
   private func targetRoute(_ payload: [AnyHashable: Any]) -> String? {

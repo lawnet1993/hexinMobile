@@ -1,0 +1,16 @@
+{
+  "source": "installed-desktop-session",
+  "account": "test01",
+  "requestId": "fe90a4a7-5438-4d23-88db-a4e19972b538",
+  "taskId": "bd98b373-ad9a-4ebf-9718-27916c9c657a",
+  "expectedTaskVersion": 1,
+  "startedAt": "2026-09-05T21:37:05.1990228+00:00",
+  "completedAt": "2026-09-05T21:37:05.4118523+00:00",
+  "durationMs": 212.83,
+  "httpStatus": 409,
+  "correlationId": "7734a56b-b6db-4ca6-b333-0f701593d1f3",
+  "responseCode": "",
+  "responseMessage": "The record has changed. Refresh and retry.",
+  "responseStatus": "",
+  "responseVersion": null
+}

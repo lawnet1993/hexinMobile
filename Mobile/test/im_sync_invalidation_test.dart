@@ -6,16 +6,16 @@ import 'package:hexing_terminal_mobile/features/collaboration/data/collaboration
 import 'package:hexing_terminal_mobile/features/collaboration/domain/collaboration_models.dart';
 
 void main() {
-  test('IM realtime availability follows transport health', () {
+  test('IM realtime availability starts connecting and follows transport', () {
     final container = ProviderContainer.test();
     final controller = container.read(
       imRealtimeAvailabilityControllerProvider.notifier,
     );
 
-    controller.markConnecting();
     expect(
       container.read(imRealtimeAvailabilityProvider),
       ImRealtimeAvailability.connecting,
+      reason: '同步链路尚未证明健康前不能先显示实时可用',
     );
     controller.markAvailable();
     expect(

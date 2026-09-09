@@ -1,0 +1,49 @@
+{
+  "beforeRows": 199,
+  "afterRows": 251,
+  "addedRows": 52,
+  "removedRows": 0,
+  "existingRowsUpdated": 48,
+  "uniqueAddedMessageIds": 52,
+  "uniqueAddedSenderClientMessageIds": 52,
+  "latencyMsCreatedToReceiverCommitted": {
+    "min": 540.984,
+    "p50": 3574.6,
+    "p90": 29383.266,
+    "p95": 35026.561,
+    "p99": 60786.76,
+    "max": 60786.76
+  },
+  "conversations": {
+    "2a2ea21f-2ad6-49b3-b3da-407d1e7e4136": {
+      "count": 26,
+      "senderIds": [
+        "c404c59a-6dc3-4e6b-a1dc-d5d0c20786cc"
+      ],
+      "firstCreatedAt": "2026-09-05T19:07:17.002289Z",
+      "lastCreatedAt": "2026-09-05T19:08:15.551939Z",
+      "lastUpdatedAt": "2026-09-05T19:08:18.778340Z",
+      "sequenceMin": 63,
+      "sequenceMax": 88,
+      "sequenceUnique": 26,
+      "sequenceContiguous": true,
+      "messageIdUnique": 26,
+      "clientKeyUnique": 26
+    },
+    "a164a0c0-4cad-44b0-9ece-e095371b2f91": {
+      "count": 26,
+      "senderIds": [
+        "81207c9c-e824-42b6-b14d-0e6b743ecdc3"
+      ],
+      "firstCreatedAt": "2026-09-05T19:07:15.837419Z",
+      "lastCreatedAt": "2026-09-05T19:08:08.988457Z",
+      "lastUpdatedAt": "2026-09-05T19:08:09.754116Z",
+      "sequenceMin": 12,
+      "sequenceMax": 37,
+      "sequenceUnique": 26,
+      "sequenceContiguous": true,
+      "messageIdUnique": 26,
+      "clientKeyUnique": 26
+    }
+  }
+}
